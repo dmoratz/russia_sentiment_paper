@@ -1,0 +1,159 @@
+---
+title: "01 - Data Loading"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script loads the raw GPT-coded article data and performs initial inspection.
+
+**Inputs:**
+- `data/processed/GPTcoded_final_rus_articles.csv`
+- `data/processed/secondhalf_GPTcoded_final_rus_articles.csv`
+
+**Outputs:**
+- `data/intermediate/01_raw_data.rds`
+
+```{r setup, include=FALSE}
+# Load shared setup
+source("00_setup.R")
+```
+
+# Load Data
+
+Load the two GPT-coded article datasets.
+
+```{r load-data}
+# Load first half of data
+data_1 <- read.csv(file.path(DATA_PROCESSED, "GPTcoded_final_rus_articles.csv")) %>%
+  dplyr::select(
+    date_publish,
+    source_domain,
+    country,
+    title_translated,
+    first_two_sentences,
+    Russian.Involvement,
+    Sentiment,
+    Topic
+  )
+
+cat("First dataset loaded:", nrow(data_1), "rows\n")
+
+# Load second half of data
+data_2 <- read.csv(file.path(DATA_PROCESSED, "secondhalf_GPTcoded_final_rus_articles.csv")) %>%
+  dplyr::select(
+    date_publish,
+    source_domain,
+    country,
+    title_translated,
+    first_two_sentences,
+    Russian.Involvement,
+    Sentiment,
+    Topic
+  )
+
+cat("Second dataset loaded:", nrow(data_2), "rows\n")
+
+# Combine datasets
+data_raw <- as.data.frame(rbind(data_1, data_2))
+
+cat("\nCombined dataset:", nrow(data_raw), "rows\n")
+```
+
+# Initial Inspection
+
+## Dataset Structure
+
+```{r structure}
+# View structure
+str(data_raw)
+```
+
+## Sample Records
+
+```{r sample}
+# View first few rows
+head(data_raw, 10) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+## Summary Statistics
+
+```{r summary}
+# Summary of each column
+summary(data_raw)
+```
+
+## Unique Values
+
+```{r unique-values}
+cat("Unique countries:", n_distinct(data_raw$country), "\n")
+cat("Countries:", paste(unique(data_raw$country), collapse = ", "), "\n\n")
+
+cat("Unique sources:", n_distinct(data_raw$source_domain), "\n\n")
+
+cat("Unique sentiments:", paste(unique(data_raw$Sentiment), collapse = ", "), "\n\n")
+
+cat("Unique topics:", paste(unique(data_raw$Topic), collapse = ", "), "\n\n")
+
+cat("Unique Russian involvement:", paste(unique(data_raw$Russian.Involvement), collapse = ", "), "\n")
+```
+
+## Date Range
+
+```{r date-range}
+# Parse dates for inspection
+dates_parsed <- as.Date(data_raw$date_publish)
+
+cat("Date range:",
+    as.character(min(dates_parsed, na.rm = TRUE)), "to",
+    as.character(max(dates_parsed, na.rm = TRUE)), "\n")
+
+cat("NA dates:", sum(is.na(dates_parsed)), "\n")
+```
+
+## Missing Values
+
+```{r missing}
+# Check for missing values
+missing_summary <- data.frame(
+  Column = names(data_raw),
+  Missing = colSums(is.na(data_raw)),
+  Percent = round(colSums(is.na(data_raw)) / nrow(data_raw) * 100, 2)
+)
+
+missing_summary %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+# Data Validation
+
+```{r validation}
+validate_data(data_raw, "01 - Raw Data Loading")
+```
+
+# Save Output
+
+Save the combined raw data for the next step.
+
+```{r save}
+# Save as RDS for efficient loading
+saveRDS(data_raw, file.path(DATA_INTERMEDIATE, "01_raw_data.rds"))
+
+cat("Data saved to:", file.path(DATA_INTERMEDIATE, "01_raw_data.rds"), "\n")
+cat("File size:", round(file.size(file.path(DATA_INTERMEDIATE, "01_raw_data.rds")) / 1024^2, 2), "MB\n")
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```

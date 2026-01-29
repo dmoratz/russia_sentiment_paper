@@ -1,0 +1,298 @@
+---
+title: "02 - Data Cleaning"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script cleans the raw data and creates analysis variables.
+
+**Inputs:**
+- `data/intermediate/01_raw_data.rds`
+
+**Outputs:**
+- `data/intermediate/02_cleaned_data.rds`
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+```
+
+# Load Raw Data
+
+```{r load}
+data <- readRDS(file.path(DATA_INTERMEDIATE, "01_raw_data.rds"))
+cat("Loaded", nrow(data), "rows\n")
+```
+
+# Date Cleaning
+
+## Parse Dates
+
+```{r clean-dates}
+# Create continuous datetime variable
+data$date_publish_continuous <- clean_datetime_col(data$date_publish)
+
+# Check for parsing failures
+na_dates <- sum(is.na(data$date_publish_continuous))
+cat("Dates that failed to parse:", na_dates, "\n")
+
+# Convert to Date type
+data$date_publish <- as.Date(data$date_publish)
+
+# Drop rows with NA dates
+n_before <- nrow(data)
+data <- data %>%
+  filter(!is.na(date_publish))
+n_after <- nrow(data)
+
+cat("Dropped", n_before - n_after, "rows with missing dates\n")
+cat("Remaining rows:", n_after, "\n")
+```
+
+## Validate Date Range
+
+```{r validate-dates}
+cat("Date range:",
+    as.character(min(data$date_publish)), "to",
+    as.character(max(data$date_publish)), "\n")
+
+# Check for suspicious dates
+suspicious <- data %>%
+  filter(date_publish < "2020-01-01" | date_publish > "2024-01-01")
+
+if (nrow(suspicious) > 0) {
+  cat("Warning:", nrow(suspicious), "rows with suspicious dates\n")
+}
+```
+
+# Sentiment Cleaning
+
+## Original Values
+
+```{r sentiment-original}
+cat("Original sentiment values:\n")
+table(data$Sentiment, useNA = "ifany")
+```
+
+## Clean Sentiment
+
+```{r clean-sentiment}
+# Drop NA and "nan" sentiments
+n_before <- nrow(data)
+data <- data %>%
+  filter(!Sentiment == "nan") %>%
+  filter(!is.na(Sentiment))
+n_after <- nrow(data)
+
+cat("Dropped", n_before - n_after, "rows with invalid sentiment\n")
+
+# Create clean sentiment variable (-1, 0, 1)
+data$sentiment_clean <- -1
+data$sentiment_clean[data$Sentiment == "Positive"] <- 1
+data$sentiment_clean[data$Sentiment %in% c("Natural", "Neutral", "neutral")] <- 0
+
+cat("\nCleaned sentiment distribution:\n")
+table(data$sentiment_clean)
+```
+
+## Validate Sentiment
+
+```{r validate-sentiment}
+# Check mapping is complete
+unmapped <- data %>%
+  filter(is.na(sentiment_clean))
+
+if (nrow(unmapped) > 0) {
+  cat("Warning:", nrow(unmapped), "rows with unmapped sentiment\n")
+  print(unique(unmapped$Sentiment))
+} else {
+  cat("All sentiment values successfully mapped\n")
+}
+```
+
+# Topic Cleaning
+
+## Original Values
+
+```{r topic-original}
+cat("Original topic values:\n")
+table(data$Topic, useNA = "ifany")
+```
+
+## Clean Topics
+
+```{r clean-topics}
+# Create clean topic variable (5 categories)
+data$topic_clean <- "Other"
+data$topic_clean[data$Topic %in% c("Military", "Miliary")] <- "Military"
+data$topic_clean[data$Topic %in% c("Politics", "Political", "Policy", "Politic")] <- "Political"
+data$topic_clean[data$Topic %in% c("Economic")] <- "Economic"
+data$topic_clean[data$Topic %in% c("Cultural", "Culture", "Sports", "Sport")] <- "Culture"
+
+cat("\nCleaned topic distribution:\n")
+table(data$topic_clean)
+```
+
+# Create Treatment Variables
+
+## Invasion Treatment
+
+```{r treatment}
+# Create binary treatment variable (post Feb 24, 2022)
+data$treatment <- 0
+data$treatment[data$date_publish > "2022-02-23"] <- 1
+
+cat("Treatment distribution:\n")
+table(data$treatment)
+cat("\nPre-invasion articles:", sum(data$treatment == 0), "\n")
+cat("Post-invasion articles:", sum(data$treatment == 1), "\n")
+```
+
+## Running Variable
+
+```{r running}
+# Create running variable (days from invasion)
+data <- data %>%
+  mutate(
+    running = as.numeric(date_publish - as.Date("2022-02-24")),
+    running_continuous = as.numeric(date_publish_continuous - ymd_hms("2022-02-24 00:00:00"))
+  )
+
+cat("Running variable range:",
+    min(data$running), "to",
+    max(data$running), "days\n")
+```
+
+# Create Media Ownership Variables
+
+## State-Owned Indicator
+
+```{r state-owned}
+# Create state-owned indicator
+data$state_owned <- ifelse(data$source_domain %in% STATE_OWNED_SOURCES, 1, 0)
+
+cat("Media ownership distribution:\n")
+cat("State-owned:", sum(data$state_owned == 1), "\n")
+cat("Independent:", sum(data$state_owned == 0), "\n")
+cat("State-owned percentage:", round(mean(data$state_owned) * 100, 1), "%\n")
+```
+
+## Interaction Indicator
+
+```{r indicator}
+# Create indicator for 4 groups (treatment x state_owned)
+data$indicator <- ifelse(data$treatment == 0 & data$state_owned == 0, 1,
+                  ifelse(data$treatment == 0 & data$state_owned == 1, 2,
+                  ifelse(data$treatment == 1 & data$state_owned == 0, 3, 4)))
+
+cat("Group distribution:\n")
+cat("1 (Pre, Independent):", sum(data$indicator == 1), "\n")
+cat("2 (Pre, State):", sum(data$indicator == 2), "\n")
+cat("3 (Post, Independent):", sum(data$indicator == 3), "\n")
+cat("4 (Post, State):", sum(data$indicator == 4), "\n")
+```
+
+# Create Country/Alliance Variables
+
+## Alliance Indicators
+
+```{r alliance}
+# Create alliance indicators
+data$csto <- ifelse(data$country %in% CSTO_COUNTRIES, 1, 0)
+data$nato <- ifelse(data$country %in% NATO_COUNTRIES, 1, 0)
+data$neutral <- ifelse(data$country %in% NEUTRAL_COUNTRIES, 1, 0)
+
+cat("Alliance distribution:\n")
+cat("CSTO countries:", sum(data$csto == 1), "\n")
+cat("NATO countries:", sum(data$nato == 1), "\n")
+cat("Neutral countries:", sum(data$neutral == 1), "\n")
+```
+
+## Ethnic Russian Population
+
+```{r ethnic}
+# Create ethnic Russian population indicator
+data$high_russia <- ifelse(data$country %in% HIGH_RUSSIAN_POP, 1, 0)
+
+cat("\nEthnic Russian population distribution:\n")
+cat("High Russian pop:", sum(data$high_russia == 1), "\n")
+cat("Low Russian pop:", sum(data$high_russia == 0), "\n")
+```
+
+# Final Validation
+
+## Data Summary
+
+```{r final-summary}
+cat("Final dataset summary:\n")
+cat("Total rows:", nrow(data), "\n")
+cat("Columns:", ncol(data), "\n")
+cat("Date range:", as.character(min(data$date_publish)), "to",
+    as.character(max(data$date_publish)), "\n")
+cat("Countries:", n_distinct(data$country), "\n")
+cat("Sources:", n_distinct(data$source_domain), "\n")
+```
+
+## Variable Types
+
+```{r types}
+# Check variable types
+cat("\nVariable types:\n")
+sapply(data, class)
+```
+
+## Validation Check
+
+```{r validate-final}
+validate_data(data, "02 - Cleaned Data")
+```
+
+## Create Analysis Subsets
+
+For convenience, create common subsets used in analysis.
+
+```{r subsets}
+# Non-Ukraine data (main analysis sample)
+data_non_ukraine <- data %>%
+  filter(!country %in% c("Ukraine"))
+
+cat("Analysis subsets:\n")
+cat("Non-Ukraine sample:", nrow(data_non_ukraine), "rows\n")
+
+# Non-Ukraine, independent media only
+data_non_ukraine_ind <- data_non_ukraine %>%
+  filter(state_owned == 0)
+
+cat("Non-Ukraine, independent:", nrow(data_non_ukraine_ind), "rows\n")
+```
+
+# Save Output
+
+```{r save}
+# Save main cleaned dataset
+saveRDS(data, file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+
+# Also save common analysis subsets
+saveRDS(data_non_ukraine, file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+saveRDS(data_non_ukraine_ind, file.path(DATA_INTERMEDIATE, "02_data_non_ukraine_ind.rds"))
+
+cat("\nData saved:\n")
+cat("- 02_cleaned_data.rds:",
+    round(file.size(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds")) / 1024^2, 2), "MB\n")
+cat("- 02_data_non_ukraine.rds:",
+    round(file.size(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds")) / 1024^2, 2), "MB\n")
+cat("- 02_data_non_ukraine_ind.rds:",
+    round(file.size(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine_ind.rds")) / 1024^2, 2), "MB\n")
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```

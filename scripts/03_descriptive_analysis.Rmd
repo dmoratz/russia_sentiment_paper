@@ -1,0 +1,449 @@
+---
+title: "03 - Descriptive Analysis"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script produces descriptive statistics, summary tables, and exploratory visualizations.
+
+**Inputs:**
+- `data/intermediate/02_cleaned_data.rds`
+- `data/intermediate/02_data_non_ukraine.rds`
+
+**Outputs:**
+- Summary statistics tables
+- Distribution plots
+- Time series visualizations
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+```
+
+# Load Data
+
+```{r load}
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+
+cat("Full data:", nrow(data), "rows\n")
+cat("Non-Ukraine data:", nrow(data_non_ukraine), "rows\n")
+```
+
+# Summary Statistics Table
+
+## Overall Sample Statistics
+
+```{r summary-stats}
+# Create summary stats
+sample_summary <- tibble(
+  `Total articles` = nrow(data_non_ukraine),
+  `Number of countries` = n_distinct(data_non_ukraine$country),
+  `Date range` = paste0(
+    format(min(data_non_ukraine$date_publish, na.rm = TRUE), "%Y-%m-%d"),
+    " to ",
+    format(max(data_non_ukraine$date_publish, na.rm = TRUE), "%Y-%m-%d")
+  ),
+  `Mean sentiment` = round(mean(data_non_ukraine$sentiment_clean, na.rm = TRUE), 3),
+  `Sentiment SD` = round(sd(data_non_ukraine$sentiment_clean, na.rm = TRUE), 3),
+  `State-owned %` = round(mean(data_non_ukraine$state_owned, na.rm = TRUE) * 100, 1),
+  `Independent %` = round(100 - mean(data_non_ukraine$state_owned, na.rm = TRUE) * 100, 1),
+  `Number of unique sources` = n_distinct(data_non_ukraine$source_domain),
+  `Number of topics` = n_distinct(data_non_ukraine$topic_clean)
+) %>%
+  mutate(across(everything(), as.character))
+
+summary_statistics_table <- sample_summary %>%
+  pivot_longer(everything(), names_to = "Statistic", values_to = "Value") %>%
+  gt() %>%
+  tab_header(
+    title = "Descriptive Overview of News Article Dataset"
+  ) %>%
+  cols_label(
+    Statistic = "Statistic",
+    Value = "Value"
+  ) %>%
+  tab_style(
+    style = cell_text(align = "left"),
+    locations = cells_body(columns = Statistic)
+  )
+
+summary_statistics_table
+
+# Save table
+gtsave(summary_statistics_table, file.path(FIGURES_DIR, "summary_statistics_table.html"))
+```
+
+# Distribution by Country
+
+```{r country-dist}
+country_counts <- data_non_ukraine %>%
+  group_by(country) %>%
+  summarize(
+    n_articles = n(),
+    n_state = sum(state_owned),
+    n_independent = sum(state_owned == 0),
+    pct_state = round(mean(state_owned) * 100, 1),
+    mean_sentiment = round(mean(sentiment_clean), 3),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(n_articles))
+
+country_counts %>%
+  gt() %>%
+  tab_header(title = "Article Distribution by Country") %>%
+  cols_label(
+    country = "Country",
+    n_articles = "Total Articles",
+    n_state = "State-Owned",
+    n_independent = "Independent",
+    pct_state = "% State",
+    mean_sentiment = "Mean Sentiment"
+  )
+```
+
+# Distribution by Topic
+
+## Overall Topic Distribution
+
+```{r topic-dist}
+data_topic_counts <- data_non_ukraine %>%
+  filter(!is.na(topic_clean)) %>%
+  mutate(
+    topic_clean = factor(topic_clean, levels = c("Political", "Military", "Economic", "Culture", "Other")),
+    period = case_when(
+      running < 0 ~ "Before Invasion",
+      running > 0 ~ "After Invasion",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean, period) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+topic_all <- ggplot(data_topic_counts, aes(x = topic_clean, y = article_count, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Distribution of Articles by Topic",
+    subtitle = "Before and After Invasion",
+    x = "Topic",
+    y = "Number of Articles",
+    fill = "Period"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+topic_all
+
+ggsave(plot = topic_all, file.path(FIGURES_DIR, "topic_distribution.png"),
+       width = 8, height = 6)
+```
+
+## Topic by Media Type
+
+```{r topic-by-media}
+# State media
+data_topic_counts_state <- data_non_ukraine %>%
+  filter(!is.na(topic_clean), state_owned == 1) %>%
+  mutate(
+    topic_clean = factor(topic_clean, levels = c("Political", "Military", "Economic", "Culture", "Other")),
+    period = case_when(
+      running < 0 ~ "Before Invasion",
+      running > 0 ~ "After Invasion",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean, period) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+# Independent media
+data_topic_counts_ind <- data_non_ukraine %>%
+  filter(!is.na(topic_clean), state_owned == 0) %>%
+  mutate(
+    topic_clean = factor(topic_clean, levels = c("Political", "Military", "Economic", "Culture", "Other")),
+    period = case_when(
+      running < 0 ~ "Before Invasion",
+      running > 0 ~ "After Invasion",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean, period) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+# Create both plots
+topic_state <- ggplot(data_topic_counts_state, aes(x = topic_clean, y = article_count, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Distribution of Articles by Topic", subtitle = "State Media",
+       x = "Topic", y = "Number of Articles", fill = "Period") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom")
+
+topic_ind <- ggplot(data_topic_counts_ind, aes(x = topic_clean, y = article_count, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "", subtitle = "Independent Media",
+       x = "Topic", y = "Number of Articles", fill = "Period") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+
+# Combine plots
+topic_split <- (topic_state | topic_ind) + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+topic_split
+
+ggsave(plot = topic_split, file.path(FIGURES_DIR, "topic_split.png"),
+       width = 12, height = 6)
+```
+
+# Sentiment by Topic
+
+```{r sentiment-by-topic}
+topic_order <- c("Political", "Military", "Economic", "Culture", "Other")
+
+# Summary stats by topic and period
+sentiment_topic_stats <- data_non_ukraine %>%
+  filter(!is.na(topic_clean), topic_clean %in% topic_order) %>%
+  mutate(
+    period = case_when(
+      running < 0 ~ "Before",
+      running > 0 ~ "After",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean, period) %>%
+  summarize(
+    mean_sentiment = mean(sentiment_clean, na.rm = TRUE),
+    sd_sentiment = sd(sentiment_clean, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    label = paste0(round(mean_sentiment, 3), "\n(", round(sd_sentiment, 3), ")")
+  ) %>%
+  select(topic_clean, period, label) %>%
+  pivot_wider(names_from = period, values_from = label)
+
+# Compute differences and p-values
+diff_stats <- data_non_ukraine %>%
+  filter(!is.na(topic_clean), topic_clean %in% topic_order) %>%
+  mutate(
+    period = case_when(
+      running < 0 ~ "Before",
+      running > 0 ~ "After",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean) %>%
+  group_modify(~ {
+    before_vals <- .x$sentiment_clean[.x$period == "Before"]
+    after_vals <- .x$sentiment_clean[.x$period == "After"]
+    t_result <- t.test(after_vals, before_vals, paired = FALSE)
+    tibble(
+      diff = mean(after_vals, na.rm = TRUE) - mean(before_vals, na.rm = TRUE),
+      p_value = t_result$p.value
+    )
+  }) %>%
+  mutate(
+    stars = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01 ~ "**",
+      p_value < 0.05 ~ "*",
+      TRUE ~ ""
+    ),
+    Difference = paste0(round(diff, 3), " ", stars)
+  ) %>%
+  select(topic_clean, Difference)
+
+# Merge and create table
+summary_table <- sentiment_topic_stats %>%
+  left_join(diff_stats, by = "topic_clean") %>%
+  mutate(topic_clean = factor(topic_clean, levels = topic_order)) %>%
+  arrange(topic_clean) %>%
+  select(topic_clean, Before, After, Difference)
+
+sentiment_by_topic_table <- summary_table %>%
+  gt() %>%
+  tab_header(
+    title = "Sentiment by Topic: Before and After Invasion",
+    subtitle = "Mean Sentiment with Standard Deviations and Significance (After - Before)"
+  ) %>%
+  cols_label(
+    topic_clean = "Topic",
+    Before = "Before",
+    After = "After",
+    Difference = "Difference"
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_body(columns = c(Before, After, Difference))
+  )
+
+sentiment_by_topic_table
+
+gtsave(sentiment_by_topic_table, file.path(FIGURES_DIR, "sentiment_by_topic.html"))
+```
+
+# Articles Over Time
+
+## Time Series Plot
+
+```{r articles-time}
+articles_per_day_by_ownership <- data %>%
+  filter(!is.na(date_publish)) %>%
+  mutate(
+    media_type = ifelse(state_owned == 1, "State-Owned", "Independent")
+  ) %>%
+  group_by(date = as.Date(date_publish), media_type) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+articles_per_day_plot <- ggplot(articles_per_day_by_ownership,
+                                 aes(x = date, y = article_count, color = media_type)) +
+  geom_line(linewidth = 1) +
+  geom_vline(xintercept = as.Date("2022-02-24"), linetype = "dashed",
+             color = "black", linewidth = 1) +
+  labs(
+    title = "Articles Over Time by Media Ownership",
+    subtitle = "Black dashed line = Day of Invasion (2022-02-24)",
+    x = "Date",
+    y = "Number of Articles",
+    color = "Media Type"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom"
+  )
+
+articles_per_day_plot
+
+ggsave(plot = articles_per_day_plot, file.path(FIGURES_DIR, "articles_per_day.png"),
+       width = 10, height = 6)
+```
+
+## Annotated Version
+
+```{r articles-annotated}
+highlight_point <- articles_per_day_by_ownership %>%
+  filter(date == as.Date("2021-09-20"), media_type == "Independent")
+
+if (nrow(highlight_point) > 0) {
+  articles_per_day_plot_annotated <- ggplot(articles_per_day_by_ownership,
+                                             aes(x = date, y = article_count, color = media_type)) +
+    geom_line(linewidth = 1) +
+    geom_vline(xintercept = as.Date("2022-02-24"), linetype = "dashed",
+               color = "black", linewidth = 1) +
+    annotate(
+      "text",
+      x = as.Date("2021-09-20"),
+      y = highlight_point$article_count + 500,
+      label = "Perm State University Shooting\n& Russian Election",
+      hjust = 0.5, size = 3.5, color = "black"
+    ) +
+    geom_curve(
+      aes(x = as.Date("2021-09-20"), xend = as.Date("2021-09-20"),
+          y = highlight_point$article_count + 300, yend = highlight_point$article_count + 25),
+      arrow = arrow(type = "closed", length = unit(0.15, "inches")),
+      color = "goldenrod1", curvature = 0, linewidth = 0.75, inherit.aes = FALSE
+    ) +
+    labs(
+      title = "Articles Over Time by Media Ownership",
+      subtitle = "Black dashed line = Day of Invasion (2022-02-24)",
+      x = "Date", y = "Number of Articles", color = "Media Type"
+    ) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+  articles_per_day_plot_annotated
+
+  ggsave(plot = articles_per_day_plot_annotated,
+         file.path(FIGURES_DIR, "articles_per_day_anno.png"),
+         width = 10, height = 6)
+}
+```
+
+# Country-Level Sentiment Change
+
+```{r country-sentiment}
+# Compute sentiment change within 2-week window
+summarize_stats <- function(df) {
+  before <- df %>% filter(running >= -14 & running < 0)
+  after <- df %>% filter(running > 0 & running <= 14)
+
+  if (nrow(before) < 2 | nrow(after) < 2) {
+    return(tibble(
+      mean_before = NA, se_before = NA,
+      mean_after = NA, se_after = NA,
+      diff = NA, p_value = NA
+    ))
+  }
+
+  ttest <- t.test(before$sentiment_clean, after$sentiment_clean, paired = FALSE)
+
+  tibble(
+    mean_before = mean(before$sentiment_clean, na.rm = TRUE),
+    se_before = sd(before$sentiment_clean, na.rm = TRUE) / sqrt(nrow(before)),
+    mean_after = mean(after$sentiment_clean, na.rm = TRUE),
+    se_after = sd(after$sentiment_clean, na.rm = TRUE) / sqrt(nrow(after)),
+    diff = mean(after$sentiment_clean) - mean(before$sentiment_clean),
+    p_value = ttest$p.value
+  )
+}
+
+sentiment_summary <- data %>%
+  filter(running >= -14 & running <= 14, state_owned == 1) %>%
+  group_by(country) %>%
+  group_modify(~summarize_stats(.x)) %>%
+  ungroup() %>%
+  filter(!is.na(diff))
+
+sentiment_summary <- sentiment_summary %>%
+  mutate(
+    stars = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01 ~ "**",
+      p_value < 0.05 ~ "*",
+      is.na(p_value) ~ "",
+      TRUE ~ ""
+    ),
+    diff_label = paste0(round(diff, 3), " ", stars),
+    before_label = paste0(round(mean_before, 3), "\n(", round(se_before, 3), ")"),
+    after_label = paste0(round(mean_after, 3), "\n(", round(se_after, 3), ")")
+  )
+
+country_table <- sentiment_summary %>%
+  select(country, before_label, after_label, diff_label) %>%
+  gt() %>%
+  tab_header(
+    title = "Mean Sentiment Before and After Invasion (State Media)",
+    subtitle = "With Standard Errors and Significance Stars (2 Week Window)"
+  ) %>%
+  cols_label(
+    country = "Country",
+    before_label = "Before",
+    after_label = "After",
+    diff_label = "Diff (After - Before)"
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_body()
+  )
+
+country_table
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```

@@ -1,0 +1,372 @@
+---
+title: "06 - Heterogeneity Analysis"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script examines heterogeneous treatment effects by:
+- Russian alignment (CSTO vs Neutral)
+- Ethnic Russian population
+- Country-specific analyses
+
+**Inputs:**
+- `data/intermediate/02_cleaned_data.rds`
+- `data/intermediate/02_data_non_ukraine.rds`
+
+**Outputs:**
+- Heterogeneity analysis results
+- Table 3
+- Additional visualizations
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+```
+
+# Load Data
+
+```{r load}
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+
+cat("Full data:", nrow(data), "articles\n")
+cat("Non-Ukraine data:", nrow(data_non_ukraine), "articles\n")
+```
+
+# Russian Alignment Analysis (CSTO vs Neutral)
+
+## Create Alignment Subsets
+
+```{r alignment-data}
+# Filter to non-NATO countries for alignment analysis
+data_align <- data %>%
+  filter(nato == 0)
+
+# Create alignment indicator
+data_align <- data_align %>%
+  mutate(align_indicator = factor(case_when(
+    indicator == 1 & csto == 1 ~ "Pre. Ind. CSTO",
+    indicator == 1 & csto == 0 ~ "Pre. Ind. Neut",
+    indicator == 2 & csto == 1 ~ "Pre. State CSTO",
+    indicator == 2 & csto == 0 ~ "Pre. State Neut",
+    indicator == 3 & csto == 1 ~ "Post Ind. CSTO",
+    indicator == 3 & csto == 0 ~ "Post Ind. Neut",
+    indicator == 4 & csto == 1 ~ "Post State CSTO",
+    indicator == 4 & csto == 0 ~ "Post State Neut"
+  ),
+  levels = c("Pre. Ind. CSTO", "Pre. Ind. Neut", "Pre. State CSTO",
+             "Pre. State Neut", "Post Ind. CSTO", "Post Ind. Neut",
+             "Post State CSTO", "Post State Neut")))
+
+cat("Non-NATO countries sample:", nrow(data_align), "articles\n")
+cat("CSTO:", sum(data_align$csto), "\n")
+cat("Neutral:", sum(data_align$csto == 0), "\n")
+```
+
+## Visualization: Independent Media by Alignment
+
+```{r align-ind-plot, fig.width=10, fig.height=7}
+agg_data_align_ind <- data_align %>%
+  filter(state_owned == 0) %>%
+  group_by(running, csto) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+data_align %>%
+  filter(state_owned == 0) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
+  geom_point(data = agg_data_align_ind,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Independent Media Sentiment",
+    subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+```
+
+## Visualization: State Media by Alignment
+
+```{r align-state-plot, fig.width=10, fig.height=7}
+agg_data_align_state <- data_align %>%
+  filter(state_owned == 1) %>%
+  group_by(running, csto) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+state_align_discs_graph <- data_align %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
+  geom_point(data = agg_data_align_state,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on State Media Sentiment",
+    subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+state_align_discs_graph
+
+ggsave(plot = state_align_discs_graph,
+       file.path(FIGURES_DIR, "state_align_discs.png"),
+       width = 10, height = 7)
+```
+
+## State Media Alignment Regressions
+
+### CSTO Countries Only
+
+```{r align-csto}
+data_align_state_csto <- data_align %>%
+  filter(state_owned == 1, csto == 1)
+
+model5a_state <- felm(sentiment_clean ~ running * treatment | source_domain + topic_clean | 0 | source_domain,
+                      data = data_align_state_csto)
+
+summary(model5a_state)
+```
+
+### Neutral Countries Only
+
+```{r align-neutral}
+data_align_state_neutral <- data_align %>%
+  filter(state_owned == 1, csto == 0)
+
+model5a_neutral <- felm(sentiment_clean ~ running * treatment | source_domain + topic_clean | 0 | source_domain,
+                        data = data_align_state_neutral)
+
+summary(model5a_neutral)
+```
+
+### Diff-in-Disc: CSTO vs Neutral (State Media)
+
+```{r align-diff}
+data_align_state <- data_align %>%
+  filter(state_owned == 1)
+
+model5a <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
+                data = data_align_state)
+
+summary(model5a)
+```
+
+## Optimal Bandwidth
+
+```{r align-optimal}
+bw_align <- rdbwselect(y = data_align_state$sentiment_clean,
+                       x = data_align_state$running,
+                       kernel = "triangular",
+                       cluster = data_align_state$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
+
+optimal_bw_align <- bw_align$bws[1, 1]
+cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
+
+optimal_bandwidth_data_state <- data_align_state %>%
+  filter(running < optimal_bw_align, running > -optimal_bw_align)
+
+model5a_opt <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
+                    data = optimal_bandwidth_data_state)
+
+summary(model5a_opt)
+```
+
+## Effect Size
+
+```{r align-effect}
+sd_state_owned <- sd(data_align_state$sentiment_clean)
+cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
+
+coef_csto_int <- summary(model5a_opt)$coef["running:treatment:csto", "Estimate"]
+cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
+```
+
+## Non-Military Topics
+
+```{r align-non-mil}
+data_align_state_non_mil <- data_align_state %>%
+  filter(!topic_clean %in% "Military")
+
+model5a_non_mil <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
+                        data = data_align_state_non_mil)
+
+summary(model5a_non_mil)
+```
+
+# Ethnic Russian Population Analysis
+
+## Create Ethnic Subsets
+
+```{r ethnic-data}
+data_ethnic <- data %>%
+  filter(nato == 0)
+
+data_ethnic <- data_ethnic %>%
+  mutate(ethnic_indicator = factor(case_when(
+    indicator == 1 & high_russia == 1 ~ "Pre. Ind. High Rus",
+    indicator == 1 & high_russia == 0 ~ "Pre. Ind. Low Rus",
+    indicator == 2 & high_russia == 1 ~ "Pre. State High Rus",
+    indicator == 2 & high_russia == 0 ~ "Pre. State Low Rus",
+    indicator == 3 & high_russia == 1 ~ "Post Ind. High Rus",
+    indicator == 3 & high_russia == 0 ~ "Post Ind. Low Rus",
+    indicator == 4 & high_russia == 1 ~ "Post State High Rus",
+    indicator == 4 & high_russia == 0 ~ "Post State Low Rus"
+  ),
+  levels = c("Pre. Ind. High Rus", "Pre. Ind. Low Rus", "Pre. State High Rus",
+             "Pre. State Low Rus", "Post Ind. High Rus", "Post Ind. Low Rus",
+             "Post State High Rus", "Post State Low Rus")))
+
+cat("High Russian population:", sum(data_ethnic$high_russia), "\n")
+cat("Low Russian population:", sum(data_ethnic$high_russia == 0), "\n")
+```
+
+## Visualization: State Media by Ethnic Russian Population
+
+```{r ethnic-plot, fig.width=10, fig.height=7}
+agg_data_ethnic <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  group_by(running, csto) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+ethnic_discs_graph <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = ethnic_indicator, color = ethnic_indicator)) +
+  geom_point(data = agg_data_ethnic,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on State Media Sentiment",
+    subtitle = "High vs Low Ethnic Russian, Difference in Discontinuities",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+ethnic_discs_graph
+
+ggsave(plot = ethnic_discs_graph,
+       file.path(FIGURES_DIR, "ethnic_discs.png"),
+       width = 10, height = 7)
+```
+
+## Ethnic Russian Population Regression
+
+```{r ethnic-reg}
+data_ethnic_state <- data_ethnic %>%
+  filter(state_owned == 1)
+
+model6a <- felm(sentiment_clean ~ running * treatment * high_russia | 0 | 0 | 0,
+                data = data_ethnic_state)
+
+summary(model6a)
+```
+
+# Country-Level Analysis
+
+## State Media by Country and Alliance
+
+```{r country-facet, fig.width=12, fig.height=8}
+# Create alliance for faceting
+data_long <- data %>%
+  pivot_longer(cols = c(nato, csto, neutral),
+               names_to = "alliance",
+               values_to = "membership") %>%
+  filter(membership == 1) %>%
+  mutate(
+    alliance = factor(alliance, levels = c("nato", "csto", "neutral")),
+    state_indicator = factor(paste(country, treatment, sep = ", "))
+  )
+
+data_long %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = state_indicator, color = country)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  facet_wrap(~alliance, nrow = 2) +
+  labs(
+    title = "Effect of Invasion on State Media Sentiment by Country",
+    subtitle = "Faceted by Alliance",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+```
+
+# Summary Table (Table 3)
+
+```{r table3}
+note_text <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits military-related articles."
+note_wrapped <- str_wrap(note_text, width = 80)
+
+table_3 <- modelsummary(
+  list(model5a, model5a_opt, model5a_non_mil),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Russian Alignment: Difference in Discontinuity Analysis",
+  notes = note_wrapped
+)
+
+table_3
+
+# Also save as HTML using stargazer
+stargazer(model5a, model5a_opt, model5a_non_mil,
+          type = "html",
+          out = file.path(FIGURES_DIR, "table_3.html"),
+          title = "Russian Alignment: Difference in Discontinuity Analysis",
+          covariate.labels = c("Invasion", "CSTO x Treatment"),
+          dep.var.labels = "Sentiment",
+          notes = gsub("\n", "<br>", note_wrapped),
+          notes.align = "l",
+          omit.stat = c("aic", "bic", "f", "ll", "ser"))
+```
+
+# Save Results
+
+```{r save}
+results_het <- list(
+  model5a = model5a,
+  model5a_opt = model5a_opt,
+  model5a_non_mil = model5a_non_mil,
+  model5a_csto = model5a_state,
+  model5a_neutral = model5a_neutral,
+  model6a = model6a,
+  optimal_bandwidth_align = optimal_bw_align
+)
+
+saveRDS(results_het, file.path(DATA_INTERMEDIATE, "06_heterogeneity_results.rds"))
+cat("Results saved to:", file.path(DATA_INTERMEDIATE, "06_heterogeneity_results.rds"), "\n")
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```
