@@ -281,10 +281,10 @@ summary(model1d)
 
 ```{r table1}
 rows <- tibble::tribble(
-  ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', '-', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', 'X', 'X', 'X',
-  'Topic FEs', '-', '-', '-', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X'
 )
 attr(rows, 'position') <- c(3, 4, 5)
 

@@ -181,7 +181,7 @@ data_topic_counts_ind <- data_non_ukraine %>%
   group_by(topic_clean, period) %>%
   summarize(article_count = n(), .groups = "drop")
 
-# Create both plots
+# Create both plots with consistent theme
 topic_state <- ggplot(data_topic_counts_state, aes(x = topic_clean, y = article_count, fill = period)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Distribution of Articles by Topic", subtitle = "State Media",
@@ -194,11 +194,10 @@ topic_ind <- ggplot(data_topic_counts_ind, aes(x = topic_clean, y = article_coun
   labs(title = "", subtitle = "Independent Media",
        x = "Topic", y = "Number of Articles", fill = "Period") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom")
 
-# Combine plots
-topic_split <- (topic_state | topic_ind) + plot_layout(guides = "collect") &
-  theme(legend.position = "bottom")
+# Combine plots using patchwork
+topic_split <- (topic_state | topic_ind) + plot_layout(guides = "collect")
 
 topic_split
 
