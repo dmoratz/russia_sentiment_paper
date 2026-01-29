@@ -32,6 +32,7 @@ source("00_setup.R")
 ```{r load}
 # Load model results from previous scripts
 results_h1 <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results.rds"))
+results_h1_cont <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_continuous.rds"))
 results_h2 <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results.rds"))
 results_het <- readRDS(file.path(DATA_INTERMEDIATE, "06_heterogeneity_results.rds"))
 
@@ -52,15 +53,15 @@ rows_t1 <- tibble::tribble(
 )
 attr(rows_t1, 'position') <- c(3, 4, 5)
 
-note_t1 <- "All standard errors are clustered at the source level. Model 5 uses the optimal bandwidth. Model 6 omits NATO allies."
+note_t1 <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits NATO allies."
 
 table_1 <- modelsummary(
   list(
-    "(1)" = results_h1$model1_basic,
-    "(2)" = results_h1$model1_country_fe,
-    "(3)" = results_h1$model1_country_source_fe,
-    "(4)" = results_h1$model1_full,
-    "(5)" = results_h1$model1_opt,
+    "(1)" = results_h1$model1_opt,
+    "(2)" = results_h1$model2_opt,
+    "(3)" = results_h1$model3_opt,
+    "(4)" = results_h1$model4_opt,
+    "(5)" = results_h1$model1_full_linear,
     "(6)" = results_h1$model1_non_nato
   ),
   output = "gt",
@@ -68,7 +69,7 @@ table_1 <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1: Effect of Russian Invasion on Media Sentiment (RDD)",
+  title = "Table 1: Effect of Russian Invasion on Media Sentiment (RDD) with Day Running Variable",
   add_rows = rows_t1,
   notes = str_wrap(note_t1, 80)
 )
@@ -76,6 +77,43 @@ table_1 <- modelsummary(
 table_1
 
 gtsave(table_1, file.path(FIGURES_DIR, "table_1.html"))
+```
+
+## Table 1 A: Continuous Running Variable
+
+```{r table1}
+rows_t1 <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X'
+)
+attr(rows_t1, 'position') <- c(3, 4, 5)
+
+note_t1 <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits NATO allies."
+
+table_1_cont <- modelsummary(
+  list(
+    "(1)" = results_h1_cont$model1_opt,
+    "(2)" = results_h1_cont$model2_opt,
+    "(3)" = results_h1_cont$model3_opt,
+    "(4)" = results_h1_cont$model4_opt,
+    "(5)" = results_h1_cont$model1_full_linear,
+    "(6)" = results_h1_cont$model1_non_nato
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1A: Effect of Russian Invasion on Media Sentiment (RDD) with Continuous Running Variable",
+  add_rows = rows_t1,
+  notes = str_wrap(note_t1, 80)
+)
+
+table_1_cont
+
+gtsave(table_1_cont, file.path(FIGURES_DIR, "table_1_cont.html"))
 ```
 
 # Table 2: Diff-in-Disc Results
