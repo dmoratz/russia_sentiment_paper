@@ -1,3 +1,17 @@
 # Large data files (>100MB) - stored locally in Dropbox
-GPTcoded_final_rus_articles.csv
-total_combined_articles.csv
+data/raw/total_combined_articles.csv
+data/processed/GPTcoded_final_rus_articles.csv
+
+# System files
+.Rhistory
+.RData
+desktop.ini
+.DS_Store
+
+# Temporary files
+*.html
+!figures/*.html
+
+# R/RStudio
+.Rproj.user/
+*.Rproj

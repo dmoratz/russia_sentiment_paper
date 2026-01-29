@@ -124,10 +124,10 @@ clean_datetime_col <- function(date_col) {
 ```{r}
 # Load Data
 
-data_1 <- read.csv("GPTcoded_final_rus_articles.csv")%>%
+data_1 <- read.csv("../data/processed/GPTcoded_final_rus_articles.csv")%>%
   dplyr::select(date_publish,source_domain,country,title_translated,first_two_sentences,Russian.Involvement,Sentiment,Topic)
 
-data_2 <- read.csv("secondhalf_GPTcoded_final_rus_articles.csv")%>%
+data_2 <- read.csv("../data/processed/secondhalf_GPTcoded_final_rus_articles.csv")%>%
   dplyr::select(date_publish,source_domain,country,title_translated,first_two_sentences,Russian.Involvement,Sentiment,Topic)
 
 data <- as.data.frame(rbind(data_1,data_2))
@@ -281,7 +281,7 @@ invasion_on_sentiment_graph <- data_non_ukraine_ind %>%
 
 invasion_on_sentiment_graph
 
-ggsave(plot = invasion_on_sentiment_graph, "figures/invasion_on_sentiment.png")
+ggsave(plot = invasion_on_sentiment_graph, "../figures/invasion_on_sentiment.png")
 ```
 
 ```{r}
@@ -368,7 +368,7 @@ invasion_on_sentiment_non_mil_graph <- data_non_mil_ind %>%
 
 invasion_on_sentiment_non_mil_graph
 
-ggsave(plot = invasion_on_sentiment_non_mil_graph, "figures/invasion_on_sentiment_non_mil.png")
+ggsave(plot = invasion_on_sentiment_non_mil_graph, "../figures/invasion_on_sentiment_non_mil.png")
 ```
 
 ```{r}
@@ -564,7 +564,7 @@ table_1 <- modelsummary(list(model1_basic, model1_country_fe, model1_country_sou
 
 table_1
 
-#gtsave(table_1, "figures/table_1.html")
+#gtsave(table_1, "../figures/table_1.html")
 ```
 
 # Diff-in-Discs Analysis
@@ -621,7 +621,7 @@ invasion_discs_graph <- data_non_ukraine %>%
 
 invasion_discs_graph
 
-ggsave(plot = invasion_discs_graph, "figures/invasion_discs_graph.png")
+ggsave(plot = invasion_discs_graph, "../figures/invasion_discs_graph.png")
 ```
 
 ```{r}
@@ -761,7 +761,7 @@ invasion_discs_non_mil_graph <- data_non_mil %>%
 
 invasion_discs_non_mil_graph
 
-ggsave(plot = invasion_discs_non_mil_graph, "figures/invasion_discs_non_mil.png")
+ggsave(plot = invasion_discs_non_mil_graph, "../figures/invasion_discs_non_mil.png")
 ```
 
 ```{r}
@@ -1045,7 +1045,7 @@ table_2 <- modelsummary(list(model2a, model2a_opt, model2d, model2b, model3a),
 
 table_2
 
-#gtsave(table_2, "figures/table_2.html")
+#gtsave(table_2, "../figures/table_2.html")
 ```
 
 ## December 7th Analysis
@@ -1168,7 +1168,7 @@ state_align_discs_graph <- data_align %>%
 
 state_align_discs_graph
 
-ggsave(plot = state_align_discs_graph, "figures/state_align_discs.png")
+ggsave(plot = state_align_discs_graph, "../figures/state_align_discs.png")
 
 ```
 
@@ -1467,7 +1467,7 @@ table_3
 
 #save_kable(table_3, "table_3.html", format = "html")
 
-#gtsave(table_3, "figures/table_3.html")
+#gtsave(table_3, "../figures/table_3.html")
 ```
 
 
@@ -1480,7 +1480,7 @@ note_wrapped <- gsub("\n", "<br>", str_wrap(note_text, width = 80))
 # Save as HTML
 stargazer(model5a, model5a_opt, model5a_non_mil,
           type = "html",
-          out = "figures/table_3.html",
+          out = "../figures/table_3.html",
           title = "Russian Alignment: Difference in Discontinuity Analysis",
           covariate.labels = c("Invasion", "CSTO x Treatment"),
           dep.var.labels = "Sentiment",
@@ -1567,7 +1567,7 @@ ethnic_discs_graph <- data_ethnic %>%
 
 ethnic_discs_graph
 
-ggsave(plot = ethnic_discs_graph, "figures/ethnic_discs.png")
+ggsave(plot = ethnic_discs_graph, "../figures/ethnic_discs.png")
 ```
 
 
@@ -1724,7 +1724,7 @@ country_table <- sentiment_summary %>%
 country_table
 
 
-#gtsave(country_table, "figures/country_table.html")
+#gtsave(country_table, "../figures/country_table.html")
 ```
 
 
@@ -1782,7 +1782,7 @@ summary_statistics_table <- sample_summary %>%
 
 summary_statistics_table
 
-gtsave(summary_statistics_table, "figures/summary_statistics_table.html")
+gtsave(summary_statistics_table, "../figures/summary_statistics_table.html")
 ```
 
 
@@ -1824,7 +1824,7 @@ topic_all <- ggplot(data_topic_counts, aes(x = topic_clean, y = article_count, f
 
 topic_all
 
-ggsave(plot = topic_all, "figures/topic_distribution.png")
+ggsave(plot = topic_all, "../figures/topic_distribution.png")
 ```
 
 ## Distribution by Topic, State vs Independent
@@ -1893,7 +1893,7 @@ topic_split <- (topic_state | topic_ind) + plot_layout(guides = "collect") & the
 
 topic_split
 
-ggsave(plot = topic_split, "figures/topic_split.png")
+ggsave(plot = topic_split, "../figures/topic_split.png")
 
 ```
 
@@ -1994,7 +1994,7 @@ sentiment_by_topic_table <- summary_table %>%
 
 sentiment_by_topic_table
 
-gtsave(sentiment_by_topic_table, "figures/sentiment_by_topic.html")
+gtsave(sentiment_by_topic_table, "../figures/sentiment_by_topic.html")
 ```
 
 
@@ -2042,7 +2042,7 @@ articles_per_day_plot <- ggplot(articles_per_day_by_ownership, aes(x = date, y =
 
 articles_per_day_plot
 
-ggsave(plot = articles_per_day_plot, "figures/articles_per_day.png")
+ggsave(plot = articles_per_day_plot, "../figures/articles_per_day.png")
 ```
 
 ```{r}
@@ -2094,7 +2094,7 @@ articles_per_day_plot_annotated <- ggplot(articles_per_day_by_ownership, aes(x =
 
 articles_per_day_plot_annotated
 
-ggsave(plot = articles_per_day_plot_annotated, "figures/articles_per_day_anno.png")
+ggsave(plot = articles_per_day_plot_annotated, "../figures/articles_per_day_anno.png")
 ```
 
 
@@ -2196,7 +2196,7 @@ main_table <- table_data %>%
 
 main_table
 
-gtsave(main_table, "figures/comparison_table.html")
+gtsave(main_table, "../figures/comparison_table.html")
 ```
 
 
@@ -2279,7 +2279,7 @@ alignment_table <- table_data %>%
 
 alignment_table
 
-gtsave(alignment_table, "figures/alignment_table.html")
+gtsave(alignment_table, "../figures/alignment_table.html")
 ```
 
 
@@ -2362,5 +2362,5 @@ ethnic_table <- table_data %>%
 
 ethnic_table
 
-gtsave(ethnic_table, "figures/ethnic_table.html")
+gtsave(ethnic_table, "../figures/ethnic_table.html")
 ```
