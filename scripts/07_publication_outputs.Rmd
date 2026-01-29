@@ -34,6 +34,7 @@ source("00_setup.R")
 results_h1 <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results.rds"))
 results_h1_cont <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_continuous.rds"))
 results_h2 <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results.rds"))
+results_h2_cont <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_continuous.rds"))
 results_het <- readRDS(file.path(DATA_INTERMEDIATE, "06_heterogeneity_results.rds"))
 
 # Load data for additional tables
@@ -118,13 +119,85 @@ table_1_cont
 gtsave(table_1_cont, file.path(FIGURES_TABLES, "table_1_cont.html"))
 ```
 
+## Table 1B: RDD By Topic (Day)
+
+```{r table1b}
+rows_t1b <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', '-', '-'
+)
+attr(rows_t1b, 'position') <- c(3, 4, 5)
+
+note_t1b <- "All standard errors are clustered at the source level. All models use the optimal bandwidth with country and source fixed effects."
+
+table_1b <- modelsummary(
+  list(
+    "Political" = results_h1$model4_opt_pol,
+    "Military" = results_h1$model4_opt_mil,
+    "Economic" = results_h1$model4_opt_econ,
+    "Cultural" = results_h1$model4_opt_cult,
+    "Other" = results_h1$model4_opt_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1B: RDD By Topic (Day Running Variable)",
+  add_rows = rows_t1b,
+  notes = str_wrap(note_t1b, 80)
+)
+
+table_1b
+
+gtsave(table_1b, file.path(FIGURES_TABLES, "table_1b.html"))
+```
+
+## Table 1C: RDD By Topic (Continuous)
+
+```{r table1c}
+rows_t1c <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', '-', '-'
+)
+attr(rows_t1c, 'position') <- c(3, 4, 5)
+
+note_t1c <- "All standard errors are clustered at the source level. All models use the optimal bandwidth with country and source fixed effects."
+
+table_1c <- modelsummary(
+  list(
+    "Political" = results_h1_cont$model4_opt_pol,
+    "Military" = results_h1_cont$model4_opt_mil,
+    "Economic" = results_h1_cont$model4_opt_econ,
+    "Cultural" = results_h1_cont$model4_opt_cult,
+    "Other" = results_h1_cont$model4_opt_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1C: RDD By Topic (Continuous Running Variable)",
+  add_rows = rows_t1c,
+  notes = str_wrap(note_t1c, 80)
+)
+
+table_1c
+
+gtsave(table_1c, file.path(FIGURES_TABLES, "table_1c.html"))
+```
+
 # Table 2: Diff-in-Disc Results
 
 ```{r table2}
 rows_t2 <- tibble::tribble(
   ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
   'State FEs', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
   'Topic FEs', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t2, 'position') <- c(5, 6, 7)
@@ -155,6 +228,123 @@ table_2 <- modelsummary(
 table_2
 
 gtsave(table_2, file.path(FIGURES_TABLES, "table_2.html"))
+```
+
+## Table 2A: Diff-in-Disc (Continuous)
+
+```{r table2a}
+rows_t2a <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows_t2a, 'position') <- c(5, 6, 7)
+
+note_t2a <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles."
+
+table_2a <- modelsummary(
+  list(
+    "(1)" = results_h2_cont$model2a,
+    "(2)" = results_h2_cont$model2a_opt,
+    "(3)" = results_h2_cont$model2d,
+    "(4)" = results_h2_cont$model2b,
+    "(5)" = results_h2_cont$model3a
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2A: Difference in Discontinuities (Continuous Running Variable)",
+  add_rows = rows_t2a,
+  notes = str_wrap(note_t2a, 80)
+)
+
+table_2a
+
+gtsave(table_2a, file.path(FIGURES_TABLES, "table_2a.html"))
+```
+
+## Table 2B: Diff-in-Disc By Topic (Day)
+
+```{r table2b}
+rows_t2b <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-'
+)
+attr(rows_t2b, 'position') <- c(5, 6, 7)
+
+note_t2b <- "All standard errors are clustered at the source level. All models use the optimal bandwidth with country fixed effects only."
+
+table_2b <- modelsummary(
+  list(
+    "Political" = results_h2$model2a_opt_pol,
+    "Military" = results_h2$model2a_opt_mil,
+    "Economic" = results_h2$model2a_opt_econ,
+    "Cultural" = results_h2$model2a_opt_cult,
+    "Other" = results_h2$model2a_opt_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2B: Diff-in-Disc By Topic (Day Running Variable)",
+  add_rows = rows_t2b,
+  notes = str_wrap(note_t2b, 80)
+)
+
+table_2b
+
+gtsave(table_2b, file.path(FIGURES_TABLES, "table_2b.html"))
+```
+
+## Table 2C: Diff-in-Disc By Topic (Continuous)
+
+```{r table2c}
+rows_t2c <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-'
+)
+attr(rows_t2c, 'position') <- c(5, 6, 7)
+
+note_t2c <- "All standard errors are clustered at the source level. All models use the optimal bandwidth with country fixed effects only."
+
+table_2c <- modelsummary(
+  list(
+    "Political" = results_h2_cont$model2a_opt_pol,
+    "Military" = results_h2_cont$model2a_opt_mil,
+    "Economic" = results_h2_cont$model2a_opt_econ,
+    "Cultural" = results_h2_cont$model2a_opt_cult,
+    "Other" = results_h2_cont$model2a_opt_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2C: Diff-in-Disc By Topic (Continuous Running Variable)",
+  add_rows = rows_t2c,
+  notes = str_wrap(note_t2c, 80)
+)
+
+table_2c
+
+gtsave(table_2c, file.path(FIGURES_TABLES, "table_2c.html"))
 ```
 
 # Table 3: Heterogeneity by Russian Alignment
@@ -313,8 +503,14 @@ cat("=============================================================\n")
 cat("PUBLICATION OUTPUTS SUMMARY\n")
 cat("=============================================================\n")
 cat("\nTables generated:\n")
-cat("  - table_1.html: Main RDD results (H1)\n")
-cat("  - table_2.html: Diff-in-disc results (H2)\n")
+cat("  - table_1.html: Main RDD results (H1, day)\n")
+cat("  - table_1_cont.html: Main RDD results (H1, continuous)\n")
+cat("  - table_1b.html: RDD by topic (day)\n")
+cat("  - table_1c.html: RDD by topic (continuous)\n")
+cat("  - table_2.html: Diff-in-disc results (H2, day)\n")
+cat("  - table_2a.html: Diff-in-disc results (H2, continuous)\n")
+cat("  - table_2b.html: Diff-in-disc by topic (day)\n")
+cat("  - table_2c.html: Diff-in-disc by topic (continuous)\n")
 cat("  - table_3.html: Heterogeneity by alignment\n")
 cat("  - comparison_table.html: Country classification\n")
 cat("  - alignment_table.html: Alignment comparison\n")

@@ -1,5 +1,5 @@
 ---
-title: "05 - Difference-in-Discontinuities Analysis (Hypothesis 2)"
+title: "05A - Difference-in-Discontinuities Analysis with Continuous Running Variable (Hypothesis 2)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
@@ -11,16 +11,16 @@ output:
 
 # Overview
 
-This script performs the Difference-in-Discontinuities analysis comparing state-owned vs independent media responses to the invasion.
+This script performs the Difference-in-Discontinuities analysis comparing state-owned vs independent media responses to the invasion, using time as a continuous running variable instead of by day.
 
 **Inputs:**
 - `data/intermediate/02_data_non_ukraine.rds`
 - `data/intermediate/02_cleaned_data.rds`
 
 **Outputs:**
-- Diff-in-disc regression results
+- Diff-in-disc regression results (continuous)
 - Visualizations
-- Table 2
+- Table 2A
 
 ```{r setup, include=FALSE}
 source("00_setup.R")
@@ -42,7 +42,7 @@ cat("Independent:", sum(data_non_ukraine$state_owned == 0), "\n")
 ## Model 2a: Full Triple Interaction
 
 ```{r model2a}
-model2a <- felm(sentiment_clean ~ running * treatment * state_owned | country + topic_clean | 0 | source_domain,
+model2a <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
                 data = data_non_ukraine)
 
 summary(model2a)
@@ -66,10 +66,10 @@ cat("Additional effect on state media (in SD):", round(coef_state / sd_sentiment
 
 # Visualization: Main Diff-in-Disc Plot
 
-```{r plot-discs, fig.width=10, fig.height=7}
+```{r plot-discs-cont, fig.width=10, fig.height=7}
 # Aggregate data
 agg_data_discs <- data_non_ukraine %>%
-  group_by(running, state_owned) %>%
+  group_by(running_continuous, state_owned) %>%
   summarize(
     sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
     num_obs = n(),
@@ -84,9 +84,9 @@ invasion_discs_graph <- data_non_ukraine %>%
     "Ind. Post" = "3",
     "State Post" = "4"
   )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
+  ggplot(aes(x = running_continuous, y = sentiment_clean, group = indicator, color = indicator)) +
   geom_point(data = agg_data_discs,
-             aes(x = running, y = sentiment_clean, size = num_obs),
+             aes(x = running_continuous, y = sentiment_clean, size = num_obs),
              alpha = 0.2, inherit.aes = FALSE) +
   geom_smooth(method = "lm") +
   scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
@@ -94,16 +94,16 @@ invasion_discs_graph <- data_non_ukraine %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment",
+    title = "Effect of Invasion on Sentiment (Continuous)",
     subtitle = "Difference in Discontinuities",
-    x = "Days Pre/Post Invasion",
+    x = "Hours Pre/Post Invasion",
     y = "Sentiment"
   )
 
 invasion_discs_graph
 
 ggsave(plot = invasion_discs_graph,
-       file.path(FIGURES_DIFF_DISC, "invasion_discs_graph.png"),
+       file.path(FIGURES_DIFF_DISC, "invasion_discs_graph_cont.png"),
        width = 10, height = 7)
 ```
 
@@ -114,7 +114,7 @@ data_non_ukraine <- data_non_ukraine %>%
   mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
 
 bw_select <- rdbwselect(y = data_non_ukraine$sentiment_clean,
-                        x = data_non_ukraine$running,
+                        x = data_non_ukraine$running_continuous,
                         kernel = "triangular",
                         cluster = data_non_ukraine$source_domain,
                         p = 1,
@@ -123,11 +123,11 @@ bw_select <- rdbwselect(y = data_non_ukraine$sentiment_clean,
 summary(bw_select)
 
 optimal_bw <- bw_select$bws[1, 1]
-cat("Optimal bandwidth:", round(optimal_bw, 1), "days\n")
+cat("Optimal bandwidth:", round(optimal_bw, 1), "hours\n")
 
 optimal_bandwidth_data <- data_non_ukraine %>%
-  filter(running < optimal_bw) %>%
-  filter(running > -optimal_bw)
+  filter(running_continuous < optimal_bw) %>%
+  filter(running_continuous > -optimal_bw)
 
 cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ```
@@ -135,7 +135,7 @@ cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ## Model with Optimal Bandwidth
 
 ```{r model2a-opt}
-model2a_opt <- felm(sentiment_clean ~ running * treatment * state_owned | country + topic_clean | 0 | source_domain,
+model2a_opt <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
                     data = optimal_bandwidth_data)
 
 summary(model2a_opt)
@@ -163,7 +163,7 @@ optimal_bandwidth_data_oth <- optimal_bandwidth_data %>%
 ## Political
 
 ```{r model2a-opt-pol}
-model2a_opt_pol <- felm(sentiment_clean ~ running * treatment * state_owned | country | 0 | source_domain,
+model2a_opt_pol <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
                         data = optimal_bandwidth_data_pol)
 
 summary(model2a_opt_pol)
@@ -172,7 +172,7 @@ summary(model2a_opt_pol)
 ## Military
 
 ```{r model2a-opt-mil}
-model2a_opt_mil <- felm(sentiment_clean ~ running * treatment * state_owned | country | 0 | source_domain,
+model2a_opt_mil <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
                         data = optimal_bandwidth_data_mil)
 
 summary(model2a_opt_mil)
@@ -181,7 +181,7 @@ summary(model2a_opt_mil)
 ## Economic
 
 ```{r model2a-opt-econ}
-model2a_opt_econ <- felm(sentiment_clean ~ running * treatment * state_owned | country | 0 | source_domain,
+model2a_opt_econ <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
                          data = optimal_bandwidth_data_econ)
 
 summary(model2a_opt_econ)
@@ -190,7 +190,7 @@ summary(model2a_opt_econ)
 ## Cultural
 
 ```{r model2a-opt-cult}
-model2a_opt_cult <- felm(sentiment_clean ~ running * treatment * state_owned | country | 0 | source_domain,
+model2a_opt_cult <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
                          data = optimal_bandwidth_data_cult)
 
 summary(model2a_opt_cult)
@@ -199,7 +199,7 @@ summary(model2a_opt_cult)
 ## Other
 
 ```{r model2a-opt-oth}
-model2a_opt_oth <- felm(sentiment_clean ~ running * treatment * state_owned | country | 0 | source_domain,
+model2a_opt_oth <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
                         data = optimal_bandwidth_data_oth)
 
 summary(model2a_opt_oth)
@@ -211,7 +211,7 @@ summary(model2a_opt_oth)
 data_non_mil <- data_non_ukraine %>%
   filter(!topic_clean %in% c("Military"))
 
-model2b <- felm(sentiment_clean ~ running * treatment * state_owned | country + topic_clean | 0 | source_domain,
+model2b <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
                 data = data_non_mil)
 
 summary(model2b)
@@ -219,9 +219,9 @@ summary(model2b)
 
 ## Visualization (Non-Military)
 
-```{r plot-non-mil, fig.width=10, fig.height=7}
+```{r plot-non-mil-cont, fig.width=10, fig.height=7}
 agg_data_non_mil <- data_non_mil %>%
-  group_by(running, state_owned) %>%
+  group_by(running_continuous, state_owned) %>%
   summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
 
 invasion_discs_non_mil_graph <- data_non_mil %>%
@@ -232,9 +232,9 @@ invasion_discs_non_mil_graph <- data_non_mil %>%
     "Ind. Post" = "3",
     "State Post" = "4"
   )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
+  ggplot(aes(x = running_continuous, y = sentiment_clean, group = indicator, color = indicator)) +
   geom_point(data = agg_data_non_mil,
-             aes(x = running, y = sentiment_clean, size = num_obs),
+             aes(x = running_continuous, y = sentiment_clean, size = num_obs),
              alpha = 0.2, inherit.aes = FALSE) +
   geom_smooth(method = "lm") +
   scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
@@ -242,16 +242,16 @@ invasion_discs_non_mil_graph <- data_non_mil %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment",
+    title = "Effect of Invasion on Sentiment (Continuous)",
     subtitle = "Non-Military Topics",
-    x = "Days Pre/Post Invasion",
+    x = "Hours Pre/Post Invasion",
     y = "Sentiment"
   )
 
 invasion_discs_non_mil_graph
 
 ggsave(plot = invasion_discs_non_mil_graph,
-       file.path(FIGURES_DIFF_DISC, "invasion_discs_non_mil.png"),
+       file.path(FIGURES_DIFF_DISC, "invasion_discs_non_mil_cont.png"),
        width = 10, height = 7)
 ```
 
@@ -261,7 +261,7 @@ ggsave(plot = invasion_discs_non_mil_graph,
 data_non_nato <- data_non_ukraine %>%
   filter(!country %in% NATO_COUNTRIES)
 
-model2d <- felm(sentiment_clean ~ running * treatment * state_owned | country + topic_clean | 0 | source_domain,
+model2d <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
                 data = data_non_nato)
 
 summary(model2d)
@@ -275,7 +275,7 @@ data_russian_related <- data %>%
   filter(!country %in% c("Ukraine")) %>%
   filter(!topic_clean %in% c("Military"))
 
-model3a <- felm(sentiment_clean ~ running * treatment * state_owned | country + topic_clean | 0 | source_domain,
+model3a <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
                 data = data_russian_related)
 
 summary(model3a)
@@ -296,11 +296,11 @@ summary(model_did)
 data_dec <- data %>%
   filter(date_publish < "2022-02-19") %>%
   mutate(
-    running = as.numeric(date_publish - as.Date("2021-12-07")),
+    running_continuous = as.numeric(difftime(date_publish, as.POSIXct("2021-12-07 00:00:00"), units = "hours")),
     treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
   )
 
-model4a <- felm(sentiment_clean ~ running * treatment | country + Topic | 0 | source_domain,
+model4a <- felm(sentiment_clean ~ running_continuous * treatment | country + Topic | 0 | source_domain,
                 data = data_dec)
 
 summary(model4a)
@@ -309,16 +309,16 @@ cat("\nNote: Non-significant treatment effect suggests parallel trends assumptio
 
 ## Placebo Visualization
 
-```{r placebo-plot, fig.width=10, fig.height=7}
+```{r placebo-plot-cont, fig.width=10, fig.height=7}
 agg_data_dec <- data_dec %>%
-  group_by(running) %>%
+  group_by(running_continuous) %>%
   summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
 
 data_dec %>%
   mutate(treatment = as.factor(treatment)) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  ggplot(aes(x = running_continuous, y = sentiment_clean, group = treatment, color = treatment)) +
   geom_point(data = agg_data_dec,
-             aes(x = running, y = sentiment_clean, size = num_obs),
+             aes(x = running_continuous, y = sentiment_clean, size = num_obs),
              alpha = 0.2, inherit.aes = FALSE) +
   geom_smooth(method = "lm") +
   scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Dec 7") +
@@ -326,16 +326,16 @@ data_dec %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Placebo Test: Effect of December 7th Announcement",
+    title = "Placebo Test: Effect of December 7th Announcement (Continuous)",
     subtitle = "Pre-Invasion Period Only",
-    x = "Days Pre/Post Announcement",
+    x = "Hours Pre/Post Announcement",
     y = "Sentiment"
   )
 ```
 
-# Summary Table (Table 2)
+# Summary Table (Table 2A)
 
-```{r table2}
+```{r table2a}
 rows <- tibble::tribble(
   ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
   'State FEs', 'X', 'X', 'X', 'X', 'X',
@@ -347,7 +347,7 @@ attr(rows, 'position') <- c(5, 6, 7)
 note_text <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles."
 note_wrapped <- str_wrap(note_text, width = 80)
 
-table_2 <- modelsummary(
+table_2a <- modelsummary(
   list(model2a, model2a_opt, model2d, model2b, model3a),
   output = "gt",
   fmt = fmt_significant(2),
@@ -357,18 +357,18 @@ table_2 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Hypothesis 2: Difference in Discontinuity Analysis",
+  title = "Hypothesis 2: Difference in Discontinuity Analysis (Continuous Running Variable)",
   add_rows = rows,
   notes = note_wrapped
 )
 
-table_2
+table_2a
 ```
 
 # Save Results
 
 ```{r save}
-results_h2 <- list(
+results_h2_cont <- list(
   model2a = model2a,
   model2a_opt = model2a_opt,
   model2d = model2d,
@@ -384,8 +384,8 @@ results_h2 <- list(
   optimal_bandwidth = optimal_bw
 )
 
-saveRDS(results_h2, file.path(DATA_INTERMEDIATE, "05_h2_results.rds"))
-cat("Results saved to:", file.path(DATA_INTERMEDIATE, "05_h2_results.rds"), "\n")
+saveRDS(results_h2_cont, file.path(DATA_INTERMEDIATE, "05_h2_results_continuous.rds"))
+cat("Results saved to:", file.path(DATA_INTERMEDIATE, "05_h2_results_continuous.rds"), "\n")
 ```
 
 # Session Info
