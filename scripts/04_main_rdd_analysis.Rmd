@@ -89,7 +89,7 @@ cat("Mean sentiment (pre-invasion):", round(mean_pre, 3), "\n")
 cat("Mean sentiment (post-invasion):", round(mean_post, 3), "\n\n")
 
 # Effect size in SD units
-coef_treatment <- summary(model1_full)$coef["treatment", "Estimate"]
+coef_treatment <- summary(model1_full_linear)$coef["treatment", "Estimate"]
 effect_size <- coef_treatment / sd_sentiment
 
 cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
@@ -699,8 +699,13 @@ results_h1 <- list(
   model2_opt = model2_opt,
   model3_opt = model3_opt,
   model4_opt = model4_opt,
-  model1_non_nato = model4_opt_nonnato,
-  model1_non_mil = model4_opt_nonmil,
+  model4_non_nato = model4_opt_nonnato,
+  model4_non_mil = model4_opt_nonmil,
+  model4_opt_pol = model4_opt_pol,
+  model4_opt_mil = model4_opt_mil,
+  model4_opt_econ = model4_opt_econ,
+  model4_opt_cult = model4_opt_cult,
+  model4_opt_oth = model4_opt_oth,
   optimal_bandwidth = optimal_bw
 )
 
