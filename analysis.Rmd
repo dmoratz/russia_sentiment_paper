@@ -1,0 +1,2366 @@
+---
+output: 
+  html_document:
+  keep_tex: true
+  fig_caption: false
+  number_sections: false
+  toc: false 
+  latex_engine: pdflatex
+  template: C:/Users/skybl/OneDrive/Documents/Notes_for_733/svm-latex-ms.tex
+fontsize: 12pt
+#bibliography: references.bib
+
+title: "Problem Set 4"
+author: 
+  - name: "Donald Moratz"
+abstract: ""
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+graphics: true
+endnote: no
+header-includes:
+  - \usepackage{setspace}\doublespacing
+  - \usepackage{fancyhdr}
+  - \setlength{\headheight}{14.5pt}
+  - \pagestyle{fancy}
+  - \fancyhf{}
+  - \fancyhead[L]{Problem Set 1}
+  - \fancyhead[R]{Moratz | p \thepage}
+---
+
+```{r setup, include=FALSE}
+# Set up Code Chunk
+
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 3, digits = 3)
+
+rm(list = ls())
+library(pacman)
+p_load(foreign, haven, ggplot2, broom, plyr, DataCombine, plm, estimatr, gsynth, reshape2, zoo, stargazer, did, here, etwfe, modelsummary, interflex, sandwich, multcomp, lmtest, kableExtra, texreg, fastDummies, ggdag, AER, MatchIt, cobalt, MCMCpack,coda,stats, dplyr, gt)
+library(ggplot2)
+library(stringdist)
+library(stringr)
+library(knitr)
+library(lubridate)
+library(tidyr)
+library(plotly)
+library(glmnet)
+library(caret)
+library(scales)
+library(openxlsx)
+library(kableExtra)
+library(pBrackets)
+library(zoo)
+library(ggpubr)
+library(tinytex)
+library(Rmisc)
+library(purrr)
+library(here)
+library(readr)
+library(data.table)
+library(dplyr)
+library(stargazer)
+library(pander)
+library(estimatr)
+library(tseries)
+library(plm)
+library(lmtest)
+library(cowplot)
+library(grid)
+library(gridExtra)
+library(rdrobust)
+library(lfe)
+library(modelsummary)
+library(tidyverse)
+library(patchwork)
+library(stargazer)
+library(fixest)
+library(VGAM)
+
+set.seed(3184)
+
+```
+
+## Function Creation
+
+```{r}
+# --- Robust Date-Time Cleaning Function ---
+
+#' Robustly converts a character column to a POSIXct datetime object.
+#' 
+#' It handles two formats: YYYY-MM-DD HH:MM:SS (full time) and YYYY-MM-DD (date only).
+#' If the time component is missing, it defaults the time to 12:00:00 (noon).
+#'
+#' @param date_col A character vector column containing dates.
+#' @return A POSIXct date-time vector.
+clean_datetime_col <- function(date_col) {
+  
+  # A typical full date-time string length is 19 characters ("YYYY-MM-DD HH:MM:SS")
+  # A date-only string length is 10 characters ("YYYY-MM-DD")
+  
+  # Use dplyr::if_else for efficient, vectorized conditional cleaning
+  result <- date_col %>%
+    
+    # 1. Check for the length of the string to see if the time component is present
+    {
+      if_else(
+        # Condition: String length suggests a full date-time stamp
+        str_length(.) > 10,
+        
+        # TRUE (Time is present): Use the standard ymd_hms function
+        ymd_hms(.),
+        
+        # FALSE (Time is missing/only date is present):
+        # Use ymd() to parse the date, then add 12 hours (noon)
+        # Note: period() is used to add time components easily.
+        ymd(.) + hours(12)
+      )
+    }
+}
+```
+
+
+```{r}
+# Load Data
+
+data_1 <- read.csv("GPTcoded_final_rus_articles.csv")%>%
+  dplyr::select(date_publish,source_domain,country,title_translated,first_two_sentences,Russian.Involvement,Sentiment,Topic)
+
+data_2 <- read.csv("secondhalf_GPTcoded_final_rus_articles.csv")%>%
+  dplyr::select(date_publish,source_domain,country,title_translated,first_two_sentences,Russian.Involvement,Sentiment,Topic)
+
+data <- as.data.frame(rbind(data_1,data_2))
+ 
+# Clean Date data
+data$date_publish_continuous <- clean_datetime_col(data$date_publish)
+
+View(data[which(is.na(data$date_publish_continuous)),])
+
+data$date_publish <- as.Date(data$date_publish)
+
+# Drop NA Dates
+data <- data %>%
+  filter(!is.na(date_publish))
+
+# Drop NAs
+data <- data %>%
+  filter(!Sentiment == "nan") %>%
+  filter(!is.na(Sentiment))
+
+# Clean Sentiment to be -1,0,1
+data$sentiment_clean <- -1
+data$sentiment_clean[data$Sentiment == "Positive"] <- 1
+data$sentiment_clean[data$Sentiment %in% c("Natural","Neutral","neutral")] <-0
+
+# Clean Topic to be 1 of 5 topics
+
+unique(data$Topic)
+
+data$topic_clean <- "Other"
+data$topic_clean[data$Topic %in% c("Military","Miliary")] <- "Military"
+data$topic_clean[data$Topic %in% c("Politics","Political","Policy","Politic")] <- "Political"
+data$topic_clean[data$Topic %in% c("Economic")] <- "Economic"
+data$topic_clean[data$Topic %in% c("Cultural","Culture","Sports","Sport")] <- "Culture"
+
+
+# Create treatment variable
+data$treatment <- 0
+data$treatment[data$date_publish>"2022-02-23"] <- 1
+
+# Create a running variable
+data <- data %>%
+    mutate(running = as.numeric(date_publish - as.Date("2022-02-24")),
+           running_continuous = as.numeric(date_publish_continuous - ymd_hms("2022-02-24 00:00:00")))
+
+# Create an indicator for state owned
+state_owned <- c("zviazda.by", "sb.by","1lurer.am","agenda.ge","azerbaijan-news.az","azertag.az", "en.armradio.am", "eng.belta.by", "kazpravda.kz", "ktrk.kg", "lajme.rtsh.al", "magyarnemzet.hu", "moldova-suverana.md", "qazaqstan.tv", "rtklive.com", "rts.rs", "top-channel.tv", "rthaber.com", "ukrinform.net", "uza.uz","trthaber.com")
+
+data$state_owned <- ifelse(data$source_domain %in% state_owned, 1, 0)
+
+# Create a column for each of 4 unique groups
+data$indicator <- ifelse(data$treatment == 0 & data$state_owned == 0, 1, # if both are 0
+                        ifelse(data$treatment == 0 & data$state_owned == 1, 2, # if first is 0 and second is 1
+                               ifelse(data$treatment == 1 & data$state_owned == 0, 3, 4)))
+
+
+```
+
+
+# Main RDD Analysis
+
+## Hypothesis 1
+
+```{r}
+# Omit Ukraine in baseline
+data_non_ukraine_ind <- data %>%
+  filter(!country %in% c("Ukraine")) %>%
+  filter(state_owned == 0)
+```
+
+
+```{r}
+# Different Slope model
+
+model1_basic <- felm(sentiment_clean ~ running*treatment | 0 | 0 | source_domain, data = data_non_ukraine_ind)
+
+summary(model1_basic)
+
+rdplot(y = data_non_ukraine_ind$sentiment_clean, x = data_non_ukraine_ind$running)
+
+```
+
+```{r}
+# Estimate with RD robust
+model1_basic_rdrobust <- rdrobust(data_non_ukraine_ind$sentiment_clean, 
+                                  data_non_ukraine_ind$running_continuous)
+
+summary(model1_basic_rdrobust)
+
+rdplot(y = data_non_ukraine_ind$sentiment_clean, x = data_non_ukraine_ind$running_continuous)
+```
+
+
+```{r}
+# With Country Fixed Effects
+model1_country_fe <- felm(sentiment_clean ~ running*treatment | country | 0 | source_domain, data = data_non_ukraine_ind)
+
+summary(model1_country_fe)
+```
+
+```{r}
+# With Country/Source Fixed Effects
+model1_country_source_fe <- felm(sentiment_clean ~ running*treatment | country + source_domain | 0 | source_domain, data = data_non_ukraine_ind)
+
+summary(model1_country_source_fe)
+```
+
+
+```{r}
+# FELM Model with clustered standard errors
+model1_full <- felm(sentiment_clean ~ running*treatment | country + source_domain + topic_clean | 0 | source_domain, data = data_non_ukraine_ind)
+
+summary(model1_full)
+```
+
+```{r}
+sd_sentiment <- sd(data_non_ukraine_ind$sentiment_clean)
+
+mean(data_non_ukraine_ind$sentiment_clean)
+
+mean(data_non_ukraine_ind[which(data_non_ukraine_ind$running < 0),"sentiment_clean"], na.rm = TRUE)
+
+mean(data_non_ukraine_ind[which(data_non_ukraine_ind$running > -1),"sentiment_clean"], na.rm = TRUE)
+
+coef_model1_full <- summary(model1_full)$coef[2]
+
+coef_model1_full/sd_sentiment
+
+```
+
+```{r}
+# Visualization
+
+invasion_on_sentiment_graph <- data_non_ukraine_ind %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_non_ukraine_ind %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Effect of Invasion on Sentiment",
+      subtitle = "All Sources and Topics",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+invasion_on_sentiment_graph
+
+ggsave(plot = invasion_on_sentiment_graph, "figures/invasion_on_sentiment.png")
+```
+
+```{r}
+# Visualization
+
+data_non_ukraine_ind %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_non_ukraine_ind %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="gam") +
+  scale_color_manual(values=c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 2 Appendix: Effect of Invasion on Sentiment",
+      subtitle = "All Sources and Topics",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+
+```{r}
+# Using Optimal Bandwidth
+summary(rdbwselect(y = data_non_ukraine_ind$sentiment_clean, x = data_non_ukraine_ind$running, cluster = data_non_ukraine_ind$source_domain, kernel = "triangular", p = 1, bwselect = "mserd"))
+
+optimal_bandwidth_data <- data_non_ukraine_ind %>%
+  filter(running < 32) %>%
+  filter(running > -32)
+
+model1_opt <- felm(sentiment_clean ~ running*treatment | country + source_domain + topic_clean | 0 | source_domain, data = optimal_bandwidth_data)
+
+summary(model1_opt)
+
+
+```
+
+
+## Hypothesis 1A and Supplementary Analysis
+
+```{r}
+# Drop military as a topic
+# FELM Model with clustered standard errors
+data_non_mil_ind <- data_non_ukraine_ind %>%
+  filter(!topic_clean == "Military")
+model1b <- felm(sentiment_clean ~ running*treatment | country + source_domain + topic_clean | 0 | source_domain, data = data_non_mil_ind)
+
+summary(model1b)
+```
+
+```{r}
+# Standard Deviation Analysis
+sd_sentiment_non_mil_ind <- sd(data_non_mil_ind$sentiment_clean)
+
+coef_model1b <- summary(model1b)$coef[2]
+
+coef_model1b/sd_sentiment_non_mil_ind
+
+```
+
+```{r}
+# Visualization of non-military
+
+invasion_on_sentiment_non_mil_graph <- data_non_mil_ind %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_non_mil_ind %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Effect of Invasion on Sentiment",
+      subtitle = "Non-Military Topics",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+invasion_on_sentiment_non_mil_graph
+
+ggsave(plot = invasion_on_sentiment_non_mil_graph, "figures/invasion_on_sentiment_non_mil.png")
+```
+
+```{r}
+# Only Nato Countries
+data_nato_ind <- data_non_ukraine_ind %>%
+  filter(country %in% c("Albania","Turkey","Hungary"))
+
+# FELM Model with clustered standard errors
+model1c <- felm(sentiment_clean ~ running*treatment | country + source_domain + topic_clean | 0 | source_domain, data = data_nato_ind)
+
+summary(model1c)
+```
+
+```{r}
+# Visualization of non-military
+
+data_nato_ind %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_nato_ind %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 2C: Effect of Invasion on Sentiment",
+      subtitle = "NATO Countries",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+```{r}
+# Only Non-Nato Countries
+data_non_nato_ind <- data_non_ukraine_ind %>%
+  filter(!country %in% c("Albania","Turkey","Hungary","Ukraine"))
+
+# FELM Model with clustered standard errors
+model1d <- felm(sentiment_clean ~ running*treatment | country + source_domain + topic_clean | 0 | source_domain, data = data_non_nato_ind)
+
+summary(model1d)
+```
+
+```{r}
+# Visualization of non-military
+
+data_non_nato_ind %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_non_nato_ind %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 2D: Effect of Invasion on Sentiment",
+      subtitle = "Non-NATO Countries",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+
+```{r}
+# State Only
+# FELM Model with clustered standard errors
+data_state <- data %>%
+  filter(state_owned == 1) %>%
+  filter(!country %in% c("Ukraine"))
+model1e <- felm(sentiment_clean ~ running*treatment | country + source_domain + topic_clean | 0 | source_domain, data = data_state)
+
+summary(model1e)
+```
+
+
+```{r}
+# Visualization
+
+data_state %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_state %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("forestgreen", "darkorange"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 2E: Effect of Invasion on Sentiment",
+      subtitle = "State Owned Media",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+```{r}
+# Dropping Belarus
+# FELM Model with clustered standard errors
+data_non_involved_ind <- data_non_ukraine_ind %>%
+  filter(!country %in% c("Belarus"))
+model1f <- felm(sentiment_clean ~ running*treatment | country + source_domain + topic_clean | 0 | source_domain, data = data_non_involved_ind)
+
+summary(model1f)
+```
+
+
+```{r}
+# Visualization
+
+data_non_involved_ind %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_non_involved_ind %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 2F: Effect of Invasion on Sentiment",
+      subtitle = "Ukraine and Belarus Removed",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+```{r}
+# Ukraine Only
+data_ukraine <- data %>%
+  filter(country == "Ukraine")
+
+model1g <- felm(sentiment_clean ~ running*treatment | country + source_domain + topic_clean | 0 | source_domain, data = data_ukraine)
+
+summary(model1g)
+
+```
+
+
+```{r}
+# Visualization
+
+data_ukraine %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_ukraine %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 2G: Effect of Invasion on Sentiment",
+      subtitle = "Ukraine Only",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+```{r}
+rows <- tibble::tribble(~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X')
+attr(rows, 'position') <- c(3,4,5)
+
+# note
+note_text <- "All standard errors are clustered at the source level. Model 2 uses the triangular kernel within the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 omits military-related articles and only uses articles that were classified as primarily Russian Related."
+
+# Wrap note into 80-character lines
+note_wrapped <- str_wrap(note_text, width = 80)
+
+table_1 <- modelsummary(list(model1_basic, model1_country_fe, model1_country_source_fe, model1_full, model1_opt, model1d),
+             output ="gt",
+             fmt = fmt_significant(2),
+             stars = TRUE,
+             coef_map = c("treatment" = "Invasion"),
+             gof_omit = "BIC|AIC|RMSE|Std.Errors",
+             title = "Difference in Difference Analysis",
+             add_rows = rows,
+             notes = note_wrapped)
+
+table_1
+
+#gtsave(table_1, "figures/table_1.html")
+```
+
+# Diff-in-Discs Analysis
+
+```{r}
+# FELM Model with clustered standard errors
+data_non_ukraine <- data %>%
+  filter(!country %in% c("Ukraine"))
+
+model2a <- felm(sentiment_clean ~ running*treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = data_non_ukraine)
+
+summary(model2a)
+
+```
+
+Using Ordered Logit (the correct way to do this analysis)
+
+```{r}
+data_non_ukraine_test <- data_non_ukraine
+data_non_ukraine_test$sentiment_clean <- factor(data_non_ukraine_test$sentiment_clean, levels = c(-1,0,1))
+model2a_test <- vglm(sentiment_clean ~ running*treatment*state_owned, data = data_non_ukraine_test, family = cumulative(parallel = TRUE, reverse = TRUE))
+
+summary(model2a_test)
+```
+
+
+```{r}
+# Visualization
+
+invasion_discs_graph <- data_non_ukraine %>%
+  mutate_at(c("indicator"),as.factor) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `indicator`, color = `indicator`)) +
+  geom_point(data= data_non_ukraine %>% 
+              group_by(running,state_owned) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Effect of Invasion on Sentiment",
+      subtitle = "Difference in Discontinuities",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+
+invasion_discs_graph
+
+ggsave(plot = invasion_discs_graph, "figures/invasion_discs_graph.png")
+```
+
+```{r}
+# Standard Deviation Analysis
+sd_sentiment_non_ukraine <- sd(data_non_ukraine$sentiment_clean)
+
+coef_model2a_all <- summary(model2a)$coef[2]
+
+# Effect on all Media
+coef_model2a_all/sd_sentiment_non_ukraine
+
+# Effect on just state media
+coef_model2a_state <- summary(model2a)$coef[6]
+
+coef_model2a_state/sd_sentiment_non_ukraine
+
+
+mean(data_non_ukraine[which(data_non_ukraine_ind$running < 0),"sentiment_clean"], na.rm = TRUE)
+
+mean(data_non_ukraine[which(data_non_ukraine_ind$running > -1),"sentiment_clean"], na.rm = TRUE)
+```
+
+```{r}
+# Visualization
+
+data_non_ukraine %>%
+  mutate_at(c("indicator"),as.factor) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `indicator`, color = `indicator`)) +
+  geom_point(data= data_non_ukraine %>% 
+              group_by(running,state_owned) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="gam") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 4 Appendix: Effect of Invasion on Sentiment",
+      subtitle = "Difference in Discontinuities",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+
+```{r}
+# FELM Model with clustered standard errors
+# optimal bandwidth select
+
+data_non_ukraine <- data_non_ukraine %>%
+  mutate_at(c("country","source_domain","topic_clean"), as.factor)
+
+summary(rdbwselect(y = data_non_ukraine$sentiment_clean, x = data_non_ukraine$running, kernel = "triangular", cluster = data_non_ukraine$source_domain, p = 1, bwselect = "mserd"))
+
+optimal_bandwidth_data <- data_non_ukraine %>%
+  filter(running < 39) %>%
+  filter(running > -39)
+
+model2a_opt <- felm(sentiment_clean ~ running*treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = optimal_bandwidth_data)
+
+summary(model2a_opt)
+
+```
+
+```{r}
+# Visualization
+
+optimal_bandwidth_data %>%
+  mutate_at(c("indicator"),as.factor) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `indicator`, color = `indicator`)) +
+  geom_point(data= optimal_bandwidth_data %>% 
+              group_by(running,state_owned) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 4 Optimal: Effect of Invasion on Sentiment",
+      subtitle = "Difference in Discontinuities",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+
+```{r}
+# Non-Military Topics Only
+# FELM Model with clustered standard errors
+data_non_mil <- data_non_ukraine %>%
+  filter(!topic_clean %in% c("Military"))
+model2b <- felm(sentiment_clean ~ running*treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = data_non_mil)
+
+summary(model2b)
+
+```
+
+```{r}
+# Visualization
+
+invasion_discs_non_mil_graph <- data_non_mil %>%
+  mutate_at(c("indicator"),as.factor) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `indicator`, color = `indicator`)) +
+  geom_point(data= data_non_mil %>% 
+              group_by(running,state_owned) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Ty[e") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Effect of Invasion on Sentiment",
+      subtitle = "Non-Military Topics",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+invasion_discs_non_mil_graph
+
+ggsave(plot = invasion_discs_non_mil_graph, "figures/invasion_discs_non_mil.png")
+```
+
+```{r}
+# Standard Deviation Analysis
+sd_sentiment_non_ukraine_non_mil <- sd(data_non_mil$sentiment_clean)
+
+coef_model2b_all <- summary(model2b)$coef[2]
+
+# Effect on all Media
+coef_model2b_all/sd_sentiment_non_ukraine_non_mil
+
+# Effect on just state media
+coef_model2b_state <- summary(model2b)$coef[6]
+
+coef_model2b_state/sd_sentiment_non_ukraine
+
+```
+
+```{r}
+# Russian Aligned Only
+# FELM Model with clustered standard errors
+data_non_nato <- data_non_ukraine %>%
+  filter(!country %in% c("Albania","Turkey","Hungary"))
+model2d <- felm(sentiment_clean ~ running*treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = data_non_nato)
+
+summary(model2d)
+
+```
+
+```{r}
+# Visualization
+
+data_non_nato %>%
+  mutate_at(c("indicator"),as.factor) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `indicator`, color = `indicator`)) +
+  geom_point(data= data_non_nato %>% 
+              group_by(running,state_owned) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Ty[e") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 3D: Effect of Invasion on Sentiment",
+      subtitle = "Non Nato Countries",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+```{r}
+# Omitting Ukraine and Belarus
+# FELM Model with clustered standard errors
+data_non_involved <- data_non_ukraine %>%
+  filter(!country %in% c("Belarus"))
+model2g <- felm(sentiment_clean ~ running*treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = data_non_involved)
+
+summary(model2g)
+
+data_non_involved_non_mil <- data_non_involved %>%
+  filter(!topic_clean == "Military")
+
+model2g_non_mil <- felm(sentiment_clean ~ running*treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = data_non_involved_non_mil)
+
+summary(model2g_non_mil)
+
+
+```
+
+```{r}
+# Visualization
+
+data_non_involved %>%
+  mutate_at(c("indicator"),as.factor) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `indicator`, color = `indicator`)) +
+  geom_point(data= data_non_involved %>% 
+              group_by(running,state_owned) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 3G: Effect of Invasion on Sentiment",
+      subtitle = "Ukraine and Belarus Removed",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+```{r}
+# Ukraine Only
+# FELM Model with clustered standard errors
+model2h <- felm(sentiment_clean ~ running*treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = data_ukraine)
+
+summary(model2h)
+
+```
+
+```{r}
+# Visualization
+
+data_ukraine %>%
+  mutate_at(c("indicator"),as.factor) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `indicator`, color = `indicator`)) +
+  geom_point(data= data_ukraine %>% 
+              group_by(running,state_owned) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 3G: Effect of Invasion on Sentiment",
+      subtitle = "Ukraine Only",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+# Diff-in-Diff Analysis
+
+### Diff-in-Diff Regression
+```{r}
+# Use Optimal Bandwidth Data
+
+model_diff_in_diff <- felm(sentiment_clean ~ treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = optimal_bandwidth_data)
+
+summary(model_diff_in_diff)
+
+```
+### Event Study
+
+```{r}
+# # Create a factor variable for the running variable
+# optimal_data_event <- optimal_bandwidth_data %>%
+#     mutate(
+#       event_time_factor = factor(running)
+#     )
+# 
+# # Run the regression
+# es_model <- feols(sentiment_clean ~ i(state_owned, event_time_factor) | source_domain + topic_clean + country,
+#                   data = optimal_data_event, 
+#                   vcov = cluster~source_domain)
+# 
+# summary(es_model)
+```
+
+
+```{r}
+# plot_es <- iplot(
+#     es_model, 
+#     main = "Event Study Plot (Test for Parallel Trends)",
+#     xlab = "Periods Relative to Treatment (Days/Months/Years)", 
+#     ylab = "Effect on Sentiment (Coefficients $\\gamma_k$)",
+#     # Adjust horizontal line at y=0
+#     ref.line = 0,
+#     # Adjust vertical line at treatment onset (t=0)
+#     ref.point = -0.5,
+#     col = c("blue", "red"), # Custom colors for pre/post treatment periods
+#     lwd = 1.5
+# )
+# 
+# es_tidy <- tidy(es_model) %>%
+#   filter(grepl("event_time_factor", term)) %>%
+#   mutate(
+#     # Extract the event time number
+#     event_time = as.numeric(gsub("event_time_factor::", "", term)),
+#     # Calculate upper/lower bounds for the 95% CI
+#     conf.low = estimate - 1.96 * std.error,
+#     conf.high = estimate + 1.96 * std.error
+#   ) %>%
+#   # Filter out the baseline (-1)
+#   filter(event_time != -1)
+# 
+# custom_plot <- ggplot(es_tidy, aes(x = event_time, y = estimate)) +
+#   # Add the confidence intervals
+#   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0, linewidth = 0.8, color = "darkgray") +
+#   # Add the coefficients as points, colored by pre/post
+#   geom_point(aes(color = event_time < 0), size = 3) +
+#   scale_color_manual(values = c("TRUE" = "#1f78b4", "FALSE" = "#e31a1c"), name = "Period", labels = c("Post-Treatment", "Pre-Treatment")) +
+#   # Add a horizontal line at 0 (null effect)
+#   geom_hline(yintercept = 0, linetype = "dashed", color = "black", alpha = 0.7) +
+#   # Add a vertical line marking the start of treatment (between -1 and 0)
+#   geom_vline(xintercept = -0.5, linetype = "dotted", color = "black", alpha = 0.7) +
+#   labs(
+#     title = "Event Study: Sentiment Effect Over Time (Non-Staggered Correction)",
+#     subtitle = "Feols syntax fixed. Time FE removed, Group Dummy and Unit FE retained.",
+#     x = "Periods Relative to Treatment (t=0 is Treatment Period)",
+#     y = "Estimated Treatment Effect (Sentiment $\\gamma_k$)"
+#   ) +
+#   theme_minimal(base_size = 14) +
+#   theme(legend.position = "none")
+# 
+# print(custom_plot)
+
+```
+
+
+# Without "Non-Russian"
+
+```{r}
+# Without "Non-Russian
+data_russian_related <- data %>%
+  filter(!Russian.Involvement == "Not") %>%
+  filter(!country %in% c("Ukraine")) %>%
+  filter(!topic_clean %in% c("Military"))
+# FELM Model with clustered standard errors
+model3a <- felm(sentiment_clean ~ running*treatment*state_owned | country + source_domain + topic_clean | 0 | source_domain, data = data_russian_related)
+
+summary(model3a)
+
+```
+
+```{r}
+# Visualization
+
+data_russian_related %>%
+  mutate_at(c("indicator"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `indicator`, color = `indicator`)) +
+  geom_point(data= data_russian_related %>% 
+              group_by(running,state_owned) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  ggtitle("Figure 4 Russia Only: Effect of Invasion on Sentiment, Diff-in-Discs") + 
+  xlab("Days Pre/Post Invasion") + 
+  ylab("Sentiment")
+```
+
+```{r}
+rows <- tibble::tribble(~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X')
+attr(rows, 'position') <- c(5,6,7)
+
+# note text
+note_text <- "All standard errors are clustered at the source level. Model 2 uses the triangular kernel within the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles.  Model 5 omits military-related articles and only uses articles that were classified as primarily Russian Related."
+
+# Wrap note into 80-character lines
+note_wrapped <- str_wrap(note_text, width = 80)
+
+table_2 <- modelsummary(list(model2a, model2a_opt, model2d, model2b, model3a),
+             output ="gt",
+             fmt = fmt_significant(2),
+             stars = TRUE,
+             coef_map = c("treatment" = "Invasion",
+                          "treatment:state_owned" = "State Owned x Treatment"),
+             gof_omit = "BIC|AIC|RMSE|Std.Errors",
+             title = "Difference in Discontinuity Analysis",
+             add_rows = rows,
+             notes = note_wrapped
+             )
+
+table_2
+
+#gtsave(table_2, "figures/table_2.html")
+```
+
+## December 7th Analysis
+
+```{r}
+data_dec <- data %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(running = as.numeric(date_publish - as.Date("2021-12-07"))) %>%
+  mutate(treatment = ifelse(date_publish < as.Date("2021-12-07"),
+                            0,
+                            1))
+  
+
+# FELM Model with clustered standard errors
+model4a <- felm(sentiment_clean ~ running*treatment | country + source_domain + Topic | 0 | source_domain, data = data_dec)
+
+summary(model4a)
+```
+
+```{r}
+# Visualization
+
+data_dec %>%
+  mutate_at(c("treatment"),as.factor) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `treatment`, color = `treatment`)) +
+  geom_point(data= data_dec %>% 
+              group_by(running) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  ggtitle("Figure 3: Effect of Announcement on Sentiment") + 
+  xlab("Days Pre/Post Announcement") + 
+  ylab("Sentiment")
+```
+
+# Explanation of State Variance
+
+## Alignment with Russia. Neutral vs CSTO
+
+```{r}
+# Create alignment variables
+csto <- c("Armenia", "Azerbaijan", "Belarus", "Kazakhstan")
+nato <- c("Albania", "Ukraine", "Turkey", "Hungary")
+neutral <- c("Georgia", "Moldova", "Kosovo", "Serbia")
+
+data$csto <- ifelse(data$country %in% csto, 1, 0)
+data$nato <- ifelse(data$country %in% nato, 1, 0)
+data$neutral <- ifelse(data$country %in% neutral, 1, 0)
+
+data_align <- data %>%
+  filter(nato == 0)
+
+data_align <- data_align %>%
+  mutate(align_indicator = factor(case_when(
+                                     indicator == 1 & csto == 1 ~ "Pre. Ind. CSTO",
+                                     indicator == 1 & csto == 0 ~ "Pre. Ind. Neut",
+                                     indicator == 2 & csto == 1 ~ "Pre. State CSTO",
+                                     indicator == 2 & csto == 0 ~ "Pre. State Neut",
+                                     indicator == 3 & csto == 1 ~ "Post Ind. CSTO",
+                                     indicator == 3 & csto == 0 ~ "Post Ind. Neut",
+                                     indicator == 4 & csto == 1 ~ "Post State CSTO",
+                                     indicator == 4 & csto == 0 ~ "Post State Neut"),
+         levels = c("Pre. Ind. CSTO", "Pre. Ind. Neut", "Pre. State CSTO", 
+                    "Pre. State Neut", "Post Ind. CSTO", "Post Ind. Neut", 
+                    "Post State CSTO", "Post State Neut")))
+```
+
+
+```{r}
+# Alignment Independent media graph
+
+data_align %>%
+  filter(state_owned == 0) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `align_indicator`, color = `align_indicator`)) +
+  geom_point(data= data_align %>%
+              filter(state_owned == 0) %>%
+              group_by(running, csto) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 6: Effect of Invasion on Indpendent Media Sentiment",
+      subtitle = "Neutral VS Russia Aligned, Difference in Discontinuities",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+```
+
+
+```{r}
+# Alignment State Owned media graph
+
+state_align_discs_graph <- data_align %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `align_indicator`, color = `align_indicator`)) +
+  geom_point(data= data_align %>%
+              filter(state_owned == 1) %>%
+              group_by(running, csto) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Effect of Invasion on State Media Sentiment",
+      subtitle = "Neutral VS Russia Aligned, Difference in Discontinuities",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+state_align_discs_graph
+
+ggsave(plot = state_align_discs_graph, "figures/state_align_discs.png")
+
+```
+
+
+```{r}
+# Alignment State Owned media graph, non-military
+
+data_align %>%
+  filter(state_owned == 1) %>%
+  filter(!topic_clean %in% "Military") %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `align_indicator`, color = `align_indicator`)) +
+  geom_point(data= data_align %>%
+              filter(state_owned == 1) %>%
+              group_by(running, csto) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 7A: Effect of Invasion on State Media Sentiment",
+      subtitle = "Neutral VS Russia Aligned, Difference in Discontinuities, Non-Mil Topics",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+```
+
+### State Differences Regression
+
+```{r}
+# State Owned Media, CSTO Regression
+
+data_align_state <- data_align %>%
+  filter(state_owned == 1) %>%
+  filter(csto == 1)
+
+#model5a <- felm(sentiment_clean ~ running*treatment*csto | country + topic_clean | 0 | source_domain, data = data_align_state)
+
+model5a_state <- felm(sentiment_clean ~ running*treatment | source_domain + topic_clean | 0 | source_domain, data = data_align_state)
+
+summary(model5a_state)
+```
+
+```{r}
+# State Owned Media, Neutral Regression
+
+data_align_state <- data_align %>%
+  filter(state_owned == 1) %>%
+  filter(csto == 0)
+
+#model5a <- felm(sentiment_clean ~ running*treatment*csto | country + topic_clean | 0 | source_domain, data = data_align_state)
+
+model5a_neutral <- felm(sentiment_clean ~ running*treatment | source_domain + topic_clean | 0 | source_domain, data = data_align_state)
+
+summary(model5a_neutral)
+```
+
+```{r}
+# State Owned Media Regression, Diff in Discs
+
+data_align_state <- data_align %>%
+  filter(state_owned == 1)
+
+#model5a <- felm(sentiment_clean ~ running*treatment*csto | country + topic_clean | 0 | source_domain, data = data_align_state)
+
+model5a <- felm(sentiment_clean ~ running*treatment*csto | 0 | 0 | source_domain, data = data_align_state)
+
+summary(model5a)
+```
+
+
+```{r}
+data_align %>%
+  filter(state_owned == 1 & csto == 0) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `align_indicator`, color = `align_indicator`)) +
+  #geom_point(data= data_align %>%
+  #            filter(state_owned == 1) %>%
+  #            group_by(running, csto) %>% 
+  #            summarize(sentiment_clean = mean(sentiment_clean),
+  #                      num_obs = n()),
+  #           aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 7 Extra: Effect of Invasion on State Media Sentiment",
+      subtitle = "Neutral VS Russia Aligned, Difference in Discontinuities",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+```
+
+```{r}
+test_model <- lm(sentiment_clean ~ running*treatment + factor(topic_clean) + factor(country), data = data_align_state)
+
+# Pull running values
+running_pre <- data_align_state$running[data_align_state$running < 0]
+running_post <- data_align_state$running[data_align_state$running > 0]
+
+# Compute fitted values using model coefficients
+fitted_pre <- test_model$coefficients["running"] * running_pre
+
+fitted_post <- test_model$coefficients["running"] * running_post +
+               test_model$coefficients["running:treatment"] * running_post +
+               test_model$coefficients["treatment"]
+
+# Combine into one dataframe
+fitted_df <- bind_rows(
+  tibble(running = running_pre, fitted = fitted_pre, group = "Pre"),
+  tibble(running = running_post, fitted = fitted_post, group = "Post")
+)
+
+ggplot(fitted_df, aes(x = running, y = fitted, color = group)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Predicted Outcomes by Running Variable",
+    x = "Running Variable",
+    y = "Fitted Value",
+    color = "Treatment Period"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+
+# Pull running values
+running_pre <- data_align_state$running[data_align_state$running < 0]
+running_post <- data_align_state$running[data_align_state$running > 0]
+
+# Compute fitted values using model coefficients
+fitted_pre_ind <- model2a$coefficients["running",] * running_pre
+
+fitted_pre_state <- model2a$coefficients["running",] * running_pre + 
+  model2a$coefficients["running:state_owned",] * running_pre
+
+fitted_post_ind <- model2a$coefficients["running",] * running_post +
+               model2a$coefficients["running:treatment",] * running_post +
+               model2a$coefficients["treatment",]
+
+fitted_post_state <- model2a$coefficients["running",] * running_post +
+               model2a$coefficients["running:treatment",] * running_post +
+               model2a$coefficients["running:treatment:state_owned",] * running_post +
+               model2a$coefficients["treatment",] +
+               model2a$coefficients["treatment:state_owned",]
+
+# Combine into one dataframe
+fitted_df <- bind_rows(
+  tibble(running = running_pre, fitted = fitted_pre_ind, group = "Pre Ind"),
+  tibble(running = running_pre, fitted = fitted_pre_state, group = "Pre State"),
+  tibble(running = running_post, fitted = fitted_post_ind, group = "Post Ind"),
+  tibble(running = running_post, fitted = fitted_post_state, group = "Post State")
+)
+
+ggplot(fitted_df, aes(x = running, y = fitted, color = group)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Predicted Outcomes by Running Variable",
+    x = "Running Variable",
+    y = "Fitted Value",
+    color = "Treatment Period"
+  ) +
+  theme_minimal()
+```
+
+
+
+### State Differences Optimal Bandwidth
+
+```{r}
+# State Owned Media regression Optimal Bandwidth
+
+summary(rdbwselect(y = data_align_state$sentiment_clean, x = data_align_state$running, kernel = "triangular", cluster = data_align_state$source_domain, p = 1, bwselect = "mserd"))
+
+optimal_bandwidth_data_state <- data_align_state %>%
+  filter(running < 55) %>%
+  filter(running > -55)
+
+model5a_opt <- felm(sentiment_clean ~ running*treatment*csto | 0 | 0 | source_domain, data = optimal_bandwidth_data_state)
+
+summary(model5a_opt)
+```
+
+```{r}
+# SD analysis
+sd_state_owned <- sd(data_align_state$sentiment_clean)
+
+sd_state_owned
+
+summary(model5a_opt)$coef[7]/sd_state_owned
+```
+
+
+```{r}
+# Alignment State Owned media graph
+
+data_align_state %>%
+  filter(running < 50) %>%
+  filter(running > -50) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `align_indicator`, color = `align_indicator`)) +
+  geom_point(data= data_align_state %>%
+              filter(running < 50) %>%
+              filter(running > -50) %>%
+              group_by(running, csto) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 7B: Effect of Invasion on State Media Sentiment",
+      subtitle = "Neutral VS Russia Aligned, Difference in Discontinuities, Non-Mil Topics",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+```
+
+
+### Russian Alignment, non-military
+
+```{r}
+# State Owned Media Regression, Diff in Discs
+
+data_align_state_non_mil <- data_align_state %>%
+  filter(!topic_clean %in% "Military")
+
+#model5a <- felm(sentiment_clean ~ running*treatment*csto | country + topic_clean | 0 | source_domain, data = data_align_state)
+
+model5a_non_mil <- felm(sentiment_clean ~ running*treatment*csto | 0 | 0 | source_domain, data = data_align_state_non_mil)
+
+summary(model5a_non_mil)
+```
+
+```{r}
+# Alignment State Owned media graph, non-military
+
+data_align_state %>%
+  filter(!topic_clean %in% "Military") %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `align_indicator`, color = `align_indicator`)) +
+  geom_point(data= data_align_state %>%
+              filter(running < 50 & running > -50) %>%
+              group_by(running, csto) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 7C: Effect of Invasion on State Media Sentiment",
+      subtitle = "Neutral VS Russia Aligned, Difference in Discontinuities, Non-Mil Topics",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+```
+
+### Russian Alignment, non-military, russia only
+
+```{r}
+# State Owned Media Regression, Diff in Discs
+
+data_align_state_non_mil_russia <- data_align_state_non_mil %>%
+  filter(!Russian.Involvement %in% "Not")
+
+model5a_non_mil_russia <- felm(sentiment_clean ~ running*treatment*csto | 0 | 0 | source_domain, data = data_align_state_non_mil_russia)
+
+summary(model5a_non_mil_russia)
+```
+
+### Russian Alignment Table
+
+```{r}
+# note text
+note_text <- "All standard errors are clustered at the source level. Model 2 uses the triangular kernel within the optimal bandwidth. Model 3 omits military-related articles."
+
+# Wrap note into 80-character lines
+note_wrapped <- str_wrap(note_text, width = 80)
+
+table_3 <- modelsummary(list(model5a, model5a_opt, model5a_non_mil),
+             output ="gt",
+             fmt = fmt_significant(2),
+             stars = TRUE,
+             coef_map = c("treatment" = "Invasion",
+                          "treatment:csto" = "CSTO x Treatment"),
+             gof_omit = "BIC|AIC|RMSE|Std.Errors",
+             title = "Russian Alignment: Difference in Discontinuity Analysis",
+             #add_rows = rows,
+             notes = note_wrapped
+             )
+
+table_3
+
+#save_kable(table_3, "table_3.html", format = "html")
+
+#gtsave(table_3, "figures/table_3.html")
+```
+
+
+```{r}
+
+# Note text, wrapped with <br>
+note_text <- "All standard errors are clustered at the source level. Model 2 uses the triangular kernel within the optimal bandwidth. Model 3 omits military-related articles."
+note_wrapped <- gsub("\n", "<br>", str_wrap(note_text, width = 80))
+
+# Save as HTML
+stargazer(model5a, model5a_opt, model5a_non_mil,
+          type = "html",
+          out = "figures/table_3.html",
+          title = "Russian Alignment: Difference in Discontinuity Analysis",
+          covariate.labels = c("Invasion", "CSTO x Treatment"),
+          dep.var.labels = "Sentiment",
+          notes = note_wrapped,
+          notes.align = "l",
+          omit.stat = c("aic", "bic", "f", "ll", "ser"))
+```
+
+
+## Russian Ethnic Population
+### Threshold of 3%
+
+```{r}
+# Create alignment variables
+high_russian <- c("Moldova", "Belarus", "Kazakhstan", "Georgia")
+low_russian <- c("Azerbaijan", "Armenia", "Kosovo", "Serbia")
+
+data$high_russia <- ifelse(data$country %in% high_russian, 1, 0)
+
+data_ethnic <- data %>%
+  filter(nato == 0)
+
+data_ethnic <- data_ethnic %>%
+  mutate(ethnic_indicator = factor(case_when(
+                                     indicator == 1 & high_russia == 1 ~ "Pre. Ind. High Rus",
+                                     indicator == 1 & high_russia == 0 ~ "Pre. Ind. Low Rus",
+                                     indicator == 2 & high_russia == 1 ~ "Pre. State High Rus",
+                                     indicator == 2 & high_russia == 0 ~ "Pre. State Low Rus",
+                                     indicator == 3 & high_russia == 1 ~ "Post Ind. High Rus",
+                                     indicator == 3 & high_russia == 0 ~ "Post Ind. Low Rus",
+                                     indicator == 4 & high_russia == 1 ~ "Post State High Rus",
+                                     indicator == 4 & high_russia == 0 ~ "Post State Low Rus"),
+                                     levels = c("Pre. Ind. High Rus", "Pre. Ind. Low Rus", "Pre. State High Rus", "Pre. State Low Rus", "Post Ind. High Rus", "Post Ind. Low Rus", "Post State High Rus", "Post State Low Rus")))
+
+```
+
+
+```{r}
+# Ethnic Independent media graph
+
+data_ethnic %>%
+  filter(state_owned == 0) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `ethnic_indicator`, color = `ethnic_indicator`)) +
+  geom_point(data= data_ethnic %>%
+              filter(state_owned == 0) %>%
+              group_by(running, csto) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Figure 8: Effect of Invasion on Indpendent Media Sentiment",
+      subtitle = "High VS Low Ethnic Russian, Difference in Discontinuities",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+```
+
+
+```{r}
+# Ethnic State Owned media graph
+
+ethnic_discs_graph <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = `ethnic_indicator`, color = `ethnic_indicator`)) +
+  geom_point(data= data_ethnic %>%
+              filter(state_owned == 1) %>%
+              group_by(running, csto) %>% 
+              summarize(sentiment_clean = mean(sentiment_clean),
+                        num_obs = n()),
+             aes(x = running, y = sentiment_clean, size=num_obs), alpha=.2, inherit.aes=F) +
+  geom_smooth(method="lm") +
+  scale_color_manual(values=c("dodgerblue","forestgreen", "red4","darkorange"), name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept=0, linetype="dashed", alpha=.7) +
+  theme_classic() +
+  labs(title = "Effect of Invasion on State Media Sentiment",
+      subtitle = "High VS Low Ethnic Russian, Difference in Discontinuities",
+      x = "Days Pre/Post Invasion",
+      y = "Sentiment")
+
+ethnic_discs_graph
+
+ggsave(plot = ethnic_discs_graph, "figures/ethnic_discs.png")
+```
+
+
+### Regresion Result
+
+```{r}
+# State Owned Media Regression, Diff in Discs
+
+data_ethnic_state <- data_ethnic %>%
+  filter(state_owned == 1)
+
+model6a <- felm(sentiment_clean ~ running*treatment*high_russia | 0 | 0 | 0, data = data_ethnic_state)
+
+summary(model6a)
+```
+
+
+## State Motivation
+
+```{r}
+# Ethnic State Owned media graph
+
+data <- data %>%
+  mutate(state_indicator = factor(paste(country, treatment, sep = ", ")))
+
+# Create alliance for faceting
+data_long <- data %>%
+  pivot_longer(cols = c(nato, csto, neutral),
+               names_to = "alliance",
+               values_to = "membership") %>%
+  filter(membership == 1) %>%
+  mutate(alliance = factor(alliance, levels = c("nato", "csto", "neutral")))
+
+data_long %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = state_indicator, color = country)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  scale_size(name = "Observations") +
+  theme_classic() +
+  facet_wrap(~alliance, nrow = 2) +
+  labs(
+    title = "Figure 9: Effect of Invasion on State Media Sentiment",
+    subtitle = "High VS Low Ethnic Russian, Difference in Discontinuities",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+```
+
+```{r}
+# Prepare the data
+sentiment_table <- data %>%
+  filter(running >= -10 & running <= 10) %>%
+  filter(state_owned == 1) %>%
+  mutate(window = case_when(
+    running < 0 ~ "Before Invasion",
+    running > 0 ~ "After Invasion"
+  )) %>%
+  group_by(country, window) %>%
+  summarize(mean_sentiment = mean(sentiment_clean, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(
+    names_from = window,
+    values_from = mean_sentiment
+  ) %>%
+  mutate(across(c(`Before Invasion`, `After Invasion`), ~round(., 3))) %>%
+  select(-"NA") %>%
+  mutate(Difference = `After Invasion` - `Before Invasion`) %>%
+  select(country, "Before Invasion", "After Invasion", Difference)
+
+# Make the gt table
+gt_table <- sentiment_table %>%
+  gt() %>%
+  tab_header(
+    title = "Mean Sentiment Before and After Invasion",
+    subtitle = "By Country, within ±10 Day Window"
+  ) %>%
+  cols_label(
+    country = "Country",
+    `Before Invasion` = "Mean Sentiment (Before)",
+    `After Invasion` = "Mean Sentiment (After)",
+    `Difference` = "Difference"
+  ) %>%
+  fmt_number(
+    columns = c(`Before Invasion`, `After Invasion`, `Difference`),
+    decimals = 3
+  )
+
+gt_table
+```
+
+
+```{r}
+# Define a function to get mean, SE, and p-value for each country
+summarize_stats <- function(df) {
+  before <- df %>% filter(running >= -14 & running < 0)
+  after  <- df %>% filter(running > 0 & running <= 14)
+  
+  # Paired t-test
+  ttest <- t.test(before$sentiment_clean, after$sentiment_clean, paired = FALSE)
+  
+  tibble(
+    mean_before = mean(before$sentiment_clean, na.rm = TRUE),
+    se_before = sd(before$sentiment_clean, na.rm = TRUE) / sqrt(nrow(before)),
+    mean_after = mean(after$sentiment_clean, na.rm = TRUE),
+    se_after = sd(after$sentiment_clean, na.rm = TRUE) / sqrt(nrow(after)),
+    diff = - mean(before$sentiment_clean, na.rm = TRUE) + mean(after$sentiment_clean, na.rm = TRUE),
+    p_value = ttest$p.value
+  )
+}
+
+# Apply to each country
+sentiment_summary <- data %>%
+  filter(running >= -14 & running <= 14) %>%
+  filter(state_owned == 1) %>%
+  group_by(country) %>%
+  group_modify(~summarize_stats(.x)) %>%
+  ungroup()
+
+# Add significance stars
+sentiment_summary <- sentiment_summary %>%
+  mutate(
+    stars = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01 ~ "**",
+      p_value < 0.05 ~ "*",
+      is.na(p_value) ~ "",
+      TRUE ~ ""
+    ),
+    diff_label = paste0(round(diff, 3), " ", stars),
+    before_label = paste0(round(mean_before, 3), "\n(", round(se_before, 3), ")"),
+    after_label = paste0(round(mean_after, 3), "\n(", round(se_after, 3), ")")
+  )
+
+
+country_table <- sentiment_summary %>%
+  select(country, before_label, after_label, diff_label) %>%
+  gt() %>%
+  tab_header(
+    title = "Mean Sentiment Before and After Invasion",
+    subtitle = "With Standard Errors and Significance Stars (±2 Week Window)"
+  ) %>%
+  cols_label(
+    country = "Country",
+    before_label = "Before",
+    after_label = "After",
+    diff_label = "Diff (After - Before)"
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_body()
+  )
+
+country_table
+
+
+#gtsave(country_table, "figures/country_table.html")
+```
+
+
+```{r}
+# Hand check
+
+test_kazakhstan_before <- data_non_ukraine %>%
+  filter(country %in% "Kazakhstan" & treatment == 0 & state_owned == 1) %>%
+  filter(running >= -14 & running < 0)
+
+test_kazakhstan_after <- data_non_ukraine %>%
+  filter(country %in% "Kazakhstan" & treatment == 1 & state_owned == 1) %>% 
+  filter(running > 0 & running <= 14)
+
+t.test(test_kazakhstan_before$sentiment_clean,test_kazakhstan_after$sentiment_clean)
+```
+
+# Summary statistics and descriptive analysis
+
+## Basic Summary statistics
+```{r}
+
+# Create summary stats
+sample_summary <- tibble(
+  `Total articles` = nrow(data_non_ukraine),
+  `Number of countries` = n_distinct(data_non_ukraine$country),
+  `Date range` = paste0(
+    format(min(data_non_ukraine$date_publish, na.rm = TRUE), "%Y-%m-%d"),
+    " to ",
+    format(max(data_non_ukraine$date_publish, na.rm = TRUE), "%Y-%m-%d")
+  ),
+  `Mean sentiment` = round(mean(data_non_ukraine$sentiment_clean, na.rm = TRUE), 3),
+  `Sentiment SD` = round(sd(data_non_ukraine$sentiment_clean, na.rm = TRUE), 3),
+  `State-owned %` = round(mean(data_non_ukraine$state_owned, na.rm = TRUE) * 100, 1),
+  `Independent %` = round(100 - mean(data_non_ukraine$state_owned, na.rm = TRUE) * 100, 1),
+  `Number of unique sources` = n_distinct(data_non_ukraine$source_domain),
+  `Number of topics` = n_distinct(data_non_ukraine$topic_clean)
+) %>%
+  mutate(across(everything(), as.character))  # Convert all to character
+
+summary_statistics_table <- sample_summary %>%
+  pivot_longer(everything(), names_to = "Statistic", values_to = "Value") %>%
+  gt() %>%
+  tab_header(
+    title = "Descriptive Overview of News Article Dataset"
+  ) %>%
+  cols_label(
+    Statistic = "Statistic",
+    Value = "Value"
+  ) %>%
+  tab_style(
+    style = cell_text(align = "left"),
+    locations = cells_body(columns = Statistic)
+  )
+
+summary_statistics_table
+
+gtsave(summary_statistics_table, "figures/summary_statistics_table.html")
+```
+
+
+## Distribution by Topic
+
+```{r}
+
+# Step 1: Create a before/after indicator
+data_topic_counts <- data_non_ukraine %>%
+  filter(!is.na(topic_clean)) %>%
+  mutate(
+    topic_clean = factor(topic_clean, levels = c("Political", "Military", "Economic", "Culture", "Other")),
+    period = case_when(
+    running < 0 ~ "Before Invasion",
+    running > 0 ~ "After Invasion",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean, period) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+
+# Make plot
+topic_all <- ggplot(data_topic_counts, aes(x = topic_clean, y = article_count, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Distribution of Articles by Topic",
+    subtitle = "Before and After Invasion",
+    x = "Topic",
+    y = "Number of Articles",
+    fill = "Period"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+
+topic_all
+
+ggsave(plot = topic_all, "figures/topic_distribution.png")
+```
+
+## Distribution by Topic, State vs Independent
+
+```{r}
+# Step 1: Create a before/after indicator
+data_topic_counts_state <- data_non_ukraine %>%
+  filter(!is.na(topic_clean)) %>%
+  filter(state_owned == 1) %>%
+  mutate(topic_clean = factor(topic_clean, levels = c("Political", "Military", "Economic", "Culture", "Other")),
+    period = case_when(
+    running < 0 ~ "Before Invasion",
+    running > 0 ~ "After Invasion",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean, period) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+data_topic_counts_ind <- data_non_ukraine %>%
+  filter(!is.na(topic_clean)) %>%
+  filter(state_owned == 0) %>%
+  mutate(topic_clean = factor(topic_clean, levels = c("Political", "Military", "Economic", "Culture", "Other")),
+    period = case_when(
+    running < 0 ~ "Before Invasion",
+    running > 0 ~ "After Invasion",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean, period) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+# Make both plots with legends turned **on**, but hide legend in one
+topic_state <- ggplot(data_topic_counts_state, aes(x = topic_clean, y = article_count, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Distribution of Articles by Topic",
+    subtitle = "State Media",
+    x = "Topic",
+    y = "Number of Articles",
+    fill = "Period"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+topic_ind <- ggplot(data_topic_counts_ind, aes(x = topic_clean, y = article_count, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "",
+    subtitle = "Independent Media",
+    x = "Topic",
+    y = "Number of Articles",
+    fill = "Period"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+# Combine with patchwork: one legend at bottom
+topic_split <- (topic_state | topic_ind) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+
+topic_split
+
+ggsave(plot = topic_split, "figures/topic_split.png")
+
+```
+
+## Sentiment by Topic
+
+```{r}
+# Desired topic order
+topic_order <- c("Political", "Military", "Economic", "Culture", "Other")
+
+# Step 1: Summary stats by topic and period
+sentiment_topic_stats <- data_non_ukraine %>%
+  filter(!is.na(topic_clean), topic_clean %in% topic_order) %>%
+  mutate(
+    period = case_when(
+      running < 0 ~ "Before",
+      running > 0 ~ "After",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean, period) %>%
+  summarize(
+    mean_sentiment = mean(sentiment_clean, na.rm = TRUE),
+    sd_sentiment = sd(sentiment_clean, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    label = paste0(round(mean_sentiment, 3), "\n(", round(sd_sentiment, 3), ")")
+  ) %>%
+  select(topic_clean, period, label) %>%
+  pivot_wider(names_from = period, values_from = label)
+
+# Step 2: Compute After - Before difference and p-values
+diff_stats <- data_non_ukraine %>%
+  filter(!is.na(topic_clean), topic_clean %in% topic_order) %>%
+  mutate(
+    period = case_when(
+      running < 0 ~ "Before",
+      running > 0 ~ "After",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(period)) %>%
+  group_by(topic_clean) %>%
+  group_modify(~ {
+    before_vals <- .x$sentiment_clean[.x$period == "Before"]
+    after_vals  <- .x$sentiment_clean[.x$period == "After"]
+    
+    t_result <- t.test(after_vals, before_vals, paired = FALSE)
+
+    tibble(
+      after_mean = mean(after_vals, na.rm = TRUE),
+      before_mean = mean(before_vals, na.rm = TRUE),
+      diff = after_mean - before_mean,
+      p_value = t_result$p.value
+    )
+  }) %>%
+  mutate(
+    stars = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01 ~ "**",
+      p_value < 0.05 ~ "*",
+      TRUE ~ ""
+    ),
+    Difference = paste0(round(diff, 3), " ", stars)
+  ) %>%
+  select(topic_clean, Difference)
+
+# Step 3: Merge and reorder columns
+summary_table <- sentiment_topic_stats %>%
+  left_join(diff_stats, by = "topic_clean") %>%
+  mutate(topic_clean = factor(topic_clean, levels = topic_order)) %>%
+  arrange(topic_clean) %>%
+  select(topic_clean, Before, After, Difference)
+
+# Make the table
+
+sentiment_by_topic_table <- summary_table %>%
+  gt() %>%
+  tab_header(
+    title = "Sentiment by Topic: Before and After Invasion",
+    subtitle = "Mean Sentiment with Standard Deviations and Significance (After - Before)"
+  ) %>%
+  cols_label(
+    topic_clean = "Topic",
+    Before = "Before",
+    After = "After",
+    Difference = "Difference"
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_body(columns = c(Before, After, Difference))
+  ) %>%
+  tab_style(
+    style = cell_text(align = "left"),
+    locations = cells_body(columns = topic_clean)
+  )
+
+sentiment_by_topic_table
+
+gtsave(sentiment_by_topic_table, "figures/sentiment_by_topic.html")
+```
+
+
+```{r}
+# Hand check
+
+test_political_before <- data_non_ukraine %>%
+  filter(topic_clean == "Political" & treatment == 0)
+
+test_political_after <- data_non_ukraine %>%
+  filter(topic_clean == "Political" & treatment == 1)
+
+t.test(test_political_before$sentiment_clean,test_political_after$sentiment_clean)
+```
+
+## Articles per Day Graph
+
+```{r}
+# Step 1: Prepare daily article counts by media type
+articles_per_day_by_ownership <- data %>%
+  filter(!is.na(date_publish)) %>%
+  mutate(
+    media_type = ifelse(state_owned == 1, "State-Owned", "Independent")
+  ) %>%
+  group_by(date = as.Date(date_publish), media_type) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+# Step 2: Plot
+articles_per_day_plot <- ggplot(articles_per_day_by_ownership, aes(x = date, y = article_count, color = media_type)) +
+  geom_line(size = 1) +
+  geom_vline(xintercept = as.Date("2022-02-24"), linetype = "dashed", color = "black", linewidth = 1) +
+  labs(
+    title = "Articles Over Time by Media Ownership",
+    subtitle = "Black dashed line = Day of Invasion (2022-02-24)",
+    x = "Date",
+    y = "Number of Articles",
+    color = "Media Type"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10)
+  )
+
+articles_per_day_plot
+
+ggsave(plot = articles_per_day_plot, "figures/articles_per_day.png")
+```
+
+```{r}
+# Get article count for independent media on 2021-09-20
+highlight_point <- articles_per_day_by_ownership %>%
+  filter(date == as.Date("2021-09-20"), media_type == "Independent")
+
+articles_per_day_plot_annotated <- ggplot(articles_per_day_by_ownership, aes(x = date, y = article_count, color = media_type)) +
+  geom_line(size = 1) +
+
+  # Black dashed line for invasion
+  geom_vline(xintercept = as.Date("2022-02-24"), linetype = "dashed", color = "black", linewidth = 1) +
+
+  # Text label above the arrow
+  annotate(
+    "text",
+    x = as.Date("2021-09-20"),
+    y = highlight_point$article_count + 500,
+    label = "Perm State University Shooting\n& Russian Election",
+    hjust = 0.5,
+    size = 3.5,
+    color = "black"
+  ) +
+
+  # Proper arrow pointing down
+  geom_curve(
+  aes(x = as.Date("2021-09-20"), xend = as.Date("2021-09-20"),
+      y = highlight_point$article_count + 300, yend = highlight_point$article_count + 25),
+  arrow = arrow(type = "closed", length = unit(0.15, "inches")),
+  color = "goldenrod1",
+  curvature = 0,        # straight line (not curved)
+  linewidth = 0.75,
+  inherit.aes = FALSE
+  ) +
+
+  labs(
+    title = "Articles Over Time by Media Ownership",
+    subtitle = "Black dashed line = Day of Invasion (2022-02-24)",
+    x = "Date",
+    y = "Number of Articles",
+    color = "Media Type"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10)
+  )
+
+articles_per_day_plot_annotated
+
+ggsave(plot = articles_per_day_plot_annotated, "figures/articles_per_day_anno.png")
+```
+
+
+## Tables for State Behavior
+
+```{r}
+# Intersection function
+get_group <- function(russian_group, security_group) {
+  paste(intersect(russian_group, security_group), collapse = ", ")
+}
+
+# Create table data
+table_data <- data.frame(
+  `Ethnic Russian Population` = c("Low Ethnic", "High Ethnic"),
+  `Low Russia Aligned` = c(
+    get_group(low_russian, neutral),
+    get_group(high_russian, neutral)
+  ),
+  `High Russia Aligned` = c(
+    get_group(low_russian, csto),
+    get_group(high_russian, csto)
+  )
+)
+
+# Create GT table
+
+main_table <- table_data %>%
+  gt() %>%
+  tab_header(
+    title = "Ethnic Russian Population × Russia Security Alignment",
+    subtitle = "Potential Comparisons"
+  ) %>%
+  cols_label(
+    Ethnic.Russian.Population = "",
+    Low.Russia.Aligned = "Low Alignment",
+    High.Russia.Aligned = "High Alignment"
+  ) %>%
+  fmt_markdown(everything()) %>%
+  
+  # Vertical divider between the two alignment columns
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(columns = "Low.Russia.Aligned")
+  ) %>%
+  
+  # Horizontal divider between the two ethnic population rows
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1, columns = 2:3)
+  ) %>%
+  
+  # Outline top of the top row
+  tab_style(
+    style = cell_borders(
+      sides = "top",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1, columns = 2:3)
+  ) %>%
+  
+  # Outline bottom of the bottom row
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 2, columns = 2:3)
+  ) %>%
+  
+  # Outline left of first column in result cells
+  tab_style(
+    style = cell_borders(
+      sides = "left",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1:2, columns = 2)
+  ) %>%
+  
+  # Outline right of second column in result cells
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1:2, columns = 3)
+  )
+
+main_table
+
+gtsave(main_table, "figures/comparison_table.html")
+```
+
+
+```{r}
+# Alignment table
+# Create GT table
+
+alignment_table <- table_data %>%
+  gt() %>%
+  tab_header(
+    title = "Ethnic Russian Population × Russia Security Alignment",
+    subtitle = "Alignment Comparison"
+  ) %>%
+  cols_label(
+    Ethnic.Russian.Population = "",
+    Low.Russia.Aligned = "Low Alignment",
+    High.Russia.Aligned = "High Alignment"
+  ) %>%
+  fmt_markdown(everything()) %>%
+  
+  # Vertical divider between the two alignment columns
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(columns = "Low.Russia.Aligned")
+  ) %>%
+  
+  # Horizontal divider between the two ethnic population rows
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "white",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1, columns = 2:3)
+  ) %>%
+  
+  # Outline top of the top row
+  tab_style(
+    style = cell_borders(
+      sides = "top",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1, columns = 2:3)
+  ) %>%
+  
+  # Outline bottom of the bottom row
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 2, columns = 2:3)
+  ) %>%
+  
+  # Outline left of first column in result cells
+  tab_style(
+    style = cell_borders(
+      sides = "left",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1:2, columns = 2)
+  ) %>%
+  
+  # Outline right of second column in result cells
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1:2, columns = 3)
+  )
+
+alignment_table
+
+gtsave(alignment_table, "figures/alignment_table.html")
+```
+
+
+```{r}
+# Ethnic table
+# Create GT table
+
+ethnic_table <- table_data %>%
+  gt() %>%
+  tab_header(
+    title = "Ethnic Russian Population × Russia Security Alignment",
+    subtitle = "Ethnic Comparison"
+  ) %>%
+  cols_label(
+    Ethnic.Russian.Population = "",
+    Low.Russia.Aligned = "Low Alignment",
+    High.Russia.Aligned = "High Alignment"
+  ) %>%
+  fmt_markdown(everything()) %>%
+  
+  # Vertical divider between the two alignment columns
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "white  ",
+      weight = px(2)
+    ),
+    locations = cells_body(columns = "Low.Russia.Aligned")
+  ) %>%
+  
+  # Horizontal divider between the two ethnic population rows
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1, columns = 2:3)
+  ) %>%
+  
+  # Outline top of the top row
+  tab_style(
+    style = cell_borders(
+      sides = "top",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1, columns = 2:3)
+  ) %>%
+  
+  # Outline bottom of the bottom row
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 2, columns = 2:3)
+  ) %>%
+  
+  # Outline left of first column in result cells
+  tab_style(
+    style = cell_borders(
+      sides = "left",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1:2, columns = 2)
+  ) %>%
+  
+  # Outline right of second column in result cells
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_body(rows = 1:2, columns = 3)
+  )
+
+ethnic_table
+
+gtsave(ethnic_table, "figures/ethnic_table.html")
+```

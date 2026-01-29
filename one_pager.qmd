@@ -1,0 +1,71 @@
+---
+title: "Ukraine Invasion Short Brief"
+author: "Donald Moratz"
+format: pdf
+editor: visual
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(dagitty)
+library(ggdag)
+library(tidyverse)
+```
+
+# Brief Overview
+
+## Core Research Questions
+
+-   How do state-owned and independent media sources respond when there is a significant disruption to the status quo in the international system?
+-   Why do states respond differently to the same event?
+
+## Data
+
+-   175,000 articles from 11 countries \footnote{Albania, Armenia, Azerbaijan, Belarus, Georgia, Hungary, Kazakhstan, Kosovo, Moldova, Serbia, and Turkey} from the 6 months on either side of the Invasion of Ukraine
+-   Split between state-owned and independent media outlets
+-   GPT-coded for Sentiment towards Russia {-1, 0, 1} and Topic {Politics, Military, Economic, Culture, Other}
+
+# Analysis
+
+-   Unit of analysis: article level
+-   Estimand: sentiment towards Russia expressed in an article
+-   Key Moderators: Media Ownership, Russian Alignment
+-   Key Covariate: Article Topic
+
+# DAG for State-Owned vs Independent
+
+```{r}
+# Coordinates for DAG Graph
+manual_coords <- list(
+  x = c("i" = 0, "m" = 0, "t" = 1, "s" = 2), # x-coordinates (left to right)
+  y = c("i" = 1, "m" = -1, "t" = 0, "s" = 0) # y-coordinates (for vertical separation)
+)
+
+
+sentiment_dag_labeled <- dagify(
+  s ~ m + t,
+  t ~ m,
+  m ~ i,
+  exposure = "i",
+  outcome = "s",
+  labels = c(
+    "s" = "Sentiment",
+    "m" = "Media Coverage",
+    "i" = "Invasion",
+    "t" = "Topic"
+  ),
+  coords = manual_coords
+)
+```
+
+```{r}
+ggdag(sentiment_dag_labeled, use_labels = "label") +
+  theme_dag() +
+  labs(title = "Hypothesized Causal Model")
+```
+
+# Parametric vs Non-Parametric
+
+Momentarily setting aside the regression difference in discontinuities design (RDiD). In `Covariate Aadjustment in Regression Discontinuity Designs` (Catteneo, Keele and Titiunik, 2024) discuss approaches to including covariates in RDD. They highlight the benefits to applying covariate adjustments, but also discuss how using covariate adjustments frequently restricts the user to parametric estimation (though not always). Given the DAG described above, I believe that the interesting pathway is the bottom path from m -> s, rather than the path from m->t->s. Since topics often come with their own valence, identifying that the Ukraine invasion changes sentiment towards Russia requires blocking the path through topic. This is because otherwise the research risks conflating topic changes with sentiment changes. This would seem to strongly favor using a parametric estimator for the RDD so that topic can be controlled for as a covariate. One alternative would be to use a non-parametric specification within each topic, essentially controlling for topic by conducting 5 separate analyses, and there is sufficient data here to justify considering that choice.
+
+Returning to RDiD, my current reading of the brief amount of literature on it is that many of the considerations that are required for RDD are similar to those for RDiD. The DAG presented here suggests that media type would be a moderator, which strongly suggests the use of RDiD to analyze the different impacts the invasion has on sentiment. However, topic would still be a covariate that would need to be controlled for. This could be done by splitting the data into topics and conducting 5 separate non-parametric RDiDs, and here again, I think the data are sufficient to allow for this approach. However, I propose to spend time developing the parametric approach because I believe it will have applications for when data are insufficient to allow for splitting in this fashion.
