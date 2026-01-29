@@ -125,7 +125,7 @@ state_align_discs_graph <- data_align %>%
 state_align_discs_graph
 
 ggsave(plot = state_align_discs_graph,
-       file.path(FIGURES_DIR, "state_align_discs.png"),
+       file.path(FIGURES_HETEROGENEITY, "state_align_discs.png"),
        width = 10, height = 7)
 ```
 
@@ -267,7 +267,7 @@ ethnic_discs_graph <- data_ethnic %>%
 ethnic_discs_graph
 
 ggsave(plot = ethnic_discs_graph,
-       file.path(FIGURES_DIR, "ethnic_discs.png"),
+       file.path(FIGURES_HETEROGENEITY, "ethnic_discs.png"),
        width = 10, height = 7)
 ```
 
@@ -339,7 +339,7 @@ table_3
 # Also save as HTML using stargazer
 stargazer(model5a, model5a_opt, model5a_non_mil,
           type = "html",
-          out = file.path(FIGURES_DIR, "table_3.html"),
+          out = file.path(FIGURES_TABLES, "table_3.html"),
           title = "Russian Alignment: Difference in Discontinuity Analysis",
           covariate.labels = c("Invasion", "CSTO x Treatment"),
           dep.var.labels = "Sentiment",

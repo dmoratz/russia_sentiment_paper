@@ -87,6 +87,21 @@ DATA_PROCESSED <- file.path(PROJECT_ROOT, "data", "processed")
 DATA_INTERMEDIATE <- file.path(PROJECT_ROOT, "data", "intermediate")
 FIGURES_DIR <- file.path(PROJECT_ROOT, "figures")
 
+# Figure subdirectories
+FIGURES_TABLES <- file.path(FIGURES_DIR, "tables")
+FIGURES_RDD <- file.path(FIGURES_DIR, "rdd")
+FIGURES_DIFF_DISC <- file.path(FIGURES_DIR, "diff_in_disc")
+FIGURES_HETEROGENEITY <- file.path(FIGURES_DIR, "heterogeneity")
+FIGURES_DESCRIPTIVE <- file.path(FIGURES_DIR, "descriptive")
+FIGURES_DAG <- file.path(FIGURES_DIR, "dag")
+
+# Create directories if they don't exist
+for (d in c(DATA_RAW, DATA_PROCESSED, DATA_INTERMEDIATE, FIGURES_DIR,
+            FIGURES_TABLES, FIGURES_RDD, FIGURES_DIFF_DISC,
+            FIGURES_HETEROGENEITY, FIGURES_DESCRIPTIVE, FIGURES_DAG)) {
+  if (!dir.exists(d)) dir.create(d, recursive = TRUE)
+}
+
 # -----------------------------------------------------------------------------
 # Custom Functions
 # -----------------------------------------------------------------------------
@@ -263,6 +278,38 @@ if (requireNamespace("knitr", quietly = TRUE)) {
     fig.height = 6,
     fig.path = "../figures/",
     cache = FALSE
+  )
+}
+
+# -----------------------------------------------------------------------------
+# modelsummary support for rdrobust objects
+# -----------------------------------------------------------------------------
+
+#' Tidy method for rdrobust objects (used by modelsummary)
+#' Labels the RD estimate as "treatment" for consistent coef_map usage
+tidy.rdrobust <- function(x, ...) {
+  ret <- data.frame(
+    term = "treatment",
+    estimate = x$coef[1],
+    std.error = x$se[1],
+    statistic = x$z[1],
+    p.value = x$pv[1],
+    conf.low = x$ci[1, 1],
+    conf.high = x$ci[1, 2],
+    stringsAsFactors = FALSE
+  )
+  row.names(ret) <- NULL
+  ret
+}
+
+#' Glance method for rdrobust objects (used by modelsummary)
+glance.rdrobust <- function(x, ...) {
+  data.frame(
+    nobs = x$N[1] + x$N[2],
+    nobs.left = x$N[1],
+    nobs.right = x$N[2],
+    bandwidth.left = x$bws[1, 1],
+    bandwidth.right = x$bws[1, 2]
   )
 }
 

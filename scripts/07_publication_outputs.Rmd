@@ -46,14 +46,14 @@ cat("Results loaded successfully.\n")
 
 ```{r table1}
 rows_t1 <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', '-', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', 'X', 'X', 'X', 'X',
-  'Topic FEs', '-', '-', '-', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X'
 )
 attr(rows_t1, 'position') <- c(3, 4, 5)
 
-note_t1 <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits NATO allies."
+note_t1 <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies."
 
 table_1 <- modelsummary(
   list(
@@ -62,7 +62,8 @@ table_1 <- modelsummary(
     "(3)" = results_h1$model3_opt,
     "(4)" = results_h1$model4_opt,
     "(5)" = results_h1$model1_full_linear,
-    "(6)" = results_h1$model1_non_nato
+    "(6)" = results_h1$model4_non_mil,
+    "(7)" = results_h1$model4_non_nato
   ),
   output = "gt",
   fmt = fmt_significant(3),
@@ -76,21 +77,21 @@ table_1 <- modelsummary(
 
 table_1
 
-gtsave(table_1, file.path(FIGURES_DIR, "table_1.html"))
+gtsave(table_1, file.path(FIGURES_TABLES, "table_1.html"))
 ```
 
 ## Table 1 A: Continuous Running Variable
 
-```{r table1}
-rows_t1 <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', '-', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', 'X', 'X', 'X', 'X',
-  'Topic FEs', '-', '-', '-', 'X', 'X', 'X'
+```{r table1a}
+rows_t1a <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X'
 )
-attr(rows_t1, 'position') <- c(3, 4, 5)
+attr(rows_t1a, 'position') <- c(3, 4, 5)
 
-note_t1 <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits NATO allies."
+note_t1a <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies."
 
 table_1_cont <- modelsummary(
   list(
@@ -99,7 +100,8 @@ table_1_cont <- modelsummary(
     "(3)" = results_h1_cont$model3_opt,
     "(4)" = results_h1_cont$model4_opt,
     "(5)" = results_h1_cont$model1_full_linear,
-    "(6)" = results_h1_cont$model1_non_nato
+    "(6)" = results_h1_cont$model4_non_mil,
+    "(7)" = results_h1_cont$model4_non_nato
   ),
   output = "gt",
   fmt = fmt_significant(3),
@@ -107,13 +109,13 @@ table_1_cont <- modelsummary(
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   title = "Table 1A: Effect of Russian Invasion on Media Sentiment (RDD) with Continuous Running Variable",
-  add_rows = rows_t1,
-  notes = str_wrap(note_t1, 80)
+  add_rows = rows_t1a,
+  notes = str_wrap(note_t1a, 80)
 )
 
 table_1_cont
 
-gtsave(table_1_cont, file.path(FIGURES_DIR, "table_1_cont.html"))
+gtsave(table_1_cont, file.path(FIGURES_TABLES, "table_1_cont.html"))
 ```
 
 # Table 2: Diff-in-Disc Results
@@ -152,7 +154,7 @@ table_2 <- modelsummary(
 
 table_2
 
-gtsave(table_2, file.path(FIGURES_DIR, "table_2.html"))
+gtsave(table_2, file.path(FIGURES_TABLES, "table_2.html"))
 ```
 
 # Table 3: Heterogeneity by Russian Alignment
@@ -180,7 +182,7 @@ table_3 <- modelsummary(
 
 table_3
 
-gtsave(table_3, file.path(FIGURES_DIR, "table_3.html"))
+gtsave(table_3, file.path(FIGURES_TABLES, "table_3.html"))
 ```
 
 # Comparison Table: Countries by Alignment and Ethnic Population
@@ -220,7 +222,7 @@ comparison_table <- table_data %>%
 
 comparison_table
 
-gtsave(comparison_table, file.path(FIGURES_DIR, "comparison_table.html"))
+gtsave(comparison_table, file.path(FIGURES_TABLES, "comparison_table.html"))
 ```
 
 # Alignment Table
@@ -249,7 +251,7 @@ alignment_table <- table_data %>%
 
 alignment_table
 
-gtsave(alignment_table, file.path(FIGURES_DIR, "alignment_table.html"))
+gtsave(alignment_table, file.path(FIGURES_TABLES, "alignment_table.html"))
 ```
 
 # Ethnic Table
@@ -278,7 +280,7 @@ ethnic_table <- table_data %>%
 
 ethnic_table
 
-gtsave(ethnic_table, file.path(FIGURES_DIR, "ethnic_table.html"))
+gtsave(ethnic_table, file.path(FIGURES_TABLES, "ethnic_table.html"))
 ```
 
 # Export Tables to LaTeX
@@ -288,7 +290,7 @@ gtsave(ethnic_table, file.path(FIGURES_DIR, "ethnic_table.html"))
 save_tex <- function(models, filename, coef_map, title, rows = NULL, note = NULL) {
   modelsummary(
     models,
-    output = file.path(FIGURES_DIR, filename),
+    output = file.path(FIGURES_TABLES, filename),
     fmt = fmt_significant(3),
     stars = c('*' = .05, '**' = .01, '***' = .001),
     coef_map = coef_map,

@@ -37,14 +37,14 @@ This master script runs the entire analysis pipeline for the Russia sentiment pa
            │               │   02_data_non_ukraine_ind.rds│
            │               └─────────────────────────────┘
            │
-     ┌─────┴─────┬─────────────────┐
-     │           │                 │
-     ▼           ▼                 ▼
-┌─────────┐ ┌─────────┐      ┌─────────┐
-│   03    │ │   04    │      │   05    │
-│ Descrip │ │Main RDD │      │Diff-Disc│
-│ tive    │ │   H1    │      │   H2    │
-└────┬────┘ └────┬────┘      └────┬────┘
+     ┌─────┴─────┬──────────────────────────┐
+     │           │                          │
+     ▼           ▼                          ▼
+┌─────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐
+│   03    │ │   04    │ │   04A    │ │   05    │
+│ Descrip │ │Main RDD │ │ RDD Cont │ │Diff-Disc│
+│ tive    │ │   H1    │ │  H1 Alt  │ │   H2    │
+└────┬────┘ └────┬────┘ └────┬─────┘ └────┬────┘
      │           │                 │
      │           │    ┌────────────┘
      │           │    │
@@ -72,7 +72,8 @@ This master script runs the entire analysis pipeline for the Russia sentiment pa
 | `01_data_loading.Rmd` | Load raw CSV data | `01_raw_data.rds` |
 | `02_data_cleaning.Rmd` | Clean and create variables | `02_cleaned_data.rds`, etc. |
 | `03_descriptive_analysis.Rmd` | Summary statistics, EDA | Tables, time series plots |
-| `04_main_rdd_analysis.Rmd` | Hypothesis 1: RDD | `04_h1_results.rds`, figures |
+| `04_main_rdd_analysis.Rmd` | Hypothesis 1: RDD (day) | `04_h1_results.rds`, figures |
+| `04A_main_rdd_analysis_continuous.Rmd` | Hypothesis 1: RDD (continuous) | `04_h1_results_continuous.rds`, figures |
 | `05_diff_in_disc_analysis.Rmd` | Hypothesis 2: Diff-in-disc | `05_h2_results.rds`, figures |
 | `06_heterogeneity_analysis.Rmd` | Alignment, ethnic effects | `06_heterogeneity_results.rds` |
 | `07_publication_outputs.Rmd` | Final tables and figures | Publication-ready outputs |
@@ -150,6 +151,22 @@ step4_time <- difftime(Sys.time(), step4_start, units = "secs")
 cat("Completed in", round(step4_time, 1), "seconds\n")
 ```
 
+## Step 4A: Main RDD Analysis (Continuous Running Variable)
+
+```{r step4a}
+step4a_start <- Sys.time()
+cat("Running 04A_main_rdd_analysis_continuous.Rmd...\n")
+
+rmarkdown::render(
+  "04A_main_rdd_analysis_continuous.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step4a_time <- difftime(Sys.time(), step4a_start, units = "secs")
+cat("Completed in", round(step4a_time, 1), "seconds\n")
+```
+
 ## Step 5: Diff-in-Disc Analysis
 
 ```{r step5}
@@ -212,6 +229,7 @@ cat("  01_data_loading:        ", round(step1_time, 1), "s\n")
 cat("  02_data_cleaning:       ", round(step2_time, 1), "s\n")
 cat("  03_descriptive_analysis:", round(step3_time, 1), "s\n")
 cat("  04_main_rdd_analysis:   ", round(step4_time, 1), "s\n")
+cat("  04A_rdd_continuous:     ", round(step4a_time, 1), "s\n")
 cat("  05_diff_in_disc:        ", round(step5_time, 1), "s\n")
 cat("  06_heterogeneity:       ", round(step6_time, 1), "s\n")
 cat("  07_publication_outputs: ", round(step7_time, 1), "s\n")

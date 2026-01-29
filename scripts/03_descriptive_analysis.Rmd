@@ -77,7 +77,7 @@ summary_statistics_table <- sample_summary %>%
 summary_statistics_table
 
 # Save table
-gtsave(summary_statistics_table, file.path(FIGURES_DIR, "summary_statistics_table.html"))
+gtsave(summary_statistics_table, file.path(FIGURES_TABLES, "summary_statistics_table.html"))
 ```
 
 # Distribution by Country
@@ -144,7 +144,7 @@ topic_all <- ggplot(data_topic_counts, aes(x = topic_clean, y = article_count, f
 
 topic_all
 
-ggsave(plot = topic_all, file.path(FIGURES_DIR, "topic_distribution.png"),
+ggsave(plot = topic_all, file.path(FIGURES_DESCRIPTIVE, "topic_distribution.png"),
        width = 8, height = 6)
 ```
 
@@ -201,7 +201,7 @@ topic_split <- (topic_state | topic_ind) + plot_layout(guides = "collect")
 
 topic_split
 
-ggsave(plot = topic_split, file.path(FIGURES_DIR, "topic_split.png"),
+ggsave(plot = topic_split, file.path(FIGURES_DESCRIPTIVE, "topic_split.png"),
        width = 12, height = 6)
 ```
 
@@ -291,7 +291,7 @@ sentiment_by_topic_table <- summary_table %>%
 
 sentiment_by_topic_table
 
-gtsave(sentiment_by_topic_table, file.path(FIGURES_DIR, "sentiment_by_topic.html"))
+gtsave(sentiment_by_topic_table, file.path(FIGURES_TABLES, "sentiment_by_topic.html"))
 ```
 
 # Articles Over Time
@@ -326,7 +326,7 @@ articles_per_day_plot <- ggplot(articles_per_day_by_ownership,
 
 articles_per_day_plot
 
-ggsave(plot = articles_per_day_plot, file.path(FIGURES_DIR, "articles_per_day.png"),
+ggsave(plot = articles_per_day_plot, file.path(FIGURES_DESCRIPTIVE, "articles_per_day.png"),
        width = 10, height = 6)
 ```
 
@@ -366,7 +366,7 @@ if (nrow(highlight_point) > 0) {
   articles_per_day_plot_annotated
 
   ggsave(plot = articles_per_day_plot_annotated,
-         file.path(FIGURES_DIR, "articles_per_day_anno.png"),
+         file.path(FIGURES_DESCRIPTIVE, "articles_per_day_anno.png"),
          width = 10, height = 6)
 }
 ```

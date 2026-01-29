@@ -103,7 +103,7 @@ invasion_discs_graph <- data_non_ukraine %>%
 invasion_discs_graph
 
 ggsave(plot = invasion_discs_graph,
-       file.path(FIGURES_DIR, "invasion_discs_graph.png"),
+       file.path(FIGURES_DIFF_DISC, "invasion_discs_graph.png"),
        width = 10, height = 7)
 ```
 
@@ -187,7 +187,7 @@ invasion_discs_non_mil_graph <- data_non_mil %>%
 invasion_discs_non_mil_graph
 
 ggsave(plot = invasion_discs_non_mil_graph,
-       file.path(FIGURES_DIR, "invasion_discs_non_mil.png"),
+       file.path(FIGURES_DIFF_DISC, "invasion_discs_non_mil.png"),
        width = 10, height = 7)
 ```
 

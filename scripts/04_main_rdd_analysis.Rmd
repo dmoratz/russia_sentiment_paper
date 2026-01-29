@@ -350,7 +350,7 @@ invasion_on_sentiment_graph <- data_non_ukraine %>%
 invasion_on_sentiment_graph
 
 ggsave(plot = invasion_on_sentiment_graph,
-       file.path(FIGURES_DIR, "invasion_on_sentiment.png"),
+       file.path(FIGURES_RDD, "invasion_on_sentiment.png"),
        width = 10, height = 7)
 ```
 
@@ -378,7 +378,7 @@ invasion_on_sentiment_graph_smooth <- data_non_ukraine %>%
 invasion_on_sentiment_graph_smooth
 
 ggsave(plot = invasion_on_sentiment_graph_smooth,
-       file.path(FIGURES_DIR, "invasion_on_sentiment_smooth.png"),
+       file.path(FIGURES_RDD, "invasion_on_sentiment_smooth.png"),
        width = 10, height = 7)
 ```
 
@@ -427,7 +427,7 @@ invasion_on_sentiment_graph_pol <- optimal_bandwidth_data_pol %>%
 invasion_on_sentiment_graph_pol
 
 ggsave(plot = invasion_on_sentiment_graph_pol,
-       file.path(FIGURES_DIR, "invasion_on_sentiment_pol.png"),
+       file.path(FIGURES_RDD, "invasion_on_sentiment_pol.png"),
        width = 10, height = 7)
 ```
 
@@ -464,7 +464,7 @@ invasion_on_sentiment_graph_mil <- optimal_bandwidth_data_mil %>%
 invasion_on_sentiment_graph_mil
 
 ggsave(plot = invasion_on_sentiment_graph_mil,
-       file.path(FIGURES_DIR, "invasion_on_sentiment_mil.png"),
+       file.path(FIGURES_RDD, "invasion_on_sentiment_mil.png"),
        width = 10, height = 7)
 ```
 
@@ -501,7 +501,7 @@ invasion_on_sentiment_graph_econ <- optimal_bandwidth_data_econ %>%
 invasion_on_sentiment_graph_econ
 
 ggsave(plot = invasion_on_sentiment_graph_econ,
-       file.path(FIGURES_DIR, "invasion_on_sentiment_econ.png"),
+       file.path(FIGURES_RDD, "invasion_on_sentiment_econ.png"),
        width = 10, height = 7)
 ```
 
@@ -538,7 +538,7 @@ invasion_on_sentiment_graph_cult <- optimal_bandwidth_data_cult %>%
 invasion_on_sentiment_graph_cult
 
 ggsave(plot = invasion_on_sentiment_graph_cult,
-       file.path(FIGURES_DIR, "invasion_on_sentiment_cult.png"),
+       file.path(FIGURES_RDD, "invasion_on_sentiment_cult.png"),
        width = 10, height = 7)
 ```
 
@@ -575,7 +575,7 @@ invasion_on_sentiment_graph_oth <- optimal_bandwidth_data_oth %>%
 invasion_on_sentiment_graph_oth
 
 ggsave(plot = invasion_on_sentiment_graph_oth,
-       file.path(FIGURES_DIR, "invasion_on_sentiment_oth.png"),
+       file.path(FIGURES_RDD, "invasion_on_sentiment_oth.png"),
        width = 10, height = 7)
 ```
 
@@ -636,7 +636,7 @@ invasion_on_sentiment_non_mil_graph <- data_non_mil %>%
 invasion_on_sentiment_non_mil_graph
 
 ggsave(plot = invasion_on_sentiment_non_mil_graph,
-       file.path(FIGURES_DIR, "invasion_on_sentiment_non_mil.png"),
+       file.path(FIGURES_RDD, "invasion_on_sentiment_non_mil.png"),
        width = 10, height = 7)
 ```
 
@@ -694,7 +694,7 @@ results_h1 <- list(
   model1_basic = model1_basic,
   model1_country_fe = model1_country_fe,
   model1_country_source_fe = model1_country_source_fe,
-  model1_full = model1_full,
+  model1_full_linear = model1_full_linear,
   model1_opt = model1_opt,
   model2_opt = model2_opt,
   model3_opt = model3_opt,

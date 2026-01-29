@@ -37,11 +37,11 @@ script_dir <- tryCatch(
   error = function(e) NULL
 )
 project_dir <- if (!is.null(script_dir) && script_dir != "") dirname(script_dir) else NULL
-output_dir <- if (!is.null(project_dir)) file.path(project_dir, "figures") else NULL
+output_dir <- if (!is.null(project_dir)) file.path(project_dir, "figures", "dag") else NULL
 
 # Fallback if not running in RStudio
 if (is.null(output_dir) || output_dir == "") {
-  output_dir <- "D:/Dropbox/My PC (LAPTOP-IKUHQKMA)/Documents/GitHub/russia_sentiment_paper/figures"
+  output_dir <- "D:/Dropbox/My PC (LAPTOP-IKUHQKMA)/Documents/GitHub/russia_sentiment_paper/figures/dag"
 }
 
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
