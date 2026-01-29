@@ -207,7 +207,7 @@ cat("Mean sentiment (pre-invasion):", round(mean_pre, 3), "\n")
 cat("Mean sentiment (post-invasion):", round(mean_post, 3), "\n\n")
 
 # Effect size in SD units
-coef_treatment <- summary(model4_opt)$coef["treatment", "Estimate"]
+coef_treatment <- model4_opt$coef["Conventional", "Coeff"]
 effect_size <- coef_treatment / sd_sentiment
 
 cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
@@ -603,7 +603,7 @@ summary(model4_opt_nonmil)
 
 ```{r effect-non-mil}
 sd_sentiment_non_mil <- sd(data_non_mil$sentiment_clean)
-coef_model4_opt_nonmil <- summary(model4_opt_nonmil)$coef["treatment", "Estimate"]
+coef_model4_opt_nonmil <- model4_opt_nonmil$coef["Conventional", "Coeff"]
 
 cat("Effect size (non-military, in SD units):", round(coef_model4_opt_nonmil / sd_sentiment_non_mil, 3), "\n")
 ```
