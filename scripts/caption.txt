@@ -1,0 +1,51 @@
+FIGURE CAPTION OPTIONS FOR DAG
+==============================
+
+SHORT VERSION (for two-column layout):
+--------------------------------------
+Figure X. Directed Acyclic Graph (DAG) of the causal structure. Topic (shaded)
+is a collider, receiving arrows from both the treatment (Invasion) and
+editorial priorities. Thicker arrows indicate paths into the collider.
+
+
+MEDIUM VERSION (with methodological note):
+------------------------------------------
+Figure X. Directed Acyclic Graph (DAG) illustrating the causal relationships
+between media ownership, editorial decisions, and article sentiment. The
+shaded node (Topic) represents a collider variable, as it is influenced by
+both the treatment (Invasion) and editorial priorities set by ownership.
+Conditioning on Topic would open a backdoor path through Ownership, which
+motivates our regression discontinuity design that exploits the exogenous
+timing of the invasion.
+
+
+LONG VERSION (for supplementary materials):
+-------------------------------------------
+Figure X. Directed Acyclic Graph (DAG) depicting the hypothesized causal
+structure underlying media sentiment toward Russia. Media Ownership
+influences both the editorial priorities and the overall tone/style of
+coverage. Editorial priorities determine topic selection, which affects
+journalist drafts that ultimately produce the full article text from which
+sentiment is measured. The 2022 Russian invasion of Ukraine serves as an
+exogenous shock that directly affects topic salience.
+
+Importantly, Topic (shaded gray) functions as a collider in this DAG: it
+receives causal arrows from both Invasion (the treatment) and Editor Sets
+Priorities (which is influenced by Ownership). Thicker arrows highlight
+these incoming paths. Conditioning on a collider can induce spurious
+associations between its causes, which would bias estimates of the invasion's
+effect on sentiment. Our identification strategy addresses this by exploiting
+the sharp discontinuity in coverage around the invasion date, rather than
+controlling for topic directly in all specifications.
+
+
+LATEX VERSION:
+--------------
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figure_dag.pdf}
+\caption{Directed Acyclic Graph (DAG) of the causal structure. Topic
+(shaded) is a collider, receiving arrows from both the treatment (Invasion)
+and editorial priorities. Thicker arrows indicate paths into the collider.}
+\label{fig:dag}
+\end{figure}
