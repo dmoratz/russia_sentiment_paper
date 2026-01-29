@@ -124,10 +124,10 @@ summary(bw_select)
 optimal_bw <- bw_select$bws[1, 1]
 cat("\nOptimal bandwidth:", round(optimal_bw, 1), "days\n")
 
-# Filter to optimal bandwidth
-optimal_bandwidth_data <- data_non_ukraine %>%
-  filter(running_continuous < optimal_bw) %>%
-  filter(running_continuous > -optimal_bw)
+# Filter to optimal bandwidth, removed since rdrobust does this automatically
+optimal_bandwidth_data <- data_non_ukraine #%>%
+  #filter(running < optimal_bw) %>%
+  #filter(running > -optimal_bw)
 
 cat("Observations within optimal bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ```
@@ -135,37 +135,83 @@ cat("Observations within optimal bandwidth:", nrow(optimal_bandwidth_data), "\n"
 ### Model 1: Basic RDD
 
 ```{r model1-optimal}
-model1_opt <- felm(sentiment_clean ~ running_continuous * treatment | 0 | 0 | source_domain,
-                   data = optimal_bandwidth_data)
+model1_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_clean, 
+  x = optimal_bandwidth_data$running_continuous,
+  cluster = optimal_bandwidth_data$source_domain
+)
 
 summary(model1_opt)
 ```
 
 ### Model 2: With Country Fixed Effects
 
-```{r model1-optimal}
-model2_opt <- felm(sentiment_clean ~ running_continuous * treatment | country | 0 | source_domain,
-                   data = optimal_bandwidth_data)
+```{r model2-optimal}
+# Only country fixed effects as covariates
+covs_matrix <- model.matrix(~ country - 1, data = optimal_bandwidth_data)
+
+model2_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_clean, 
+  x = optimal_bandwidth_data$running_continuous,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data$source_domain
+)
 
 summary(model2_opt)
 ```
 
 ### Model 3: With Country and Source Fixed Effects
 
-```{r model1-optimal}
-model3_opt <- felm(sentiment_clean ~ running_continuous * treatment | country + source_domain | 0 | source_domain,
-                   data = optimal_bandwidth_data)
+```{r model3-optimal}
+# Only country and source domain fixed effects as covariates
+covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data)
+
+model3_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_clean, 
+  x = optimal_bandwidth_data$running_continuous,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data$source_domain
+)
 
 summary(model3_opt)
 ```
 
 ### Model 4: Full Model (Country + Source + Topic FE)
 
-```{r model1-optimal}
-model4_opt <- felm(sentiment_clean ~ running_continuous * treatment | country + source_domain + topic_clean | 0 | source_domain,
-                   data = optimal_bandwidth_data)
+```{r model4-optimal}
+# All covariates
+covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = optimal_bandwidth_data)
+
+model4_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_clean, 
+  x = optimal_bandwidth_data$running_continuous,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data$source_domain
+)
 
 summary(model4_opt)
+```
+
+# RDRobust Effect Size Calculation
+
+```{r effect-size}
+sd_sentiment <- sd(data_non_ukraine$sentiment_clean)
+
+cat("Standard deviation of sentiment:", round(sd_sentiment, 3), "\n\n")
+
+# Mean sentiment before/after
+mean_pre <- mean(data_non_ukraine$sentiment_clean[data_non_ukraine$running_continuous < 0], na.rm = TRUE)
+mean_post <- mean(data_non_ukraine$sentiment_clean[data_non_ukraine$running_continuous >= 0], na.rm = TRUE)
+
+cat("Mean sentiment (pre-invasion):", round(mean_pre, 3), "\n")
+cat("Mean sentiment (post-invasion):", round(mean_post, 3), "\n\n")
+
+# Effect size in SD units
+coef_treatment <- summary(model4_opt)$coef["treatment", "Estimate"]
+effect_size <- coef_treatment / sd_sentiment
+
+cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
+cat("Effect size (in SD units):", round(effect_size, 3), "\n")
 ```
 
 # Visualizations
