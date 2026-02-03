@@ -71,7 +71,7 @@ table_1 <- modelsummary(
     "(7)" = results_h1$model4_non_nato
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
@@ -109,7 +109,7 @@ table_1_cont <- modelsummary(
     "(7)" = results_h1_cont$model4_non_nato
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
@@ -145,7 +145,7 @@ table_1b <- modelsummary(
     "Other" = results_h1$model4_opt_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
@@ -181,7 +181,7 @@ table_1c <- modelsummary(
     "Other" = results_h1_cont$model4_opt_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
@@ -218,7 +218,7 @@ table_2 <- modelsummary(
     "(6)" = results_h2$model3a_opt
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -258,7 +258,7 @@ table_2a <- modelsummary(
     "(6)" = results_h2_cont$model3a_opt
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -297,7 +297,7 @@ table_2b <- modelsummary(
     "Other" = results_h2$model2a_opt_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -336,7 +336,7 @@ table_2c <- modelsummary(
     "Other" = results_h2_cont$model2a_opt_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -375,7 +375,7 @@ table_2d <- modelsummary(
     "Other" = results_h2$model2a_full_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -414,7 +414,7 @@ table_2e <- modelsummary(
     "Other" = results_h2_cont$model2a_full_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -434,18 +434,18 @@ gtsave(table_2e, file.path(FIGURES_TABLES, "table_2e.html"))
 # Table 3: Heterogeneity by Russian Alignment
 
 ```{r table3}
-note_t3 <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles. Model 5 uses only Russian-related (non-military) articles. Sample restricted to state-owned media in non-NATO countries."
+note_t3 <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_3 <- modelsummary(
   list(
     "(1)" = results_het$model5a,
     "(2)" = results_het$model5a_full,
     "(3)" = results_het$model5a_opt,
-    "(4)" = results_het$model5a_non_mil,
-    "(5)" = results_het$model5a_russian
+    "(4)" = results_het$model5a_opt_non_mil,
+    "(5)" = results_het$model5a_opt_russian
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -464,18 +464,18 @@ gtsave(table_3, file.path(FIGURES_TABLES, "table_3.html"))
 ## Table 3A: Heterogeneity (Continuous)
 
 ```{r table3a}
-note_t3a <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles. Model 5 uses only Russian-related (non-military) articles. Sample restricted to state-owned media in non-NATO countries."
+note_t3a <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_3a <- modelsummary(
   list(
     "(1)" = results_het_cont$model5a,
     "(2)" = results_het_cont$model5a_full,
     "(3)" = results_het_cont$model5a_opt,
-    "(4)" = results_het_cont$model5a_non_mil,
-    "(5)" = results_het_cont$model5a_russian
+    "(4)" = results_het_cont$model5a_opt_non_mil,
+    "(5)" = results_het_cont$model5a_opt_russian
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -505,7 +505,7 @@ table_3b <- modelsummary(
     "Other" = results_het$model5a_opt_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -535,7 +535,7 @@ table_3c <- modelsummary(
     "Other" = results_het_cont$model5a_opt_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -565,7 +565,7 @@ table_3d <- modelsummary(
     "Other" = results_het$model5a_full_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -595,7 +595,7 @@ table_3e <- modelsummary(
     "Other" = results_het_cont$model5a_full_oth
   ),
   output = "gt",
-  fmt = fmt_significant(3),
+  fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c(
     "treatment" = "Invasion",
@@ -609,6 +609,186 @@ table_3e <- modelsummary(
 table_3e
 
 gtsave(table_3e, file.path(FIGURES_TABLES, "table_3e.html"))
+```
+
+# Table 4: Heterogeneity by Ethnic Russian Population
+
+```{r table4}
+note_t4 <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+table_4 <- modelsummary(
+  list(
+    "(1)" = results_het$model6a,
+    "(2)" = results_het$model6a_full,
+    "(3)" = results_het$model6a_opt,
+    "(4)" = results_het$model6a_opt_non_mil,
+    "(5)" = results_het$model6a_opt_russian
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4: Ethnic Russian Population Heterogeneity (State Media)",
+  notes = str_wrap(note_t4, 80)
+)
+
+table_4
+
+gtsave(table_4, file.path(FIGURES_TABLES, "table_4.html"))
+```
+
+## Table 4A: Ethnic Heterogeneity (Continuous)
+
+```{r table4a}
+note_t4a <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+table_4a <- modelsummary(
+  list(
+    "(1)" = results_het_cont$model6a,
+    "(2)" = results_het_cont$model6a_full,
+    "(3)" = results_het_cont$model6a_opt,
+    "(4)" = results_het_cont$model6a_opt_non_mil,
+    "(5)" = results_het_cont$model6a_opt_russian
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4A: Ethnic Russian Population Heterogeneity (Continuous Running Variable)",
+  notes = str_wrap(note_t4a, 80)
+)
+
+table_4a
+
+gtsave(table_4a, file.path(FIGURES_TABLES, "table_4a.html"))
+```
+
+## Table 4B: Ethnic By Topic Optimal BW (Day)
+
+```{r table4b}
+note_t4b <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+
+table_4b <- modelsummary(
+  list(
+    "Political" = results_het$model6a_opt_pol,
+    "Military" = results_het$model6a_opt_mil,
+    "Economic" = results_het$model6a_opt_econ,
+    "Cultural" = results_het$model6a_opt_cult,
+    "Other" = results_het$model6a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4B: Ethnic Heterogeneity By Topic (Per-Topic Optimal BW, Day)",
+  notes = str_wrap(note_t4b, 80)
+)
+
+table_4b
+
+gtsave(table_4b, file.path(FIGURES_TABLES, "table_4b.html"))
+```
+
+## Table 4C: Ethnic By Topic Optimal BW (Continuous)
+
+```{r table4c}
+note_t4c <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+
+table_4c <- modelsummary(
+  list(
+    "Political" = results_het_cont$model6a_opt_pol,
+    "Military" = results_het_cont$model6a_opt_mil,
+    "Economic" = results_het_cont$model6a_opt_econ,
+    "Cultural" = results_het_cont$model6a_opt_cult,
+    "Other" = results_het_cont$model6a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4C: Ethnic Heterogeneity By Topic (Per-Topic Optimal BW, Continuous)",
+  notes = str_wrap(note_t4c, 80)
+)
+
+table_4c
+
+gtsave(table_4c, file.path(FIGURES_TABLES, "table_4c.html"))
+```
+
+## Table 4D: Ethnic By Topic Full Data (Day)
+
+```{r table4d}
+note_t4d <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+
+table_4d <- modelsummary(
+  list(
+    "Political" = results_het$model6a_full_pol,
+    "Military" = results_het$model6a_full_mil,
+    "Economic" = results_het$model6a_full_econ,
+    "Cultural" = results_het$model6a_full_cult,
+    "Other" = results_het$model6a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4D: Ethnic Heterogeneity By Topic (Full Data, Day)",
+  notes = str_wrap(note_t4d, 80)
+)
+
+table_4d
+
+gtsave(table_4d, file.path(FIGURES_TABLES, "table_4d.html"))
+```
+
+## Table 4E: Ethnic By Topic Full Data (Continuous)
+
+```{r table4e}
+note_t4e <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+
+table_4e <- modelsummary(
+  list(
+    "Political" = results_het_cont$model6a_full_pol,
+    "Military" = results_het_cont$model6a_full_mil,
+    "Economic" = results_het_cont$model6a_full_econ,
+    "Cultural" = results_het_cont$model6a_full_cult,
+    "Other" = results_het_cont$model6a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4E: Ethnic Heterogeneity By Topic (Full Data, Continuous)",
+  notes = str_wrap(note_t4e, 80)
+)
+
+table_4e
+
+gtsave(table_4e, file.path(FIGURES_TABLES, "table_4e.html"))
 ```
 
 # Comparison Table: Countries by Alignment and Ethnic Population
@@ -717,7 +897,7 @@ save_tex <- function(models, filename, coef_map, title, rows = NULL, note = NULL
   modelsummary(
     models,
     output = file.path(FIGURES_TABLES, filename),
-    fmt = fmt_significant(3),
+    fmt = 3,
     stars = c('*' = .05, '**' = .01, '***' = .001),
     coef_map = coef_map,
     gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
@@ -755,6 +935,12 @@ cat("  - table_3b.html: Heterogeneity by topic, optimal BW (day)\n")
 cat("  - table_3c.html: Heterogeneity by topic, optimal BW (continuous)\n")
 cat("  - table_3d.html: Heterogeneity by topic, full data (day)\n")
 cat("  - table_3e.html: Heterogeneity by topic, full data (continuous)\n")
+cat("  - table_4.html: Ethnic heterogeneity (day)\n")
+cat("  - table_4a.html: Ethnic heterogeneity (continuous)\n")
+cat("  - table_4b.html: Ethnic by topic, optimal BW (day)\n")
+cat("  - table_4c.html: Ethnic by topic, optimal BW (continuous)\n")
+cat("  - table_4d.html: Ethnic by topic, full data (day)\n")
+cat("  - table_4e.html: Ethnic by topic, full data (continuous)\n")
 cat("  - comparison_table.html: Country classification\n")
 cat("  - alignment_table.html: Alignment comparison\n")
 cat("  - ethnic_table.html: Ethnic population comparison\n")

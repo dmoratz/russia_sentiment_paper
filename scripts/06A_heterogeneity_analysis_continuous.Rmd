@@ -214,10 +214,23 @@ cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_sta
 data_align_state_non_mil <- data_align_state %>%
   filter(!topic_clean %in% "Military")
 
-model5a_non_mil <- felm(sentiment_clean ~ running_continuous * treatment * csto | topic_clean | 0 | source_domain,
-                        data = data_align_state_non_mil)
+bw_align_non_mil <- rdbwselect(y = data_align_state_non_mil$sentiment_clean,
+                               x = data_align_state_non_mil$running_continuous,
+                               kernel = "triangular",
+                               cluster = data_align_state_non_mil$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
 
-summary(model5a_non_mil)
+optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "seconds\n")
+
+optimal_bandwidth_data_state_non_mil <- data_align_state_non_mil %>%
+  filter(running_continuous < optimal_bw_align_non_mil, running_continuous > -optimal_bw_align_non_mil)
+
+model5a_opt_non_mil <- felm(sentiment_clean ~ running_continuous * treatment * csto | topic_clean | 0 | source_domain,
+                        data = optimal_bandwidth_data_state_non_mil)
+
+summary(model5a_opt_non_mil)
 ```
 
 ## Russian-Related Articles Only
@@ -227,10 +240,23 @@ data_align_state_russian <- data_align_state %>%
   filter(!topic_clean %in% "Military") %>%
   filter(!Russian.Involvement == "Not")
 
-model5a_russian <- felm(sentiment_clean ~ running_continuous * treatment * csto | topic_clean | 0 | source_domain,
-                        data = data_align_state_russian)
+bw_align_russian <- rdbwselect(y = data_align_state_russian$sentiment_clean,
+                               x = data_align_state_russian$running_continuous,
+                               kernel = "triangular",
+                               cluster = data_align_state_russian$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
 
-summary(model5a_russian)
+optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
+cat("Optimal bandwidth (russian):", round(optimal_bw_align_russian, 1), "seconds\n")
+
+optimal_bandwidth_data_state_russian <- data_align_state_russian %>%
+  filter(running_continuous < optimal_bw_align_russian, running_continuous > -optimal_bw_align_russian)
+
+model5a_opt_russian <- felm(sentiment_clean ~ running_continuous * treatment * csto | topic_clean | 0 | source_domain,
+                        data = optimal_bandwidth_data_state_russian)
+
+summary(model5a_opt_russian)
 ```
 
 ## By-Topic Models: Full Data
@@ -364,16 +390,243 @@ ggsave(plot = ethnic_discs_graph,
        width = 10, height = 7)
 ```
 
-## Ethnic Russian Population Regression
+## Ethnic Russian Population Regressions
+
+### Diff-in-Disc: High vs Low Ethnic Russian (State Media)
 
 ```{r ethnic-reg}
 data_ethnic_state <- data_ethnic %>%
   filter(state_owned == 1)
 
-model6a <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean | 0 | source_domain,
+model6a <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
                 data = data_ethnic_state)
 
 summary(model6a)
+```
+
+## Full Data with Topic FEs
+
+```{r ethnic-full}
+model6a_full <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean | 0 | source_domain,
+                     data = data_ethnic_state)
+
+summary(model6a_full)
+```
+
+## Optimal Bandwidth
+
+```{r ethnic-optimal}
+bw_ethnic <- rdbwselect(y = data_ethnic_state$sentiment_clean,
+                        x = data_ethnic_state$running_continuous,
+                        kernel = "triangular",
+                        cluster = data_ethnic_state$source_domain,
+                        p = 1,
+                        bwselect = "mserd")
+
+optimal_bw_ethnic <- bw_ethnic$bws[1, 1]
+cat("Optimal bandwidth:", round(optimal_bw_ethnic, 1), "seconds\n")
+
+optimal_bandwidth_data_ethnic <- data_ethnic_state %>%
+  filter(running_continuous < optimal_bw_ethnic, running_continuous > -optimal_bw_ethnic)
+
+model6a_opt <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean | 0 | source_domain,
+                    data = optimal_bandwidth_data_ethnic)
+
+summary(model6a_opt)
+```
+
+## Non-Military Topics
+
+```{r ethnic-non-mil}
+data_ethnic_state_non_mil <- data_ethnic_state %>%
+  filter(!topic_clean %in% "Military")
+
+bw_ethnic_non_mil <- rdbwselect(y = data_ethnic_state_non_mil$sentiment_clean,
+                                x = data_ethnic_state_non_mil$running_continuous,
+                                kernel = "triangular",
+                                cluster = data_ethnic_state_non_mil$source_domain,
+                                p = 1,
+                                bwselect = "mserd")
+
+optimal_bw_ethnic_non_mil <- bw_ethnic_non_mil$bws[1, 1]
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_ethnic_non_mil, 1), "seconds\n")
+
+optimal_bandwidth_data_ethnic_non_mil <- data_ethnic_state_non_mil %>%
+  filter(running_continuous < optimal_bw_ethnic_non_mil, running_continuous > -optimal_bw_ethnic_non_mil)
+
+model6a_opt_non_mil <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean | 0 | source_domain,
+                            data = optimal_bandwidth_data_ethnic_non_mil)
+
+summary(model6a_opt_non_mil)
+```
+
+## Russian-Related Articles Only
+
+```{r ethnic-russian}
+data_ethnic_state_russian <- data_ethnic_state %>%
+  filter(!topic_clean %in% "Military") %>%
+  filter(!Russian.Involvement == "Not")
+
+bw_ethnic_russian <- rdbwselect(y = data_ethnic_state_russian$sentiment_clean,
+                                x = data_ethnic_state_russian$running_continuous,
+                                kernel = "triangular",
+                                cluster = data_ethnic_state_russian$source_domain,
+                                p = 1,
+                                bwselect = "mserd")
+
+optimal_bw_ethnic_russian <- bw_ethnic_russian$bws[1, 1]
+cat("Optimal bandwidth (russian):", round(optimal_bw_ethnic_russian, 1), "seconds\n")
+
+optimal_bandwidth_data_ethnic_russian <- data_ethnic_state_russian %>%
+  filter(running_continuous < optimal_bw_ethnic_russian, running_continuous > -optimal_bw_ethnic_russian)
+
+model6a_opt_russian <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean | 0 | source_domain,
+                            data = optimal_bandwidth_data_ethnic_russian)
+
+summary(model6a_opt_russian)
+```
+
+## By-Topic Models: Full Data
+
+```{r ethnic-topic-full}
+data_ethnic_state_pol <- data_ethnic_state %>% filter(topic_clean == "Political")
+data_ethnic_state_mil <- data_ethnic_state %>% filter(topic_clean == "Military")
+data_ethnic_state_econ <- data_ethnic_state %>% filter(topic_clean == "Economic")
+data_ethnic_state_cult <- data_ethnic_state %>% filter(topic_clean == "Culture")
+data_ethnic_state_oth <- data_ethnic_state %>% filter(topic_clean == "Other")
+
+model6a_full_pol <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                         data = data_ethnic_state_pol)
+model6a_full_mil <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                         data = data_ethnic_state_mil)
+model6a_full_econ <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                          data = data_ethnic_state_econ)
+model6a_full_cult <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                          data = data_ethnic_state_cult)
+model6a_full_oth <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                         data = data_ethnic_state_oth)
+```
+
+## By-Topic Models: Per-Topic Optimal Bandwidth
+
+```{r ethnic-topic-opt}
+# Political
+bw_ethnic_pol <- rdbwselect(y = data_ethnic_state_pol$sentiment_clean, x = data_ethnic_state_pol$running_continuous,
+                            kernel = "triangular", cluster = data_ethnic_state_pol$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_pol <- bw_ethnic_pol$bws[1, 1]
+cat("Political optimal bandwidth:", round(optimal_bw_ethnic_pol, 1), "seconds\n")
+opt_ethnic_pol <- data_ethnic_state_pol %>% filter(running_continuous < optimal_bw_ethnic_pol, running_continuous > -optimal_bw_ethnic_pol)
+
+# Military
+bw_ethnic_mil <- rdbwselect(y = data_ethnic_state_mil$sentiment_clean, x = data_ethnic_state_mil$running_continuous,
+                            kernel = "triangular", cluster = data_ethnic_state_mil$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_mil <- bw_ethnic_mil$bws[1, 1]
+cat("Military optimal bandwidth:", round(optimal_bw_ethnic_mil, 1), "seconds\n")
+opt_ethnic_mil <- data_ethnic_state_mil %>% filter(running_continuous < optimal_bw_ethnic_mil, running_continuous > -optimal_bw_ethnic_mil)
+
+# Economic
+bw_ethnic_econ <- rdbwselect(y = data_ethnic_state_econ$sentiment_clean, x = data_ethnic_state_econ$running_continuous,
+                             kernel = "triangular", cluster = data_ethnic_state_econ$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_econ <- bw_ethnic_econ$bws[1, 1]
+cat("Economic optimal bandwidth:", round(optimal_bw_ethnic_econ, 1), "seconds\n")
+opt_ethnic_econ <- data_ethnic_state_econ %>% filter(running_continuous < optimal_bw_ethnic_econ, running_continuous > -optimal_bw_ethnic_econ)
+
+# Culture
+bw_ethnic_cult <- rdbwselect(y = data_ethnic_state_cult$sentiment_clean, x = data_ethnic_state_cult$running_continuous,
+                             kernel = "triangular", cluster = data_ethnic_state_cult$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_cult <- bw_ethnic_cult$bws[1, 1]
+cat("Culture optimal bandwidth:", round(optimal_bw_ethnic_cult, 1), "seconds\n")
+opt_ethnic_cult <- data_ethnic_state_cult %>% filter(running_continuous < optimal_bw_ethnic_cult, running_continuous > -optimal_bw_ethnic_cult)
+
+# Other
+bw_ethnic_oth <- rdbwselect(y = data_ethnic_state_oth$sentiment_clean, x = data_ethnic_state_oth$running_continuous,
+                            kernel = "triangular", cluster = data_ethnic_state_oth$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_oth <- bw_ethnic_oth$bws[1, 1]
+cat("Other optimal bandwidth:", round(optimal_bw_ethnic_oth, 1), "seconds\n")
+opt_ethnic_oth <- data_ethnic_state_oth %>% filter(running_continuous < optimal_bw_ethnic_oth, running_continuous > -optimal_bw_ethnic_oth)
+
+model6a_opt_pol <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                        data = opt_ethnic_pol)
+model6a_opt_mil <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                        data = opt_ethnic_mil)
+model6a_opt_econ <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                         data = opt_ethnic_econ)
+model6a_opt_cult <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                         data = opt_ethnic_cult)
+model6a_opt_oth <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
+                        data = opt_ethnic_oth)
+```
+
+# Summary Table (Table 4A)
+
+```{r table4a}
+note_t4a <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth."
+note_t4a_wrapped <- str_wrap(note_t4a, width = 80)
+
+table_4a <- modelsummary(
+  list("(1)" = model6a, "(2)" = model6a_full, "(3)" = model6a_opt,
+       "(4)" = model6a_opt_non_mil, "(5)" = model6a_opt_russian),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Ethnic Russian Population: Difference in Discontinuity Analysis (Continuous Running Variable)",
+  notes = note_t4a_wrapped
+)
+
+table_4a
+```
+
+## Summary Table: By Topic (Optimal Bandwidth)
+
+```{r table4a-topic-opt}
+note_t4a_opt <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+note_t4a_opt_wrapped <- str_wrap(note_t4a_opt, width = 80)
+
+table_4a_topic_opt <- modelsummary(
+  list("Political" = model6a_opt_pol, "Military" = model6a_opt_mil,
+       "Economic" = model6a_opt_econ, "Cultural" = model6a_opt_cult, "Other" = model6a_opt_oth),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Ethnic Russian Population By Topic (Per-Topic Optimal Bandwidth, Continuous)",
+  notes = note_t4a_opt_wrapped
+)
+
+table_4a_topic_opt
+```
+
+## Summary Table: By Topic (Full Data)
+
+```{r table4a-topic-full}
+note_t4a_full <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+note_t4a_full_wrapped <- str_wrap(note_t4a_full, width = 80)
+
+table_4a_topic_full <- modelsummary(
+  list("Political" = model6a_full_pol, "Military" = model6a_full_mil,
+       "Economic" = model6a_full_econ, "Cultural" = model6a_full_cult, "Other" = model6a_full_oth),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Ethnic Russian Population By Topic (Full Data, Continuous)",
+  notes = note_t4a_full_wrapped
+)
+
+table_4a_topic_full
 ```
 
 # Country-Level Analysis
@@ -410,12 +663,12 @@ data_long %>%
 # Summary Table (Table 3A)
 
 ```{r table3a}
-note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles. Model 5 uses only Russian-related (non-military) articles."
+note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth."
 note_wrapped <- str_wrap(note_text, width = 80)
 
 table_3a <- modelsummary(
   list("(1)" = model5a, "(2)" = model5a_full, "(3)" = model5a_opt,
-       "(4)" = model5a_non_mil, "(5)" = model5a_russian),
+       "(4)" = model5a_opt_non_mil, "(5)" = model5a_opt_russian),
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
@@ -486,8 +739,8 @@ results_het_cont <- list(
   model5a = model5a,
   model5a_full = model5a_full,
   model5a_opt = model5a_opt,
-  model5a_non_mil = model5a_non_mil,
-  model5a_russian = model5a_russian,
+  model5a_opt_non_mil = model5a_opt_non_mil,
+  model5a_opt_russian = model5a_opt_russian,
   model5a_csto = model5a_state,
   model5a_neutral = model5a_neutral,
   model5a_opt_pol = model5a_opt_pol,
@@ -501,6 +754,26 @@ results_het_cont <- list(
   model5a_full_cult = model5a_full_cult,
   model5a_full_oth = model5a_full_oth,
   model6a = model6a,
+  model6a_full = model6a_full,
+  model6a_opt = model6a_opt,
+  model6a_opt_non_mil = model6a_opt_non_mil,
+  model6a_opt_russian = model6a_opt_russian,
+  model6a_opt_pol = model6a_opt_pol,
+  model6a_opt_mil = model6a_opt_mil,
+  model6a_opt_econ = model6a_opt_econ,
+  model6a_opt_cult = model6a_opt_cult,
+  model6a_opt_oth = model6a_opt_oth,
+  model6a_full_pol = model6a_full_pol,
+  model6a_full_mil = model6a_full_mil,
+  model6a_full_econ = model6a_full_econ,
+  model6a_full_cult = model6a_full_cult,
+  model6a_full_oth = model6a_full_oth,
+  optimal_bandwidth_ethnic = optimal_bw_ethnic,
+  optimal_bw_ethnic_pol = optimal_bw_ethnic_pol,
+  optimal_bw_ethnic_mil = optimal_bw_ethnic_mil,
+  optimal_bw_ethnic_econ = optimal_bw_ethnic_econ,
+  optimal_bw_ethnic_cult = optimal_bw_ethnic_cult,
+  optimal_bw_ethnic_oth = optimal_bw_ethnic_oth,
   optimal_bandwidth_align = optimal_bw_align,
   optimal_bw_align_pol = optimal_bw_align_pol,
   optimal_bw_align_mil = optimal_bw_align_mil,
