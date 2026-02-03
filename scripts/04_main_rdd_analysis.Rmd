@@ -194,7 +194,7 @@ summary(model4_opt)
 
 # RDRobust Effect Size Calculation
 
-```{r effect-size}
+```{r effect-size-rdrobust}
 sd_sentiment <- sd(data_non_ukraine$sentiment_clean)
 
 cat("Standard deviation of sentiment:", round(sd_sentiment, 3), "\n\n")
@@ -470,7 +470,7 @@ ggsave(plot = invasion_on_sentiment_graph_mil,
 
 ### Economic
 
-```{r rdd-plot-mil, fig.width=10, fig.height=7}
+```{r rdd-plot-econ, fig.width=10, fig.height=7}
 # Aggregate data for points
 agg_data <- optimal_bandwidth_data_econ %>%
   group_by(running) %>%
@@ -507,7 +507,7 @@ ggsave(plot = invasion_on_sentiment_graph_econ,
 
 ### Cultural
 
-```{r rdd-plot-mil, fig.width=10, fig.height=7}
+```{r rdd-plot-cult, fig.width=10, fig.height=7}
 # Aggregate data for points
 agg_data <- optimal_bandwidth_data_cult %>%
   group_by(running) %>%
@@ -544,7 +544,7 @@ ggsave(plot = invasion_on_sentiment_graph_cult,
 
 ### Other
 
-```{r rdd-plot-mil, fig.width=10, fig.height=7}
+```{r rdd-plot-oth, fig.width=10, fig.height=7}
 # Aggregate data for points
 agg_data <- optimal_bandwidth_data_oth %>%
   group_by(running) %>%

@@ -331,7 +331,7 @@ optimal_bw_combined <- bw_select_combined$bws[1, 1]
 ```
 
 
-```{r combined-robust}
+```{r combined-robust-model}
 cat("Optimal bandwidth (combined filter):", round(optimal_bw_combined, 1), "seconds\n")
 
 optimal_bw_combined_data <- data_combined_filtered %>%
