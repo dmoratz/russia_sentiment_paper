@@ -195,14 +195,14 @@ gtsave(table_1c, file.path(FIGURES_TABLES, "table_1c.html"))
 
 ```{r table2}
 rows_t2 <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
-  'State FEs', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t2, 'position') <- c(5, 6, 7)
 
-note_t2 <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles."
+note_t2 <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth."
 
 table_2 <- modelsummary(
   list(
@@ -210,7 +210,8 @@ table_2 <- modelsummary(
     "(2)" = results_h2$model2a_opt,
     "(3)" = results_h2$model2d,
     "(4)" = results_h2$model2b,
-    "(5)" = results_h2$model3a
+    "(5)" = results_h2$model3a,
+    "(6)" = results_h2$model3a_opt
   ),
   output = "gt",
   fmt = fmt_significant(3),
@@ -234,14 +235,14 @@ gtsave(table_2, file.path(FIGURES_TABLES, "table_2.html"))
 
 ```{r table2a}
 rows_t2a <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
-  'State FEs', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t2a, 'position') <- c(5, 6, 7)
 
-note_t2a <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles."
+note_t2a <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth."
 
 table_2a <- modelsummary(
   list(
@@ -249,7 +250,8 @@ table_2a <- modelsummary(
     "(2)" = results_h2_cont$model2a_opt,
     "(3)" = results_h2_cont$model2d,
     "(4)" = results_h2_cont$model2b,
-    "(5)" = results_h2_cont$model3a
+    "(5)" = results_h2_cont$model3a,
+    "(6)" = results_h2_cont$model3a_opt
   ),
   output = "gt",
   fmt = fmt_significant(3),

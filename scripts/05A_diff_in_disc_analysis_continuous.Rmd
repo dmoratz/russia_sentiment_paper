@@ -113,8 +113,11 @@ ggsave(plot = invasion_discs_graph,
 data_non_ukraine <- data_non_ukraine %>%
   mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
 
+#covs_matrix <- model.matrix(~ country + topic_clean + state_owned - 1, data = data_non_ukraine)
+
 bw_select <- rdbwselect(y = data_non_ukraine$sentiment_clean,
                         x = data_non_ukraine$running_continuous,
+                        #covs = covs_matrix,
                         kernel = "triangular",
                         cluster = data_non_ukraine$source_domain,
                         p = 1,
@@ -123,7 +126,7 @@ bw_select <- rdbwselect(y = data_non_ukraine$sentiment_clean,
 summary(bw_select)
 
 optimal_bw <- bw_select$bws[1, 1]
-cat("Optimal bandwidth:", round(optimal_bw, 1), "hours\n")
+cat("Optimal bandwidth:", round(optimal_bw, 1), "seconds\n")
 
 optimal_bandwidth_data <- data_non_ukraine %>%
   filter(running_continuous < optimal_bw) %>%
@@ -281,6 +284,42 @@ model3a <- felm(sentiment_clean ~ running_continuous * treatment * state_owned |
 summary(model3a)
 ```
 
+# Robustness: Combined Filter with Re-Optimized Bandwidth
+
+```{r combined-robust}
+data_combined_filtered <- data %>%
+  filter(!Russian.Involvement == "Not") %>%
+  filter(!country %in% c("Ukraine")) %>%
+  filter(!country %in% NATO_COUNTRIES) %>%
+  filter(!topic_clean %in% c("Military"))
+
+data_combined_filtered <- data_combined_filtered %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+
+bw_select_combined <- rdbwselect(y = data_combined_filtered$sentiment_clean,
+                                  x = data_combined_filtered$running_continuous,
+                                  kernel = "triangular",
+                                  cluster = data_combined_filtered$source_domain,
+                                  p = 1,
+                                  bwselect = "mserd")
+
+summary(bw_select_combined)
+
+optimal_bw_combined <- bw_select_combined$bws[1, 1]
+cat("Optimal bandwidth (combined filter):", round(optimal_bw_combined, 1), "seconds\n")
+
+optimal_bw_combined_data <- data_combined_filtered %>%
+  filter(running_continuous < optimal_bw_combined) %>%
+  filter(running_continuous > -optimal_bw_combined)
+
+cat("Observations within bandwidth:", nrow(optimal_bw_combined_data), "\n")
+
+model3a_opt <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
+                    data = optimal_bw_combined_data)
+
+summary(model3a_opt)
+```
+
 # Diff-in-Diff (Within Bandwidth)
 
 ```{r did}
@@ -337,18 +376,18 @@ data_dec %>%
 
 ```{r table2a}
 rows <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
-  'State FEs', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows, 'position') <- c(5, 6, 7)
 
-note_text <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles."
+note_text <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth."
 note_wrapped <- str_wrap(note_text, width = 80)
 
 table_2a <- modelsummary(
-  list(model2a, model2a_opt, model2d, model2b, model3a),
+  list(model2a, model2a_opt, model2d, model2b, model3a, model3a_opt),
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
@@ -374,6 +413,7 @@ results_h2_cont <- list(
   model2d = model2d,
   model2b = model2b,
   model3a = model3a,
+  model3a_opt = model3a_opt,
   model_did = model_did,
   model_placebo = model4a,
   model2a_opt_pol = model2a_opt_pol,
@@ -381,7 +421,8 @@ results_h2_cont <- list(
   model2a_opt_econ = model2a_opt_econ,
   model2a_opt_cult = model2a_opt_cult,
   model2a_opt_oth = model2a_opt_oth,
-  optimal_bandwidth = optimal_bw
+  optimal_bandwidth = optimal_bw,
+  optimal_bandwidth_combined = optimal_bw_combined
 )
 
 saveRDS(results_h2_cont, file.path(DATA_INTERMEDIATE, "05_h2_results_continuous.rds"))
