@@ -49,19 +49,19 @@ This master script runs the entire analysis pipeline for the Russia sentiment pa
      │           │    ┌────────────┘
      │           │    │
      │           ▼    ▼
-     │      ┌─────────────┐     ┌─────────────────────────────┐
-     │      │     06      │────►│ data/intermediate/          │
-     │      │Heterogeneity│     │   06_heterogeneity_results  │
-     │      └──────┬──────┘     └─────────────────────────────┘
-     │             │
-     └─────────────┴─────────────┐
-                                 │
-                                 ▼
-                        ┌─────────────────┐
-                        │       07        │
-                        │  Publication    │────► figures/
-                        │    Outputs      │      (tables & plots)
-                        └─────────────────┘
+     │      ┌─────────────┐ ┌──────────┐
+     │      │     06      │ │   06A    │
+     │      │Heterogeneity│ │Het. Cont │
+     │      └──────┬──────┘ └────┬─────┘
+     │             │             │
+     └─────────────┴─────┬───────┘
+                         │
+                         ▼
+                ┌─────────────────┐
+                │       07        │
+                │  Publication    │────► figures/
+                │    Outputs      │      (tables & plots)
+                └─────────────────┘
 ```
 
 ## File Descriptions
@@ -76,7 +76,8 @@ This master script runs the entire analysis pipeline for the Russia sentiment pa
 | `04A_main_rdd_analysis_continuous.Rmd` | Hypothesis 1: RDD (continuous) | `04_h1_results_continuous.rds`, figures |
 | `05_diff_in_disc_analysis.Rmd` | Hypothesis 2: Diff-in-disc (day) | `05_h2_results.rds`, figures |
 | `05A_diff_in_disc_analysis_continuous.Rmd` | Hypothesis 2: Diff-in-disc (continuous) | `05_h2_results_continuous.rds`, figures |
-| `06_heterogeneity_analysis.Rmd` | Alignment, ethnic effects | `06_heterogeneity_results.rds` |
+| `06_heterogeneity_analysis.Rmd` | Alignment, ethnic effects (day) | `06_heterogeneity_results.rds` |
+| `06A_heterogeneity_analysis_continuous.Rmd` | Alignment, ethnic effects (continuous) | `06_heterogeneity_results_continuous.rds` |
 | `07_publication_outputs.Rmd` | Final tables and figures | Publication-ready outputs |
 
 # Run Pipeline
@@ -216,6 +217,22 @@ step6_time <- difftime(Sys.time(), step6_start, units = "secs")
 cat("Completed in", round(step6_time, 1), "seconds\n")
 ```
 
+## Step 6A: Heterogeneity Analysis (Continuous Running Variable)
+
+```{r step6a}
+step6a_start <- Sys.time()
+cat("Running 06A_heterogeneity_analysis_continuous.Rmd...\n")
+
+rmarkdown::render(
+  "06A_heterogeneity_analysis_continuous.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step6a_time <- difftime(Sys.time(), step6a_start, units = "secs")
+cat("Completed in", round(step6a_time, 1), "seconds\n")
+```
+
 ## Step 7: Publication Outputs
 
 ```{r step7}
@@ -250,6 +267,7 @@ cat("  04A_rdd_continuous:     ", round(step4a_time, 1), "s\n")
 cat("  05_diff_in_disc:        ", round(step5_time, 1), "s\n")
 cat("  05A_disc_continuous:    ", round(step5a_time, 1), "s\n")
 cat("  06_heterogeneity:       ", round(step6_time, 1), "s\n")
+cat("  06A_het_continuous:     ", round(step6a_time, 1), "s\n")
 cat("  07_publication_outputs: ", round(step7_time, 1), "s\n")
 cat("  ─────────────────────────────\n")
 cat("  Total:                  ", round(pipeline_total, 2), "min\n")

@@ -15,8 +15,11 @@ This script generates all publication-quality tables and figures.
 
 **Inputs:**
 - `data/intermediate/04_h1_results.rds`
+- `data/intermediate/04_h1_results_continuous.rds`
 - `data/intermediate/05_h2_results.rds`
+- `data/intermediate/05_h2_results_continuous.rds`
 - `data/intermediate/06_heterogeneity_results.rds`
+- `data/intermediate/06_heterogeneity_results_continuous.rds`
 - `data/intermediate/02_cleaned_data.rds`
 
 **Outputs:**
@@ -36,6 +39,7 @@ results_h1_cont <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_continuou
 results_h2 <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results.rds"))
 results_h2_cont <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_continuous.rds"))
 results_het <- readRDS(file.path(DATA_INTERMEDIATE, "06_heterogeneity_results.rds"))
+results_het_cont <- readRDS(file.path(DATA_INTERMEDIATE, "06_heterogeneity_results_continuous.rds"))
 
 # Load data for additional tables
 data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
@@ -282,7 +286,7 @@ rows_t2b <- tibble::tribble(
 )
 attr(rows_t2b, 'position') <- c(5, 6, 7)
 
-note_t2b <- "All standard errors are clustered at the source level. All models use the optimal bandwidth with country fixed effects only."
+note_t2b <- "All standard errors are clustered at the source level. All models use a per-topic re-optimized bandwidth with country fixed effects only."
 
 table_2b <- modelsummary(
   list(
@@ -321,7 +325,7 @@ rows_t2c <- tibble::tribble(
 )
 attr(rows_t2c, 'position') <- c(5, 6, 7)
 
-note_t2c <- "All standard errors are clustered at the source level. All models use the optimal bandwidth with country fixed effects only."
+note_t2c <- "All standard errors are clustered at the source level. All models use a per-topic re-optimized bandwidth with country fixed effects only."
 
 table_2c <- modelsummary(
   list(
@@ -349,16 +353,96 @@ table_2c
 gtsave(table_2c, file.path(FIGURES_TABLES, "table_2c.html"))
 ```
 
+## Table 2D: Diff-in-Disc By Topic Full Data (Day)
+
+```{r table2d}
+rows_t2d <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-'
+)
+attr(rows_t2d, 'position') <- c(5, 6, 7)
+
+note_t2d <- "All standard errors are clustered at the source level. All models use the full dataset (no bandwidth restriction) with country fixed effects only."
+
+table_2d <- modelsummary(
+  list(
+    "Political" = results_h2$model2a_full_pol,
+    "Military" = results_h2$model2a_full_mil,
+    "Economic" = results_h2$model2a_full_econ,
+    "Cultural" = results_h2$model2a_full_cult,
+    "Other" = results_h2$model2a_full_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2D: Diff-in-Disc By Topic Full Data (Day Running Variable)",
+  add_rows = rows_t2d,
+  notes = str_wrap(note_t2d, 80)
+)
+
+table_2d
+
+gtsave(table_2d, file.path(FIGURES_TABLES, "table_2d.html"))
+```
+
+## Table 2E: Diff-in-Disc By Topic Full Data (Continuous)
+
+```{r table2e}
+rows_t2e <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-'
+)
+attr(rows_t2e, 'position') <- c(5, 6, 7)
+
+note_t2e <- "All standard errors are clustered at the source level. All models use the full dataset (no bandwidth restriction) with country fixed effects only."
+
+table_2e <- modelsummary(
+  list(
+    "Political" = results_h2_cont$model2a_full_pol,
+    "Military" = results_h2_cont$model2a_full_mil,
+    "Economic" = results_h2_cont$model2a_full_econ,
+    "Cultural" = results_h2_cont$model2a_full_cult,
+    "Other" = results_h2_cont$model2a_full_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2E: Diff-in-Disc By Topic Full Data (Continuous Running Variable)",
+  add_rows = rows_t2e,
+  notes = str_wrap(note_t2e, 80)
+)
+
+table_2e
+
+gtsave(table_2e, file.path(FIGURES_TABLES, "table_2e.html"))
+```
+
 # Table 3: Heterogeneity by Russian Alignment
 
 ```{r table3}
-note_t3 <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits military-related articles. Sample restricted to state-owned media in non-NATO countries."
+note_t3 <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles. Model 5 uses only Russian-related (non-military) articles. Sample restricted to state-owned media in non-NATO countries."
 
 table_3 <- modelsummary(
   list(
     "(1)" = results_het$model5a,
-    "(2)" = results_het$model5a_opt,
-    "(3)" = results_het$model5a_non_mil
+    "(2)" = results_het$model5a_full,
+    "(3)" = results_het$model5a_opt,
+    "(4)" = results_het$model5a_non_mil,
+    "(5)" = results_het$model5a_russian
   ),
   output = "gt",
   fmt = fmt_significant(3),
@@ -375,6 +459,156 @@ table_3 <- modelsummary(
 table_3
 
 gtsave(table_3, file.path(FIGURES_TABLES, "table_3.html"))
+```
+
+## Table 3A: Heterogeneity (Continuous)
+
+```{r table3a}
+note_t3a <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles. Model 5 uses only Russian-related (non-military) articles. Sample restricted to state-owned media in non-NATO countries."
+
+table_3a <- modelsummary(
+  list(
+    "(1)" = results_het_cont$model5a,
+    "(2)" = results_het_cont$model5a_full,
+    "(3)" = results_het_cont$model5a_opt,
+    "(4)" = results_het_cont$model5a_non_mil,
+    "(5)" = results_het_cont$model5a_russian
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3A: Russian Alignment Heterogeneity (Continuous Running Variable)",
+  notes = str_wrap(note_t3a, 80)
+)
+
+table_3a
+
+gtsave(table_3a, file.path(FIGURES_TABLES, "table_3a.html"))
+```
+
+## Table 3B: Heterogeneity By Topic Optimal BW (Day)
+
+```{r table3b}
+note_t3b <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+
+table_3b <- modelsummary(
+  list(
+    "Political" = results_het$model5a_opt_pol,
+    "Military" = results_het$model5a_opt_mil,
+    "Economic" = results_het$model5a_opt_econ,
+    "Cultural" = results_het$model5a_opt_cult,
+    "Other" = results_het$model5a_opt_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3B: Heterogeneity By Topic (Per-Topic Optimal BW, Day)",
+  notes = str_wrap(note_t3b, 80)
+)
+
+table_3b
+
+gtsave(table_3b, file.path(FIGURES_TABLES, "table_3b.html"))
+```
+
+## Table 3C: Heterogeneity By Topic Optimal BW (Continuous)
+
+```{r table3c}
+note_t3c <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+
+table_3c <- modelsummary(
+  list(
+    "Political" = results_het_cont$model5a_opt_pol,
+    "Military" = results_het_cont$model5a_opt_mil,
+    "Economic" = results_het_cont$model5a_opt_econ,
+    "Cultural" = results_het_cont$model5a_opt_cult,
+    "Other" = results_het_cont$model5a_opt_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3C: Heterogeneity By Topic (Per-Topic Optimal BW, Continuous)",
+  notes = str_wrap(note_t3c, 80)
+)
+
+table_3c
+
+gtsave(table_3c, file.path(FIGURES_TABLES, "table_3c.html"))
+```
+
+## Table 3D: Heterogeneity By Topic Full Data (Day)
+
+```{r table3d}
+note_t3d <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+
+table_3d <- modelsummary(
+  list(
+    "Political" = results_het$model5a_full_pol,
+    "Military" = results_het$model5a_full_mil,
+    "Economic" = results_het$model5a_full_econ,
+    "Cultural" = results_het$model5a_full_cult,
+    "Other" = results_het$model5a_full_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3D: Heterogeneity By Topic (Full Data, Day)",
+  notes = str_wrap(note_t3d, 80)
+)
+
+table_3d
+
+gtsave(table_3d, file.path(FIGURES_TABLES, "table_3d.html"))
+```
+
+## Table 3E: Heterogeneity By Topic Full Data (Continuous)
+
+```{r table3e}
+note_t3e <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+
+table_3e <- modelsummary(
+  list(
+    "Political" = results_het_cont$model5a_full_pol,
+    "Military" = results_het_cont$model5a_full_mil,
+    "Economic" = results_het_cont$model5a_full_econ,
+    "Cultural" = results_het_cont$model5a_full_cult,
+    "Other" = results_het_cont$model5a_full_oth
+  ),
+  output = "gt",
+  fmt = fmt_significant(3),
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3E: Heterogeneity By Topic (Full Data, Continuous)",
+  notes = str_wrap(note_t3e, 80)
+)
+
+table_3e
+
+gtsave(table_3e, file.path(FIGURES_TABLES, "table_3e.html"))
 ```
 
 # Comparison Table: Countries by Alignment and Ethnic Population
@@ -511,9 +745,16 @@ cat("  - table_1b.html: RDD by topic (day)\n")
 cat("  - table_1c.html: RDD by topic (continuous)\n")
 cat("  - table_2.html: Diff-in-disc results (H2, day)\n")
 cat("  - table_2a.html: Diff-in-disc results (H2, continuous)\n")
-cat("  - table_2b.html: Diff-in-disc by topic (day)\n")
-cat("  - table_2c.html: Diff-in-disc by topic (continuous)\n")
-cat("  - table_3.html: Heterogeneity by alignment\n")
+cat("  - table_2b.html: Diff-in-disc by topic, optimal BW (day)\n")
+cat("  - table_2c.html: Diff-in-disc by topic, optimal BW (continuous)\n")
+cat("  - table_2d.html: Diff-in-disc by topic, full data (day)\n")
+cat("  - table_2e.html: Diff-in-disc by topic, full data (continuous)\n")
+cat("  - table_3.html: Heterogeneity by alignment (day)\n")
+cat("  - table_3a.html: Heterogeneity by alignment (continuous)\n")
+cat("  - table_3b.html: Heterogeneity by topic, optimal BW (day)\n")
+cat("  - table_3c.html: Heterogeneity by topic, optimal BW (continuous)\n")
+cat("  - table_3d.html: Heterogeneity by topic, full data (day)\n")
+cat("  - table_3e.html: Heterogeneity by topic, full data (continuous)\n")
 cat("  - comparison_table.html: Country classification\n")
 cat("  - alignment_table.html: Alignment comparison\n")
 cat("  - ethnic_table.html: Ethnic population comparison\n")
