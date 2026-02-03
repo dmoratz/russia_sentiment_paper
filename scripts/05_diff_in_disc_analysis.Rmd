@@ -304,7 +304,10 @@ summary(bw_select_combined)
 
 optimal_bw_combined <- bw_select_combined$bws[1, 1]
 cat("Optimal bandwidth (combined filter):", round(optimal_bw_combined, 1), "days\n")
+```
 
+
+```{r combined-robust}
 optimal_bw_combined_data <- data_combined_filtered %>%
   filter(running < optimal_bw_combined) %>%
   filter(running > -optimal_bw_combined)
