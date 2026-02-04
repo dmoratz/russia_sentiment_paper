@@ -45,20 +45,23 @@ This master script runs the entire analysis pipeline for the Russia sentiment pa
 │ Descrip │ │Main RDD │ │ RDD Cont │ │Diff-Disc│ │Disc Cont │
 │ tive    │ │   H1    │ │  H1 Alt  │ │   H2    │ │  H2 Alt  │
 └────┬────┘ └────┬────┘ └────┬─────┘ └────┬────┘ └────┬─────┘
-     │           │                 │
-     │           │    ┌────────────┘
-     │           │    │
-     │           ▼    ▼
-     │      ┌─────────────┐ ┌──────────┐
-     │      │     06      │ │   06A    │
-     │      │Heterogeneity│ │Het. Cont │
-     │      └──────┬──────┘ └────┬─────┘
-     │             │             │
-     └─────────────┴─────┬───────┘
-                         │
-                         ▼
-                ┌─────────────────┐
-                │       07        │
+     │           │           │            │            │
+     │           │     ┌─────┴─────┐ ┌────┴────┐ ┌────┴────┐
+     │           │     │  04B 04C  │ │ 05B 05C │ │         │
+     │           │     │Drop  Prob │ │Drop Prob│ │         │
+     │           │     └─────┬─────┘ └────┬────┘ │         │
+     │           │           │            │      │         │
+     │           ▼           ▼            ▼      ▼         │
+     │      ┌─────────────┐ ┌──────────┐ ┌────────────┐   │
+     │      │     06      │ │   06A    │ │  06B  06C  │   │
+     │      │Heterogeneity│ │Het. Cont │ │Drop   Prob │   │
+     │      └──────┬──────┘ └────┬─────┘ └─────┬──────┘   │
+     │             │             │              │          │
+     └─────────────┴─────┬───────┴──────────────┘          │
+                         │                                 │
+                         ▼                                 │
+                ┌─────────────────┐                        │
+                │       07        │◄───────────────────────┘
                 │  Publication    │────► figures/
                 │    Outputs      │      (tables & plots)
                 └─────────────────┘
@@ -78,6 +81,12 @@ This master script runs the entire analysis pipeline for the Russia sentiment pa
 | `05A_diff_in_disc_analysis_continuous.Rmd` | Hypothesis 2: Diff-in-disc (continuous) | `05_h2_results_continuous.rds`, figures |
 | `06_heterogeneity_analysis.Rmd` | Alignment, ethnic effects (day) | `06_heterogeneity_results.rds` |
 | `06A_heterogeneity_analysis_continuous.Rmd` | Alignment, ethnic effects (continuous) | `06_heterogeneity_results_continuous.rds` |
+| `04B_main_rdd_analysis_drop.Rmd` | H1: RDD (drop no-time articles) | `04_h1_results_drop.rds` |
+| `05B_diff_in_disc_analysis_drop.Rmd` | H2: Diff-in-disc (drop no-time) | `05_h2_results_drop.rds` |
+| `06B_heterogeneity_analysis_drop.Rmd` | Heterogeneity (drop no-time) | `06_heterogeneity_results_drop.rds` |
+| `04C_main_rdd_analysis_prob.Rmd` | H1: RDD (probabilistic time) | `04_h1_results_prob.rds` |
+| `05C_diff_in_disc_analysis_prob.Rmd` | H2: Diff-in-disc (probabilistic time) | `05_h2_results_prob.rds` |
+| `06C_heterogeneity_analysis_prob.Rmd` | Heterogeneity (probabilistic time) | `06_heterogeneity_results_prob.rds` |
 | `07_publication_outputs.Rmd` | Final tables and figures | Publication-ready outputs |
 
 # Run Pipeline
@@ -233,6 +242,102 @@ step6a_time <- difftime(Sys.time(), step6a_start, units = "secs")
 cat("Completed in", round(step6a_time, 1), "seconds\n")
 ```
 
+## Step 4B: Main RDD Analysis (Drop No-Time Articles)
+
+```{r step4b}
+step4b_start <- Sys.time()
+cat("Running 04B_main_rdd_analysis_drop.Rmd...\n")
+
+rmarkdown::render(
+  "04B_main_rdd_analysis_drop.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step4b_time <- difftime(Sys.time(), step4b_start, units = "secs")
+cat("Completed in", round(step4b_time, 1), "seconds\n")
+```
+
+## Step 5B: Diff-in-Disc Analysis (Drop No-Time Articles)
+
+```{r step5b}
+step5b_start <- Sys.time()
+cat("Running 05B_diff_in_disc_analysis_drop.Rmd...\n")
+
+rmarkdown::render(
+  "05B_diff_in_disc_analysis_drop.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step5b_time <- difftime(Sys.time(), step5b_start, units = "secs")
+cat("Completed in", round(step5b_time, 1), "seconds\n")
+```
+
+## Step 6B: Heterogeneity Analysis (Drop No-Time Articles)
+
+```{r step6b}
+step6b_start <- Sys.time()
+cat("Running 06B_heterogeneity_analysis_drop.Rmd...\n")
+
+rmarkdown::render(
+  "06B_heterogeneity_analysis_drop.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step6b_time <- difftime(Sys.time(), step6b_start, units = "secs")
+cat("Completed in", round(step6b_time, 1), "seconds\n")
+```
+
+## Step 4C: Main RDD Analysis (Probabilistic Time)
+
+```{r step4c}
+step4c_start <- Sys.time()
+cat("Running 04C_main_rdd_analysis_prob.Rmd...\n")
+
+rmarkdown::render(
+  "04C_main_rdd_analysis_prob.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step4c_time <- difftime(Sys.time(), step4c_start, units = "secs")
+cat("Completed in", round(step4c_time, 1), "seconds\n")
+```
+
+## Step 5C: Diff-in-Disc Analysis (Probabilistic Time)
+
+```{r step5c}
+step5c_start <- Sys.time()
+cat("Running 05C_diff_in_disc_analysis_prob.Rmd...\n")
+
+rmarkdown::render(
+  "05C_diff_in_disc_analysis_prob.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step5c_time <- difftime(Sys.time(), step5c_start, units = "secs")
+cat("Completed in", round(step5c_time, 1), "seconds\n")
+```
+
+## Step 6C: Heterogeneity Analysis (Probabilistic Time)
+
+```{r step6c}
+step6c_start <- Sys.time()
+cat("Running 06C_heterogeneity_analysis_prob.Rmd...\n")
+
+rmarkdown::render(
+  "06C_heterogeneity_analysis_prob.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step6c_time <- difftime(Sys.time(), step6c_start, units = "secs")
+cat("Completed in", round(step6c_time, 1), "seconds\n")
+```
+
 ## Step 7: Publication Outputs
 
 ```{r step7}
@@ -247,6 +352,17 @@ rmarkdown::render(
 
 step7_time <- difftime(Sys.time(), step7_start, units = "secs")
 cat("Completed in", round(step7_time, 1), "seconds\n")
+```
+
+# Cleanup
+
+```{r cleanup}
+# Clean up temporary files
+tmp_files <- list.files(".", pattern = "\\.Rmd\\.tmp\\.", full.names = TRUE)
+if (length(tmp_files) > 0) {
+  file.remove(tmp_files)
+  cat("Removed", length(tmp_files), "temporary files\n")
+}
 ```
 
 # Pipeline Summary
@@ -264,10 +380,16 @@ cat("  02_data_cleaning:       ", round(step2_time, 1), "s\n")
 cat("  03_descriptive_analysis:", round(step3_time, 1), "s\n")
 cat("  04_main_rdd_analysis:   ", round(step4_time, 1), "s\n")
 cat("  04A_rdd_continuous:     ", round(step4a_time, 1), "s\n")
+cat("  04B_rdd_drop:           ", round(step4b_time, 1), "s\n")
+cat("  04C_rdd_prob:           ", round(step4c_time, 1), "s\n")
 cat("  05_diff_in_disc:        ", round(step5_time, 1), "s\n")
 cat("  05A_disc_continuous:    ", round(step5a_time, 1), "s\n")
+cat("  05B_disc_drop:          ", round(step5b_time, 1), "s\n")
+cat("  05C_disc_prob:          ", round(step5c_time, 1), "s\n")
 cat("  06_heterogeneity:       ", round(step6_time, 1), "s\n")
 cat("  06A_het_continuous:     ", round(step6a_time, 1), "s\n")
+cat("  06B_het_drop:           ", round(step6b_time, 1), "s\n")
+cat("  06C_het_prob:           ", round(step6c_time, 1), "s\n")
 cat("  07_publication_outputs: ", round(step7_time, 1), "s\n")
 cat("  ─────────────────────────────\n")
 cat("  Total:                  ", round(pipeline_total, 2), "min\n")

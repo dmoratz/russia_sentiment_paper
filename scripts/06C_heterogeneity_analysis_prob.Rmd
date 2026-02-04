@@ -1,0 +1,793 @@
+---
+title: "06C - Heterogeneity Analysis with Probabilistic Time Assignment"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script examines heterogeneous treatment effects using probabilistic time assignment:
+- Russian alignment (CSTO vs Neutral)
+- Ethnic Russian population
+- Country-specific analyses
+
+**Inputs:**
+- `data/intermediate/02_cleaned_data.rds`
+- `data/intermediate/02_data_non_ukraine.rds`
+
+**Outputs:**
+- Heterogeneity analysis results (probabilistic)
+- Table 3I
+- Additional visualizations
+
+```{r setup-prob, include=FALSE}
+source("00_setup.R")
+```
+
+# Load Data
+
+```{r load-prob}
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+
+cat("Full data:", nrow(data), "articles\n")
+cat("Non-Ukraine data:", nrow(data_non_ukraine), "articles\n")
+```
+
+# Russian Alignment Analysis (CSTO vs Neutral)
+
+## Create Alignment Subsets
+
+```{r alignment-data-prob}
+# Filter to non-NATO countries for alignment analysis
+data_align <- data %>%
+  filter(nato == 0)
+
+# Create alignment indicator
+data_align <- data_align %>%
+  mutate(align_indicator = factor(case_when(
+    indicator == 1 & csto == 1 ~ "Pre. Ind. CSTO",
+    indicator == 1 & csto == 0 ~ "Pre. Ind. Neut",
+    indicator == 2 & csto == 1 ~ "Pre. State CSTO",
+    indicator == 2 & csto == 0 ~ "Pre. State Neut",
+    indicator == 3 & csto == 1 ~ "Post Ind. CSTO",
+    indicator == 3 & csto == 0 ~ "Post Ind. Neut",
+    indicator == 4 & csto == 1 ~ "Post State CSTO",
+    indicator == 4 & csto == 0 ~ "Post State Neut"
+  ),
+  levels = c("Pre. Ind. CSTO", "Pre. Ind. Neut", "Pre. State CSTO",
+             "Pre. State Neut", "Post Ind. CSTO", "Post Ind. Neut",
+             "Post State CSTO", "Post State Neut")))
+
+cat("Non-NATO countries sample:", nrow(data_align), "articles\n")
+cat("CSTO:", sum(data_align$csto), "\n")
+cat("Neutral:", sum(data_align$csto == 0), "\n")
+```
+
+## Visualization: Independent Media by Alignment
+
+```{r align-ind-plot-prob, fig.width=10, fig.height=7}
+agg_data_align_ind <- data_align %>%
+  filter(state_owned == 0) %>%
+  group_by(running_probabilistic, csto) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+data_align %>%
+  filter(state_owned == 0) %>%
+  ggplot(aes(x = running_probabilistic, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
+  geom_point(data = agg_data_align_ind,
+             aes(x = running_probabilistic, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Independent Media Sentiment (Probabilistic)",
+    subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities",
+    x = "Hours Pre/Post Invasion",
+    y = "Sentiment"
+  )
+```
+
+## Visualization: State Media by Alignment
+
+```{r align-state-plot-prob, fig.width=10, fig.height=7}
+agg_data_align_state <- data_align %>%
+  filter(state_owned == 1) %>%
+  group_by(running_probabilistic, csto) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+state_align_discs_graph <- data_align %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running_probabilistic, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
+  geom_point(data = agg_data_align_state,
+             aes(x = running_probabilistic, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on State Media Sentiment (Probabilistic)",
+    subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities",
+    x = "Hours Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+state_align_discs_graph
+
+ggsave(plot = state_align_discs_graph,
+       file.path(FIGURES_HETEROGENEITY, "state_align_discs_prob.png"),
+       width = 10, height = 7)
+```
+
+## State Media Alignment Regressions
+
+### CSTO Countries Only
+
+```{r align-csto-prob}
+data_align_state_csto <- data_align %>%
+  filter(state_owned == 1, csto == 1)
+
+model5a_state <- felm(sentiment_clean ~ running_probabilistic * treatment | source_domain + topic_clean | 0 | source_domain,
+                      data = data_align_state_csto)
+
+summary(model5a_state)
+```
+
+### Neutral Countries Only
+
+```{r align-neutral-prob}
+data_align_state_neutral <- data_align %>%
+  filter(state_owned == 1, csto == 0)
+
+model5a_neutral <- felm(sentiment_clean ~ running_probabilistic * treatment | source_domain + topic_clean | 0 | source_domain,
+                        data = data_align_state_neutral)
+
+summary(model5a_neutral)
+```
+
+### Diff-in-Disc: CSTO vs Neutral (State Media)
+
+```{r align-diff-prob}
+data_align_state <- data_align %>%
+  filter(state_owned == 1)
+
+model5a <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                data = data_align_state)
+
+summary(model5a)
+```
+
+## Full Data with Topic FEs
+
+```{r align-full-prob}
+model5a_full <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | topic_clean | 0 | source_domain,
+                     data = data_align_state)
+
+summary(model5a_full)
+```
+
+## Optimal Bandwidth
+
+```{r align-optimal-prob}
+bw_align <- rdbwselect(y = data_align_state$sentiment_clean,
+                       x = data_align_state$running_probabilistic,
+                       kernel = "triangular",
+                       cluster = data_align_state$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
+
+optimal_bw_align <- bw_align$bws[1, 1]
+cat("Optimal bandwidth:", round(optimal_bw_align, 1), "seconds\n")
+
+optimal_bandwidth_data_state <- data_align_state %>%
+  filter(running_probabilistic < optimal_bw_align, running_probabilistic > -optimal_bw_align)
+
+model5a_opt <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | topic_clean | 0 | source_domain,
+                    data = optimal_bandwidth_data_state)
+
+summary(model5a_opt)
+```
+
+## Effect Size
+
+```{r align-effect-prob}
+sd_state_owned <- sd(data_align_state$sentiment_clean)
+cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
+
+coef_csto_int <- summary(model5a_opt)$coef["running_probabilistic:treatment:csto", "Estimate"]
+cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
+```
+
+## Non-Military Topics
+
+```{r align-non-mil-prob}
+data_align_state_non_mil <- data_align_state %>%
+  filter(!topic_clean %in% "Military")
+
+bw_align_non_mil <- rdbwselect(y = data_align_state_non_mil$sentiment_clean,
+                               x = data_align_state_non_mil$running_probabilistic,
+                               kernel = "triangular",
+                               cluster = data_align_state_non_mil$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "seconds\n")
+
+optimal_bandwidth_data_state_non_mil <- data_align_state_non_mil %>%
+  filter(running_probabilistic < optimal_bw_align_non_mil, running_probabilistic > -optimal_bw_align_non_mil)
+
+model5a_opt_non_mil <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | topic_clean | 0 | source_domain,
+                        data = optimal_bandwidth_data_state_non_mil)
+
+summary(model5a_opt_non_mil)
+```
+
+## Russian-Related Articles Only
+
+```{r align-russian-prob}
+data_align_state_russian <- data_align_state %>%
+  filter(!topic_clean %in% "Military") %>%
+  filter(!Russian.Involvement == "Not")
+
+bw_align_russian <- rdbwselect(y = data_align_state_russian$sentiment_clean,
+                               x = data_align_state_russian$running_probabilistic,
+                               kernel = "triangular",
+                               cluster = data_align_state_russian$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
+cat("Optimal bandwidth (russian):", round(optimal_bw_align_russian, 1), "seconds\n")
+
+optimal_bandwidth_data_state_russian <- data_align_state_russian %>%
+  filter(running_probabilistic < optimal_bw_align_russian, running_probabilistic > -optimal_bw_align_russian)
+
+model5a_opt_russian <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | topic_clean | 0 | source_domain,
+                        data = optimal_bandwidth_data_state_russian)
+
+summary(model5a_opt_russian)
+```
+
+## By-Topic Models: Full Data
+
+```{r topic-full-het-prob}
+data_align_state_pol <- data_align_state %>% filter(topic_clean == "Political")
+data_align_state_mil <- data_align_state %>% filter(topic_clean == "Military")
+data_align_state_econ <- data_align_state %>% filter(topic_clean == "Economic")
+data_align_state_cult <- data_align_state %>% filter(topic_clean == "Culture")
+data_align_state_oth <- data_align_state %>% filter(topic_clean == "Other")
+
+model5a_full_pol <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                         data = data_align_state_pol)
+model5a_full_mil <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                         data = data_align_state_mil)
+model5a_full_econ <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                          data = data_align_state_econ)
+model5a_full_cult <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                          data = data_align_state_cult)
+model5a_full_oth <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                         data = data_align_state_oth)
+```
+
+## By-Topic Models: Per-Topic Optimal Bandwidth
+
+```{r topic-opt-het-prob}
+# Political
+bw_align_pol <- rdbwselect(y = data_align_state_pol$sentiment_clean, x = data_align_state_pol$running_probabilistic,
+                           kernel = "triangular", cluster = data_align_state_pol$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_align_pol <- bw_align_pol$bws[1, 1]
+cat("Political optimal bandwidth:", round(optimal_bw_align_pol, 1), "seconds\n")
+opt_align_pol <- data_align_state_pol %>% filter(running_probabilistic < optimal_bw_align_pol, running_probabilistic > -optimal_bw_align_pol)
+
+# Military
+bw_align_mil <- rdbwselect(y = data_align_state_mil$sentiment_clean, x = data_align_state_mil$running_probabilistic,
+                           kernel = "triangular", cluster = data_align_state_mil$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_align_mil <- bw_align_mil$bws[1, 1]
+cat("Military optimal bandwidth:", round(optimal_bw_align_mil, 1), "seconds\n")
+opt_align_mil <- data_align_state_mil %>% filter(running_probabilistic < optimal_bw_align_mil, running_probabilistic > -optimal_bw_align_mil)
+
+# Economic
+bw_align_econ <- rdbwselect(y = data_align_state_econ$sentiment_clean, x = data_align_state_econ$running_probabilistic,
+                            kernel = "triangular", cluster = data_align_state_econ$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_align_econ <- bw_align_econ$bws[1, 1]
+cat("Economic optimal bandwidth:", round(optimal_bw_align_econ, 1), "seconds\n")
+opt_align_econ <- data_align_state_econ %>% filter(running_probabilistic < optimal_bw_align_econ, running_probabilistic > -optimal_bw_align_econ)
+
+# Culture
+bw_align_cult <- rdbwselect(y = data_align_state_cult$sentiment_clean, x = data_align_state_cult$running_probabilistic,
+                            kernel = "triangular", cluster = data_align_state_cult$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_align_cult <- bw_align_cult$bws[1, 1]
+cat("Culture optimal bandwidth:", round(optimal_bw_align_cult, 1), "seconds\n")
+opt_align_cult <- data_align_state_cult %>% filter(running_probabilistic < optimal_bw_align_cult, running_probabilistic > -optimal_bw_align_cult)
+
+# Other
+bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_clean, x = data_align_state_oth$running_probabilistic,
+                           kernel = "triangular", cluster = data_align_state_oth$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_align_oth <- bw_align_oth$bws[1, 1]
+cat("Other optimal bandwidth:", round(optimal_bw_align_oth, 1), "seconds\n")
+opt_align_oth <- data_align_state_oth %>% filter(running_probabilistic < optimal_bw_align_oth, running_probabilistic > -optimal_bw_align_oth)
+
+model5a_opt_pol <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                        data = opt_align_pol)
+model5a_opt_mil <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                        data = opt_align_mil)
+model5a_opt_econ <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                         data = opt_align_econ)
+model5a_opt_cult <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                         data = opt_align_cult)
+model5a_opt_oth <- felm(sentiment_clean ~ running_probabilistic * treatment * csto | 0 | 0 | source_domain,
+                        data = opt_align_oth)
+```
+
+# Ethnic Russian Population Analysis
+
+## Create Ethnic Subsets
+
+```{r ethnic-data-prob}
+data_ethnic <- data %>%
+  filter(nato == 0)
+
+data_ethnic <- data_ethnic %>%
+  mutate(ethnic_indicator = factor(case_when(
+    indicator == 1 & high_russia == 1 ~ "Pre. Ind. High Rus",
+    indicator == 1 & high_russia == 0 ~ "Pre. Ind. Low Rus",
+    indicator == 2 & high_russia == 1 ~ "Pre. State High Rus",
+    indicator == 2 & high_russia == 0 ~ "Pre. State Low Rus",
+    indicator == 3 & high_russia == 1 ~ "Post Ind. High Rus",
+    indicator == 3 & high_russia == 0 ~ "Post Ind. Low Rus",
+    indicator == 4 & high_russia == 1 ~ "Post State High Rus",
+    indicator == 4 & high_russia == 0 ~ "Post State Low Rus"
+  ),
+  levels = c("Pre. Ind. High Rus", "Pre. Ind. Low Rus", "Pre. State High Rus",
+             "Pre. State Low Rus", "Post Ind. High Rus", "Post Ind. Low Rus",
+             "Post State High Rus", "Post State Low Rus")))
+
+cat("High Russian population:", sum(data_ethnic$high_russia), "\n")
+cat("Low Russian population:", sum(data_ethnic$high_russia == 0), "\n")
+```
+
+## Visualization: State Media by Ethnic Russian Population
+
+```{r ethnic-plot-prob, fig.width=10, fig.height=7}
+agg_data_ethnic <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  group_by(running_probabilistic, csto) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+ethnic_discs_graph <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running_probabilistic, y = sentiment_clean, group = ethnic_indicator, color = ethnic_indicator)) +
+  geom_point(data = agg_data_ethnic,
+             aes(x = running_probabilistic, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on State Media Sentiment (Probabilistic)",
+    subtitle = "High vs Low Ethnic Russian, Difference in Discontinuities",
+    x = "Hours Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+ethnic_discs_graph
+
+ggsave(plot = ethnic_discs_graph,
+       file.path(FIGURES_HETEROGENEITY, "ethnic_discs_prob.png"),
+       width = 10, height = 7)
+```
+
+## Ethnic Russian Population Regressions
+
+### Diff-in-Disc: High vs Low Ethnic Russian (State Media)
+
+```{r ethnic-reg-prob}
+data_ethnic_state <- data_ethnic %>%
+  filter(state_owned == 1)
+
+model6a <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                data = data_ethnic_state)
+
+summary(model6a)
+```
+
+## Full Data with Topic FEs
+
+```{r ethnic-full-prob}
+model6a_full <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | topic_clean | 0 | source_domain,
+                     data = data_ethnic_state)
+
+summary(model6a_full)
+```
+
+## Optimal Bandwidth
+
+```{r ethnic-optimal-prob}
+bw_ethnic <- rdbwselect(y = data_ethnic_state$sentiment_clean,
+                        x = data_ethnic_state$running_probabilistic,
+                        kernel = "triangular",
+                        cluster = data_ethnic_state$source_domain,
+                        p = 1,
+                        bwselect = "mserd")
+
+optimal_bw_ethnic <- bw_ethnic$bws[1, 1]
+cat("Optimal bandwidth:", round(optimal_bw_ethnic, 1), "seconds\n")
+
+optimal_bandwidth_data_ethnic <- data_ethnic_state %>%
+  filter(running_probabilistic < optimal_bw_ethnic, running_probabilistic > -optimal_bw_ethnic)
+
+model6a_opt <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | topic_clean | 0 | source_domain,
+                    data = optimal_bandwidth_data_ethnic)
+
+summary(model6a_opt)
+```
+
+## Non-Military Topics
+
+```{r ethnic-non-mil-prob}
+data_ethnic_state_non_mil <- data_ethnic_state %>%
+  filter(!topic_clean %in% "Military")
+
+bw_ethnic_non_mil <- rdbwselect(y = data_ethnic_state_non_mil$sentiment_clean,
+                                x = data_ethnic_state_non_mil$running_probabilistic,
+                                kernel = "triangular",
+                                cluster = data_ethnic_state_non_mil$source_domain,
+                                p = 1,
+                                bwselect = "mserd")
+
+optimal_bw_ethnic_non_mil <- bw_ethnic_non_mil$bws[1, 1]
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_ethnic_non_mil, 1), "seconds\n")
+
+optimal_bandwidth_data_ethnic_non_mil <- data_ethnic_state_non_mil %>%
+  filter(running_probabilistic < optimal_bw_ethnic_non_mil, running_probabilistic > -optimal_bw_ethnic_non_mil)
+
+model6a_opt_non_mil <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | topic_clean | 0 | source_domain,
+                            data = optimal_bandwidth_data_ethnic_non_mil)
+
+summary(model6a_opt_non_mil)
+```
+
+## Russian-Related Articles Only
+
+```{r ethnic-russian-prob}
+data_ethnic_state_russian <- data_ethnic_state %>%
+  filter(!topic_clean %in% "Military") %>%
+  filter(!Russian.Involvement == "Not")
+
+bw_ethnic_russian <- rdbwselect(y = data_ethnic_state_russian$sentiment_clean,
+                                x = data_ethnic_state_russian$running_probabilistic,
+                                kernel = "triangular",
+                                cluster = data_ethnic_state_russian$source_domain,
+                                p = 1,
+                                bwselect = "mserd")
+
+optimal_bw_ethnic_russian <- bw_ethnic_russian$bws[1, 1]
+cat("Optimal bandwidth (russian):", round(optimal_bw_ethnic_russian, 1), "seconds\n")
+
+optimal_bandwidth_data_ethnic_russian <- data_ethnic_state_russian %>%
+  filter(running_probabilistic < optimal_bw_ethnic_russian, running_probabilistic > -optimal_bw_ethnic_russian)
+
+model6a_opt_russian <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | topic_clean | 0 | source_domain,
+                            data = optimal_bandwidth_data_ethnic_russian)
+
+summary(model6a_opt_russian)
+```
+
+## By-Topic Models: Full Data
+
+```{r ethnic-topic-full-prob}
+data_ethnic_state_pol <- data_ethnic_state %>% filter(topic_clean == "Political")
+data_ethnic_state_mil <- data_ethnic_state %>% filter(topic_clean == "Military")
+data_ethnic_state_econ <- data_ethnic_state %>% filter(topic_clean == "Economic")
+data_ethnic_state_cult <- data_ethnic_state %>% filter(topic_clean == "Culture")
+data_ethnic_state_oth <- data_ethnic_state %>% filter(topic_clean == "Other")
+
+model6a_full_pol <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                         data = data_ethnic_state_pol)
+model6a_full_mil <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                         data = data_ethnic_state_mil)
+model6a_full_econ <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                          data = data_ethnic_state_econ)
+model6a_full_cult <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                          data = data_ethnic_state_cult)
+model6a_full_oth <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                         data = data_ethnic_state_oth)
+```
+
+## By-Topic Models: Per-Topic Optimal Bandwidth
+
+```{r ethnic-topic-opt-prob}
+# Political
+bw_ethnic_pol <- rdbwselect(y = data_ethnic_state_pol$sentiment_clean, x = data_ethnic_state_pol$running_probabilistic,
+                            kernel = "triangular", cluster = data_ethnic_state_pol$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_pol <- bw_ethnic_pol$bws[1, 1]
+cat("Political optimal bandwidth:", round(optimal_bw_ethnic_pol, 1), "seconds\n")
+opt_ethnic_pol <- data_ethnic_state_pol %>% filter(running_probabilistic < optimal_bw_ethnic_pol, running_probabilistic > -optimal_bw_ethnic_pol)
+
+# Military
+bw_ethnic_mil <- rdbwselect(y = data_ethnic_state_mil$sentiment_clean, x = data_ethnic_state_mil$running_probabilistic,
+                            kernel = "triangular", cluster = data_ethnic_state_mil$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_mil <- bw_ethnic_mil$bws[1, 1]
+cat("Military optimal bandwidth:", round(optimal_bw_ethnic_mil, 1), "seconds\n")
+opt_ethnic_mil <- data_ethnic_state_mil %>% filter(running_probabilistic < optimal_bw_ethnic_mil, running_probabilistic > -optimal_bw_ethnic_mil)
+
+# Economic
+bw_ethnic_econ <- rdbwselect(y = data_ethnic_state_econ$sentiment_clean, x = data_ethnic_state_econ$running_probabilistic,
+                             kernel = "triangular", cluster = data_ethnic_state_econ$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_econ <- bw_ethnic_econ$bws[1, 1]
+cat("Economic optimal bandwidth:", round(optimal_bw_ethnic_econ, 1), "seconds\n")
+opt_ethnic_econ <- data_ethnic_state_econ %>% filter(running_probabilistic < optimal_bw_ethnic_econ, running_probabilistic > -optimal_bw_ethnic_econ)
+
+# Culture
+bw_ethnic_cult <- rdbwselect(y = data_ethnic_state_cult$sentiment_clean, x = data_ethnic_state_cult$running_probabilistic,
+                             kernel = "triangular", cluster = data_ethnic_state_cult$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_cult <- bw_ethnic_cult$bws[1, 1]
+cat("Culture optimal bandwidth:", round(optimal_bw_ethnic_cult, 1), "seconds\n")
+opt_ethnic_cult <- data_ethnic_state_cult %>% filter(running_probabilistic < optimal_bw_ethnic_cult, running_probabilistic > -optimal_bw_ethnic_cult)
+
+# Other
+bw_ethnic_oth <- rdbwselect(y = data_ethnic_state_oth$sentiment_clean, x = data_ethnic_state_oth$running_probabilistic,
+                            kernel = "triangular", cluster = data_ethnic_state_oth$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_ethnic_oth <- bw_ethnic_oth$bws[1, 1]
+cat("Other optimal bandwidth:", round(optimal_bw_ethnic_oth, 1), "seconds\n")
+opt_ethnic_oth <- data_ethnic_state_oth %>% filter(running_probabilistic < optimal_bw_ethnic_oth, running_probabilistic > -optimal_bw_ethnic_oth)
+
+model6a_opt_pol <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                        data = opt_ethnic_pol)
+model6a_opt_mil <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                        data = opt_ethnic_mil)
+model6a_opt_econ <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                         data = opt_ethnic_econ)
+model6a_opt_cult <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                         data = opt_ethnic_cult)
+model6a_opt_oth <- felm(sentiment_clean ~ running_probabilistic * treatment * high_russia | 0 | 0 | source_domain,
+                        data = opt_ethnic_oth)
+```
+
+# Summary Table (Table 4I)
+
+```{r table4i-prob}
+note_t4a <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth."
+note_t4a_wrapped <- str_wrap(note_t4a, width = 80)
+
+table_4i <- modelsummary(
+  list("(1)" = model6a, "(2)" = model6a_full, "(3)" = model6a_opt,
+       "(4)" = model6a_opt_non_mil, "(5)" = model6a_opt_russian),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Ethnic Russian Population: Difference in Discontinuity Analysis (Probabilistic Time Assignment)",
+  notes = note_t4a_wrapped
+)
+
+table_4i
+```
+
+## Summary Table: By Topic (Optimal Bandwidth)
+
+```{r table4i-topic-opt-prob}
+note_t4a_opt <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+note_t4a_opt_wrapped <- str_wrap(note_t4a_opt, width = 80)
+
+table_4i_topic_opt <- modelsummary(
+  list("Political" = model6a_opt_pol, "Military" = model6a_opt_mil,
+       "Economic" = model6a_opt_econ, "Cultural" = model6a_opt_cult, "Other" = model6a_opt_oth),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Ethnic Russian Population By Topic (Per-Topic Optimal Bandwidth, Probabilistic Time Assignment)",
+  notes = note_t4a_opt_wrapped
+)
+
+table_4i_topic_opt
+```
+
+## Summary Table: By Topic (Full Data)
+
+```{r table4i-topic-full-prob}
+note_t4a_full <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+note_t4a_full_wrapped <- str_wrap(note_t4a_full, width = 80)
+
+table_4i_topic_full <- modelsummary(
+  list("Political" = model6a_full_pol, "Military" = model6a_full_mil,
+       "Economic" = model6a_full_econ, "Cultural" = model6a_full_cult, "Other" = model6a_full_oth),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Ethnic Russian Population By Topic (Full Data, Probabilistic Time Assignment)",
+  notes = note_t4a_full_wrapped
+)
+
+table_4i_topic_full
+```
+
+# Country-Level Analysis
+
+## State Media by Country and Alliance
+
+```{r country-facet-prob, fig.width=12, fig.height=8}
+# Create alliance for faceting
+data_long <- data %>%
+  pivot_longer(cols = c(nato, csto, neutral),
+               names_to = "alliance",
+               values_to = "membership") %>%
+  filter(membership == 1) %>%
+  mutate(
+    alliance = factor(alliance, levels = c("nato", "csto", "neutral")),
+    state_indicator = factor(paste(country, treatment, sep = ", "))
+  )
+
+data_long %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running_probabilistic, y = sentiment_clean, group = state_indicator, color = country)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  facet_wrap(~alliance, nrow = 2) +
+  labs(
+    title = "Effect of Invasion on State Media Sentiment by Country (Probabilistic)",
+    subtitle = "Faceted by Alliance",
+    x = "Hours Pre/Post Invasion",
+    y = "Sentiment"
+  )
+```
+
+# Summary Table (Table 3I)
+
+```{r table3i-prob}
+note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth."
+note_wrapped <- str_wrap(note_text, width = 80)
+
+table_3i <- modelsummary(
+  list("(1)" = model5a, "(2)" = model5a_full, "(3)" = model5a_opt,
+       "(4)" = model5a_opt_non_mil, "(5)" = model5a_opt_russian),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Russian Alignment: Difference in Discontinuity Analysis (Probabilistic Time Assignment)",
+  notes = note_wrapped
+)
+
+table_3i
+```
+
+## Summary Table: By Topic (Optimal Bandwidth)
+
+```{r table3i-topic-opt-prob}
+note_topic_opt <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+note_topic_opt_wrapped <- str_wrap(note_topic_opt, width = 80)
+
+table_3i_topic_opt <- modelsummary(
+  list("Political" = model5a_opt_pol, "Military" = model5a_opt_mil,
+       "Economic" = model5a_opt_econ, "Cultural" = model5a_opt_cult, "Other" = model5a_opt_oth),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Russian Alignment By Topic (Per-Topic Optimal Bandwidth, Probabilistic Time Assignment)",
+  notes = note_topic_opt_wrapped
+)
+
+table_3i_topic_opt
+```
+
+## Summary Table: By Topic (Full Data)
+
+```{r table3i-topic-full-prob}
+note_topic_full <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+note_topic_full_wrapped <- str_wrap(note_topic_full, width = 80)
+
+table_3i_topic_full <- modelsummary(
+  list("Political" = model5a_full_pol, "Military" = model5a_full_mil,
+       "Economic" = model5a_full_econ, "Cultural" = model5a_full_cult, "Other" = model5a_full_oth),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Russian Alignment By Topic (Full Data, Probabilistic Time Assignment)",
+  notes = note_topic_full_wrapped
+)
+
+table_3i_topic_full
+```
+
+# Save Results
+
+```{r save-prob}
+results_het_prob <- list(
+  model5a = model5a,
+  model5a_full = model5a_full,
+  model5a_opt = model5a_opt,
+  model5a_opt_non_mil = model5a_opt_non_mil,
+  model5a_opt_russian = model5a_opt_russian,
+  model5a_csto = model5a_state,
+  model5a_neutral = model5a_neutral,
+  model5a_opt_pol = model5a_opt_pol,
+  model5a_opt_mil = model5a_opt_mil,
+  model5a_opt_econ = model5a_opt_econ,
+  model5a_opt_cult = model5a_opt_cult,
+  model5a_opt_oth = model5a_opt_oth,
+  model5a_full_pol = model5a_full_pol,
+  model5a_full_mil = model5a_full_mil,
+  model5a_full_econ = model5a_full_econ,
+  model5a_full_cult = model5a_full_cult,
+  model5a_full_oth = model5a_full_oth,
+  model6a = model6a,
+  model6a_full = model6a_full,
+  model6a_opt = model6a_opt,
+  model6a_opt_non_mil = model6a_opt_non_mil,
+  model6a_opt_russian = model6a_opt_russian,
+  model6a_opt_pol = model6a_opt_pol,
+  model6a_opt_mil = model6a_opt_mil,
+  model6a_opt_econ = model6a_opt_econ,
+  model6a_opt_cult = model6a_opt_cult,
+  model6a_opt_oth = model6a_opt_oth,
+  model6a_full_pol = model6a_full_pol,
+  model6a_full_mil = model6a_full_mil,
+  model6a_full_econ = model6a_full_econ,
+  model6a_full_cult = model6a_full_cult,
+  model6a_full_oth = model6a_full_oth,
+  optimal_bandwidth_ethnic = optimal_bw_ethnic,
+  optimal_bw_ethnic_pol = optimal_bw_ethnic_pol,
+  optimal_bw_ethnic_mil = optimal_bw_ethnic_mil,
+  optimal_bw_ethnic_econ = optimal_bw_ethnic_econ,
+  optimal_bw_ethnic_cult = optimal_bw_ethnic_cult,
+  optimal_bw_ethnic_oth = optimal_bw_ethnic_oth,
+  optimal_bandwidth_align = optimal_bw_align,
+  optimal_bw_align_pol = optimal_bw_align_pol,
+  optimal_bw_align_mil = optimal_bw_align_mil,
+  optimal_bw_align_econ = optimal_bw_align_econ,
+  optimal_bw_align_cult = optimal_bw_align_cult,
+  optimal_bw_align_oth = optimal_bw_align_oth
+)
+
+saveRDS(results_het_prob, file.path(DATA_INTERMEDIATE, "06_heterogeneity_results_prob.rds"))
+cat("Results saved to:", file.path(DATA_INTERMEDIATE, "06_heterogeneity_results_prob.rds"), "\n")
+```
+
+# Session Info
+
+```{r session-info-prob}
+print_session_info()
+```

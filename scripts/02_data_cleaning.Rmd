@@ -41,7 +41,32 @@ data$date_publish_continuous <- clean_datetime_col(data$date_publish)
 # Check for parsing failures
 na_dates <- sum(is.na(data$date_publish_continuous))
 cat("Dates that failed to parse:", na_dates, "\n")
+```
 
+## Flag Publication Time Availability
+
+```{r time-flag}
+# Flag articles with/without publication time (must happen before date_publish is overwritten)
+data$has_time <- has_publication_time(data$date_publish)
+cat("Articles with time:", sum(data$has_time), "\n")
+cat("Articles without time:", sum(!data$has_time), "\n")
+```
+
+## Probabilistic Time Assignment
+
+```{r probabilistic-time}
+# Create probabilistic datetime for articles missing time
+data$date_publish_probabilistic <- assign_probabilistic_time(
+  data, "date_publish", "source_domain", "country"
+)
+cat("Probabilistic datetime range:",
+    as.character(min(data$date_publish_probabilistic, na.rm = TRUE)), "to",
+    as.character(max(data$date_publish_probabilistic, na.rm = TRUE)), "\n")
+```
+
+## Convert to Date
+
+```{r convert-date}
 # Convert to Date type
 data$date_publish <- as.Date(data$date_publish)
 
@@ -161,7 +186,8 @@ cat("Post-invasion articles:", sum(data$treatment == 1), "\n")
 data <- data %>%
   mutate(
     running = as.numeric(date_publish - as.Date("2022-02-24")),
-    running_continuous = as.numeric(date_publish_continuous - ymd_hms("2022-02-24 00:00:00"))
+    running_continuous = as.numeric(date_publish_continuous - ymd_hms("2022-02-24 00:00:00")),
+    running_probabilistic = as.numeric(date_publish_probabilistic - ymd_hms("2022-02-24 00:00:00"))
   )
 
 cat("Running variable range:",

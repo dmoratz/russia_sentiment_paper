@@ -1,0 +1,535 @@
+---
+title: "05B - Difference-in-Discontinuities Analysis with Continuous Running Variable - Drop No-Time Articles (Hypothesis 2)"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script performs the Difference-in-Discontinuities analysis comparing state-owned vs independent media responses to the invasion, using time as a continuous running variable instead of by day. Articles without publication times are dropped as a robustness check.
+
+**Inputs:**
+- `data/intermediate/02_data_non_ukraine.rds`
+- `data/intermediate/02_cleaned_data.rds`
+
+**Outputs:**
+- Diff-in-disc regression results (continuous, drop no-time articles)
+- Visualizations
+- Table 2F
+
+```{r setup-drop, include=FALSE}
+source("00_setup.R")
+```
+
+# Load Data
+
+```{r load-drop}
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+
+data_non_ukraine <- data_non_ukraine %>% filter(has_time == TRUE)
+cat("Non-Ukraine sample after dropping no-time articles:", nrow(data_non_ukraine), "articles\n")
+
+data <- data %>% filter(has_time == TRUE)
+cat("Full sample after dropping no-time articles:", nrow(data), "articles\n")
+
+cat("State-owned:", sum(data_non_ukraine$state_owned), "\n")
+cat("Independent:", sum(data_non_ukraine$state_owned == 0), "\n")
+```
+
+# Main Diff-in-Disc Model
+
+## Model 2a: Full Triple Interaction
+
+```{r model2a-drop}
+model2a <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
+                data = data_non_ukraine)
+
+summary(model2a)
+```
+
+## Effect Size Analysis
+
+```{r effect-size-discs-drop}
+sd_sentiment_non_ukraine <- sd(data_non_ukraine$sentiment_clean)
+
+cat("Standard deviation:", round(sd_sentiment_non_ukraine, 3), "\n\n")
+
+# Effect on all media
+coef_all <- summary(model2a)$coef["treatment", "Estimate"]
+cat("Effect on all media (in SD):", round(coef_all / sd_sentiment_non_ukraine, 3), "\n")
+
+# Effect on state media specifically
+coef_state <- summary(model2a)$coef["treatment:state_owned", "Estimate"]
+cat("Additional effect on state media (in SD):", round(coef_state / sd_sentiment_non_ukraine, 3), "\n")
+```
+
+# Visualization: Main Diff-in-Disc Plot
+
+```{r plot-discs-cont-drop, fig.width=10, fig.height=7}
+# Aggregate data
+agg_data_discs <- data_non_ukraine %>%
+  group_by(running_continuous, state_owned) %>%
+  summarize(
+    sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+    num_obs = n(),
+    .groups = "drop"
+  )
+
+invasion_discs_graph <- data_non_ukraine %>%
+  mutate(indicator = as.factor(indicator)) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running_continuous, y = sentiment_clean, group = indicator, color = indicator)) +
+  geom_point(data = agg_data_discs,
+             aes(x = running_continuous, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment (Continuous, Drop No-Time Articles)",
+    subtitle = "Difference in Discontinuities",
+    x = "Hours Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_discs_graph
+
+ggsave(plot = invasion_discs_graph,
+       file.path(FIGURES_DIFF_DISC, "invasion_discs_graph_cont_drop.png"),
+       width = 10, height = 7)
+```
+
+# Optimal Bandwidth Selection
+
+```{r optimal-bw-drop}
+data_non_ukraine <- data_non_ukraine %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+
+#covs_matrix <- model.matrix(~ country + topic_clean + state_owned - 1, data = data_non_ukraine)
+
+bw_select <- rdbwselect(y = data_non_ukraine$sentiment_clean,
+                        x = data_non_ukraine$running_continuous,
+                        #covs = covs_matrix,
+                        kernel = "triangular",
+                        cluster = data_non_ukraine$source_domain,
+                        p = 1,
+                        bwselect = "mserd")
+
+summary(bw_select)
+
+optimal_bw <- bw_select$bws[1, 1]
+cat("Optimal bandwidth:", round(optimal_bw, 1), "seconds\n")
+
+optimal_bandwidth_data <- data_non_ukraine %>%
+  filter(running_continuous < optimal_bw) %>%
+  filter(running_continuous > -optimal_bw)
+
+cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
+```
+
+## Model with Optimal Bandwidth
+
+```{r model2a-opt-drop}
+model2a_opt <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
+                    data = optimal_bandwidth_data)
+
+summary(model2a_opt)
+```
+
+# Diff-in-Disc Models By Topic
+
+## Full Data By Topic
+
+```{r topic-full-drop}
+data_pol <- data_non_ukraine %>% filter(topic_clean == "Political")
+data_mil <- data_non_ukraine %>% filter(topic_clean == "Military")
+data_econ <- data_non_ukraine %>% filter(topic_clean == "Economic")
+data_cult <- data_non_ukraine %>% filter(topic_clean == "Culture")
+data_oth <- data_non_ukraine %>% filter(topic_clean == "Other")
+
+model2a_full_pol <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                         data = data_pol)
+model2a_full_mil <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                         data = data_mil)
+model2a_full_econ <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                          data = data_econ)
+model2a_full_cult <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                          data = data_cult)
+model2a_full_oth <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                         data = data_oth)
+```
+
+## Per-Topic Optimal Bandwidth
+
+```{r topic-opt-bw-drop}
+# Political
+bw_pol <- rdbwselect(y = data_pol$sentiment_clean, x = data_pol$running_continuous,
+                     kernel = "triangular", cluster = data_pol$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_pol <- bw_pol$bws[1, 1]
+cat("Political optimal bandwidth:", round(optimal_bw_pol, 1), "seconds\n")
+opt_data_pol <- data_pol %>% filter(running_continuous < optimal_bw_pol, running_continuous > -optimal_bw_pol)
+
+# Military
+bw_mil <- rdbwselect(y = data_mil$sentiment_clean, x = data_mil$running_continuous,
+                     kernel = "triangular", cluster = data_mil$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_mil <- bw_mil$bws[1, 1]
+cat("Military optimal bandwidth:", round(optimal_bw_mil, 1), "seconds\n")
+opt_data_mil <- data_mil %>% filter(running_continuous < optimal_bw_mil, running_continuous > -optimal_bw_mil)
+
+# Economic
+bw_econ <- rdbwselect(y = data_econ$sentiment_clean, x = data_econ$running_continuous,
+                      kernel = "triangular", cluster = data_econ$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_econ <- bw_econ$bws[1, 1]
+cat("Economic optimal bandwidth:", round(optimal_bw_econ, 1), "seconds\n")
+opt_data_econ <- data_econ %>% filter(running_continuous < optimal_bw_econ, running_continuous > -optimal_bw_econ)
+
+# Culture
+bw_cult <- rdbwselect(y = data_cult$sentiment_clean, x = data_cult$running_continuous,
+                      kernel = "triangular", cluster = data_cult$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_cult <- bw_cult$bws[1, 1]
+cat("Culture optimal bandwidth:", round(optimal_bw_cult, 1), "seconds\n")
+opt_data_cult <- data_cult %>% filter(running_continuous < optimal_bw_cult, running_continuous > -optimal_bw_cult)
+
+# Other
+bw_oth <- rdbwselect(y = data_oth$sentiment_clean, x = data_oth$running_continuous,
+                     kernel = "triangular", cluster = data_oth$source_domain, p = 1, bwselect = "mserd")
+optimal_bw_oth <- bw_oth$bws[1, 1]
+cat("Other optimal bandwidth:", round(optimal_bw_oth, 1), "seconds\n")
+opt_data_oth <- data_oth %>% filter(running_continuous < optimal_bw_oth, running_continuous > -optimal_bw_oth)
+```
+
+## Topic Models with Per-Topic Optimal Bandwidth
+
+```{r topic-opt-models-drop}
+model2a_opt_pol <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                        data = opt_data_pol)
+summary(model2a_opt_pol)
+
+model2a_opt_mil <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                        data = opt_data_mil)
+summary(model2a_opt_mil)
+
+model2a_opt_econ <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                         data = opt_data_econ)
+summary(model2a_opt_econ)
+
+model2a_opt_cult <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                         data = opt_data_cult)
+summary(model2a_opt_cult)
+
+model2a_opt_oth <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country | 0 | source_domain,
+                        data = opt_data_oth)
+summary(model2a_opt_oth)
+```
+
+# Robustness: Non-Military Topics
+
+```{r non-mil-drop}
+data_non_mil <- data_non_ukraine %>%
+  filter(!topic_clean %in% c("Military"))
+
+model2b <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
+                data = data_non_mil)
+
+summary(model2b)
+```
+
+## Visualization (Non-Military)
+
+```{r plot-non-mil-cont-drop, fig.width=10, fig.height=7}
+agg_data_non_mil <- data_non_mil %>%
+  group_by(running_continuous, state_owned) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+invasion_discs_non_mil_graph <- data_non_mil %>%
+  mutate(indicator = as.factor(indicator)) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running_continuous, y = sentiment_clean, group = indicator, color = indicator)) +
+  geom_point(data = agg_data_non_mil,
+             aes(x = running_continuous, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment (Continuous, Drop No-Time Articles)",
+    subtitle = "Non-Military Topics",
+    x = "Hours Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_discs_non_mil_graph
+
+ggsave(plot = invasion_discs_non_mil_graph,
+       file.path(FIGURES_DIFF_DISC, "invasion_discs_non_mil_cont_drop.png"),
+       width = 10, height = 7)
+```
+
+# Robustness: Non-NATO Countries
+
+```{r non-nato-drop}
+data_non_nato <- data_non_ukraine %>%
+  filter(!country %in% NATO_COUNTRIES)
+
+model2d <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
+                data = data_non_nato)
+
+summary(model2d)
+```
+
+# Russian-Related Articles Only
+
+```{r russian-related-drop}
+data_russian_related <- data %>%
+  filter(!Russian.Involvement == "Not") %>%
+  filter(!country %in% c("Ukraine")) %>%
+  filter(!topic_clean %in% c("Military"))
+
+model3a <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
+                data = data_russian_related)
+
+summary(model3a)
+```
+
+# Robustness: Combined Filter with Re-Optimized Bandwidth
+
+```{r combined-robust-drop}
+data_combined_filtered <- data %>%
+  filter(!Russian.Involvement == "Not") %>%
+  filter(!country %in% c("Ukraine")) %>%
+  filter(!country %in% NATO_COUNTRIES) %>%
+  filter(!topic_clean %in% c("Military"))
+
+data_combined_filtered <- data_combined_filtered %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+
+bw_select_combined <- rdbwselect(y = data_combined_filtered$sentiment_clean,
+                                  x = data_combined_filtered$running_continuous,
+                                  kernel = "triangular",
+                                  cluster = data_combined_filtered$source_domain,
+                                  p = 1,
+                                  bwselect = "mserd")
+
+summary(bw_select_combined)
+
+optimal_bw_combined <- bw_select_combined$bws[1, 1]
+```
+
+
+```{r combined-robust-model-drop}
+cat("Optimal bandwidth (combined filter):", round(optimal_bw_combined, 1), "seconds\n")
+
+optimal_bw_combined_data <- data_combined_filtered %>%
+  filter(running_continuous < optimal_bw_combined) %>%
+  filter(running_continuous > -optimal_bw_combined)
+
+cat("Observations within bandwidth:", nrow(optimal_bw_combined_data), "\n")
+
+model3a_opt <- felm(sentiment_clean ~ running_continuous * treatment * state_owned | country + topic_clean | 0 | source_domain,
+                    data = optimal_bw_combined_data)
+
+summary(model3a_opt)
+```
+
+# Diff-in-Diff (Within Bandwidth)
+
+```{r did-drop}
+model_did <- felm(sentiment_clean ~ treatment * state_owned | country + topic_clean | 0 | source_domain,
+                  data = optimal_bandwidth_data)
+
+summary(model_did)
+```
+
+# Placebo Test: December 7th Announcement
+
+```{r placebo-drop}
+data_dec <- data %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running_continuous = as.numeric(difftime(date_publish, as.POSIXct("2021-12-07 00:00:00"), units = "hours")),
+    treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
+  )
+
+model4a <- felm(sentiment_clean ~ running_continuous * treatment | country + Topic | 0 | source_domain,
+                data = data_dec)
+
+summary(model4a)
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
+## Placebo Visualization
+
+```{r placebo-plot-cont-drop, fig.width=10, fig.height=7}
+agg_data_dec <- data_dec %>%
+  group_by(running_continuous) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+data_dec %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running_continuous, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data_dec,
+             aes(x = running_continuous, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Dec 7") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Placebo Test: Effect of December 7th Announcement (Continuous, Drop No-Time Articles)",
+    subtitle = "Pre-Invasion Period Only",
+    x = "Hours Pre/Post Announcement",
+    y = "Sentiment"
+  )
+```
+
+# Summary Table (Table 2F)
+
+```{r table2f-drop}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5, 6, 7)
+
+note_text <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth. Articles without publication times are dropped."
+note_wrapped <- str_wrap(note_text, width = 80)
+
+table_2f <- modelsummary(
+  list(model2a, model2a_opt, model2d, model2b, model3a, model3a_opt),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Hypothesis 2: Difference in Discontinuity Analysis (Continuous Running Variable, Drop No-Time Articles)",
+  add_rows = rows,
+  notes = note_wrapped
+)
+
+table_2f
+```
+
+## Summary Table: By Topic (Optimal Bandwidth)
+
+```{r table2f-topic-opt-drop}
+rows_topic <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-'
+)
+attr(rows_topic, 'position') <- c(5, 6, 7)
+
+note_topic_opt <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth with country fixed effects. Articles without publication times are dropped."
+note_topic_opt_wrapped <- str_wrap(note_topic_opt, width = 80)
+
+table_2f_topic_opt <- modelsummary(
+  list("Political" = model2a_opt_pol, "Military" = model2a_opt_mil,
+       "Economic" = model2a_opt_econ, "Cultural" = model2a_opt_cult, "Other" = model2a_opt_oth),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Hypothesis 2: Diff-in-Disc By Topic (Per-Topic Optimal Bandwidth, Continuous, Drop No-Time Articles)",
+  add_rows = rows_topic,
+  notes = note_topic_opt_wrapped
+)
+
+table_2f_topic_opt
+```
+
+## Summary Table: By Topic (Full Data)
+
+```{r table2f-topic-full-drop}
+note_topic_full <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction) with country fixed effects. Articles without publication times are dropped."
+note_topic_full_wrapped <- str_wrap(note_topic_full, width = 80)
+
+table_2f_topic_full <- modelsummary(
+  list("Political" = model2a_full_pol, "Military" = model2a_full_mil,
+       "Economic" = model2a_full_econ, "Cultural" = model2a_full_cult, "Other" = model2a_full_oth),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Hypothesis 2: Diff-in-Disc By Topic (Full Data, Continuous, Drop No-Time Articles)",
+  add_rows = rows_topic,
+  notes = note_topic_full_wrapped
+)
+
+table_2f_topic_full
+```
+
+# Save Results
+
+```{r save-drop}
+results_h2_drop <- list(
+  model2a = model2a,
+  model2a_opt = model2a_opt,
+  model2d = model2d,
+  model2b = model2b,
+  model3a = model3a,
+  model3a_opt = model3a_opt,
+  model_did = model_did,
+  model_placebo = model4a,
+  model2a_opt_pol = model2a_opt_pol,
+  model2a_opt_mil = model2a_opt_mil,
+  model2a_opt_econ = model2a_opt_econ,
+  model2a_opt_cult = model2a_opt_cult,
+  model2a_opt_oth = model2a_opt_oth,
+  model2a_full_pol = model2a_full_pol,
+  model2a_full_mil = model2a_full_mil,
+  model2a_full_econ = model2a_full_econ,
+  model2a_full_cult = model2a_full_cult,
+  model2a_full_oth = model2a_full_oth,
+  optimal_bandwidth = optimal_bw,
+  optimal_bandwidth_combined = optimal_bw_combined,
+  optimal_bw_pol = optimal_bw_pol,
+  optimal_bw_mil = optimal_bw_mil,
+  optimal_bw_econ = optimal_bw_econ,
+  optimal_bw_cult = optimal_bw_cult,
+  optimal_bw_oth = optimal_bw_oth
+)
+
+saveRDS(results_h2_drop, file.path(DATA_INTERMEDIATE, "05_h2_results_drop.rds"))
+cat("Results saved to:", file.path(DATA_INTERMEDIATE, "05_h2_results_drop.rds"), "\n")
+```
+
+# Session Info
+
+```{r session-info-drop}
+print_session_info()
+```

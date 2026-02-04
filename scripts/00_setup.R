@@ -313,4 +313,87 @@ glance.rdrobust <- function(x, ...) {
   )
 }
 
+# -----------------------------------------------------------------------------
+# Time Specification Helper Functions
+# -----------------------------------------------------------------------------
+
+#' Check if a date string includes publication time
+#'
+#' @param date_col Character vector of date strings
+#' @return Logical vector: TRUE if the string has a time component (length > 10)
+has_publication_time <- function(date_col) {
+  str_length(date_col) > 10
+}
+
+#' Assign probabilistic publication times via KDE
+#'
+#' For articles missing a time component, samples a time-of-day from a KDE
+#' fitted to observed times within the same source (or country as fallback).
+#'
+#' @param data Data frame
+#' @param date_col_name Name of the raw date character column
+#' @param source_col Name of the source grouping column
+#' @param country_col Name of the country grouping column
+#' @param min_obs Minimum observations for source-level KDE (default 5)
+#' @return POSIXct vector with original datetimes preserved and missing times filled
+assign_probabilistic_time <- function(data, date_col_name, source_col, country_col, min_obs = 5) {
+  date_col <- data[[date_col_name]]
+  has_time <- has_publication_time(date_col)
+
+  # Parse all datetimes
+  parsed <- clean_datetime_col(date_col)
+
+  # Extract time-of-day in seconds from midnight for articles WITH times
+  time_seconds <- as.numeric(difftime(parsed, floor_date(parsed, "day"), units = "secs"))
+
+  # Build KDE by source
+  source_vals <- data[[source_col]]
+  country_vals <- data[[country_col]]
+
+  # Pre-compute country-level KDEs as fallback
+  country_kdes <- list()
+  for (cntry in unique(country_vals)) {
+    idx <- which(has_time & country_vals == cntry)
+    if (length(idx) >= min_obs) {
+      country_kdes[[cntry]] <- density(time_seconds[idx], from = 0, to = 86399, n = 1024)
+    }
+  }
+  # Global fallback
+  global_kde <- density(time_seconds[has_time], from = 0, to = 86399, n = 1024)
+
+  # For each article without time, sample from appropriate KDE
+  result <- parsed
+  missing_idx <- which(!has_time)
+
+  if (length(missing_idx) > 0) {
+    sampled_seconds <- numeric(length(missing_idx))
+
+    for (i in seq_along(missing_idx)) {
+      row_idx <- missing_idx[i]
+      src <- source_vals[row_idx]
+      cntry <- country_vals[row_idx]
+
+      # Try source-level KDE
+      src_idx <- which(has_time & source_vals == src)
+      if (length(src_idx) >= min_obs) {
+        kde <- density(time_seconds[src_idx], from = 0, to = 86399, n = 1024)
+      } else if (!is.null(country_kdes[[cntry]])) {
+        kde <- country_kdes[[cntry]]
+      } else {
+        kde <- global_kde
+      }
+
+      # Sample from KDE
+      s <- sample(kde$x, size = 1, replace = TRUE, prob = kde$y)
+      s <- s + runif(1, -kde$bw / 2, kde$bw / 2)
+      sampled_seconds[i] <- max(0, min(86399, s))
+    }
+
+    # Assign: date (at midnight) + sampled seconds
+    result[missing_idx] <- floor_date(parsed[missing_idx], "day") + seconds(sampled_seconds)
+  }
+
+  return(result)
+}
+
 cat("Setup complete. Project root:", PROJECT_ROOT, "\n")
