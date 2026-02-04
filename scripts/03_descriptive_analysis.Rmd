@@ -197,11 +197,59 @@ topic_ind <- ggplot(data_topic_counts_ind, aes(x = topic_clean, y = article_coun
   theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "bottom")
 
 # Combine plots using patchwork
-topic_split <- (topic_state | topic_ind) + plot_layout(guides = "collect")
+topic_split <- (topic_state | topic_ind) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
 
 topic_split
 
 ggsave(plot = topic_split, file.path(FIGURES_DESCRIPTIVE, "topic_split.png"),
+       width = 12, height = 6)
+```
+
+## Topic Proportions Excluding Military
+
+```{r topic-proportions-no-mil, fig.width=12, fig.height=6}
+# Compute proportions by media type, excluding military
+data_topic_props <- data_non_ukraine %>%
+  filter(!is.na(topic_clean), topic_clean != "Military") %>%
+  mutate(
+    topic_clean = factor(topic_clean, levels = c("Political", "Economic", "Culture", "Other")),
+    period = case_when(
+      running < 0 ~ "Before Invasion",
+      running > 0 ~ "After Invasion",
+      TRUE ~ NA_character_
+    ),
+    media_type = ifelse(state_owned == 1, "State Media", "Independent Media")
+  ) %>%
+  filter(!is.na(period)) %>%
+  group_by(media_type, period, topic_clean) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  group_by(media_type, period) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ungroup()
+
+topic_props_plot <- ggplot(data_topic_props,
+                           aes(x = topic_clean, y = proportion, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~media_type) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Topic Proportions Excluding Military Articles",
+    subtitle = "Before and After Invasion, by Media Type",
+    x = "Topic",
+    y = "Proportion of Articles",
+    fill = "Period"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+topic_props_plot
+
+ggsave(plot = topic_props_plot, file.path(FIGURES_DESCRIPTIVE, "topic_proportions_no_mil.png"),
        width = 12, height = 6)
 ```
 
@@ -373,6 +421,86 @@ if (nrow(highlight_point) > 0) {
 articles_per_day_plot_annotated
 ```
 
+# Sentiment Counts Over Time
+
+## Daily Sentiment Counts
+
+```{r sentiment-daily, fig.width=10, fig.height=6}
+sentiment_daily <- data_non_ukraine %>%
+  filter(!is.na(date_publish)) %>%
+  mutate(
+    sentiment_label = case_when(
+      sentiment_clean == -1 ~ "Negative",
+      sentiment_clean == 0 ~ "Neutral",
+      sentiment_clean == 1 ~ "Positive"
+    ),
+    sentiment_label = factor(sentiment_label, levels = c("Negative", "Neutral", "Positive"))
+  ) %>%
+  group_by(date = as.Date(date_publish), sentiment_label) %>%
+  summarize(count = n(), .groups = "drop")
+
+sentiment_daily_plot <- ggplot(sentiment_daily,
+                               aes(x = date, y = count, color = sentiment_label)) +
+  geom_line(linewidth = 0.8, alpha = 0.8) +
+  geom_vline(xintercept = as.Date("2022-02-24"), linetype = "dashed",
+             color = "black", linewidth = 1) +
+  scale_color_manual(values = c("Negative" = "red3", "Neutral" = "gray50", "Positive" = "steelblue")) +
+  labs(
+    title = "Daily Sentiment Article Counts Over Time",
+    subtitle = "Black dashed line = Day of Invasion (2022-02-24)",
+    x = "Date",
+    y = "Number of Articles",
+    color = "Sentiment"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+sentiment_daily_plot
+
+ggsave(plot = sentiment_daily_plot, file.path(FIGURES_DESCRIPTIVE, "sentiment_daily_counts.png"),
+       width = 10, height = 6)
+```
+
+## Daily Sentiment Counts by Media Type
+
+```{r sentiment-daily-media, fig.width=12, fig.height=8}
+sentiment_daily_media <- data_non_ukraine %>%
+  filter(!is.na(date_publish)) %>%
+  mutate(
+    sentiment_label = case_when(
+      sentiment_clean == -1 ~ "Negative",
+      sentiment_clean == 0 ~ "Neutral",
+      sentiment_clean == 1 ~ "Positive"
+    ),
+    sentiment_label = factor(sentiment_label, levels = c("Negative", "Neutral", "Positive")),
+    media_type = ifelse(state_owned == 1, "State-Owned", "Independent")
+  ) %>%
+  group_by(date = as.Date(date_publish), sentiment_label, media_type) %>%
+  summarize(count = n(), .groups = "drop")
+
+sentiment_daily_media_plot <- ggplot(sentiment_daily_media,
+                                     aes(x = date, y = count, color = sentiment_label)) +
+  geom_line(linewidth = 0.8, alpha = 0.8) +
+  geom_vline(xintercept = as.Date("2022-02-24"), linetype = "dashed",
+             color = "black", linewidth = 1) +
+  facet_wrap(~media_type, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c("Negative" = "red3", "Neutral" = "gray50", "Positive" = "steelblue")) +
+  labs(
+    title = "Daily Sentiment Article Counts by Media Type",
+    subtitle = "Black dashed line = Day of Invasion (2022-02-24)",
+    x = "Date",
+    y = "Number of Articles",
+    color = "Sentiment"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+sentiment_daily_media_plot
+
+ggsave(plot = sentiment_daily_media_plot, file.path(FIGURES_DESCRIPTIVE, "sentiment_daily_counts_by_media.png"),
+       width = 12, height = 8)
+```
+
 # Country-Level Sentiment Change
 
 ```{r country-sentiment}
@@ -441,6 +569,127 @@ country_table <- sentiment_summary %>%
   )
 
 country_table
+```
+
+# Sentiment Distribution Before vs After
+
+```{r sentiment-density, fig.width=12, fig.height=6}
+sentiment_density_data <- data_non_ukraine %>%
+  mutate(
+    period = case_when(
+      running < 0 ~ "Before Invasion",
+      running > 0 ~ "After Invasion",
+      TRUE ~ NA_character_
+    ),
+    media_type = ifelse(state_owned == 1, "State-Owned", "Independent"),
+    sentiment_label = case_when(
+      sentiment_clean == -1 ~ "Negative",
+      sentiment_clean == 0 ~ "Neutral",
+      sentiment_clean == 1 ~ "Positive"
+    ),
+    sentiment_label = factor(sentiment_label, levels = c("Negative", "Neutral", "Positive"))
+  ) %>%
+  filter(!is.na(period))
+
+# Compute proportions for bar chart (since sentiment is categorical)
+sentiment_props <- sentiment_density_data %>%
+  group_by(media_type, period, sentiment_label) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  group_by(media_type, period) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ungroup()
+
+sentiment_dist_plot <- ggplot(sentiment_props,
+                              aes(x = sentiment_label, y = proportion, fill = period)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~media_type) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("Before Invasion" = "dodgerblue", "After Invasion" = "red4")) +
+  labs(
+    title = "Sentiment Distribution Before and After Invasion",
+    subtitle = "By Media Ownership Type",
+    x = "Sentiment",
+    y = "Proportion of Articles",
+    fill = "Period"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+sentiment_dist_plot
+
+ggsave(plot = sentiment_dist_plot, file.path(FIGURES_DESCRIPTIVE, "sentiment_distribution.png"),
+       width = 12, height = 6)
+```
+
+# Country Coverage Heatmap
+
+```{r country-heatmap, fig.width=12, fig.height=7}
+# Weekly article counts by country
+country_weekly <- data_non_ukraine %>%
+  filter(!is.na(date_publish)) %>%
+  mutate(week = floor_date(date_publish, "week")) %>%
+  group_by(country, week) %>%
+  summarize(n_articles = n(), .groups = "drop")
+
+country_heatmap <- ggplot(country_weekly,
+                          aes(x = week, y = reorder(country, n_articles, FUN = sum), fill = n_articles)) +
+  geom_tile() +
+  geom_vline(xintercept = as.Date("2022-02-24"), linetype = "dashed",
+             color = "white", linewidth = 0.8) +
+  scale_fill_gradient(low = "gray95", high = "darkred", name = "Articles") +
+  labs(
+    title = "Weekly Article Volume by Country",
+    subtitle = "White dashed line = Week of Invasion",
+    x = "Week",
+    y = "Country"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+country_heatmap
+
+ggsave(plot = country_heatmap, file.path(FIGURES_DESCRIPTIVE, "country_coverage_heatmap.png"),
+       width = 12, height = 7)
+```
+
+# Topic Composition Over Time
+
+```{r topic-over-time, fig.width=12, fig.height=6}
+topic_weekly <- data_non_ukraine %>%
+  filter(!is.na(date_publish), !is.na(topic_clean)) %>%
+  mutate(
+    week = floor_date(date_publish, "week"),
+    topic_clean = factor(topic_clean, levels = c("Military", "Political", "Economic", "Culture", "Other"))
+  ) %>%
+  group_by(week, topic_clean) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  group_by(week) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ungroup()
+
+topic_over_time_plot <- ggplot(topic_weekly,
+                               aes(x = week, y = proportion, fill = topic_clean)) +
+  geom_area(alpha = 0.8) +
+  geom_vline(xintercept = as.Date("2022-02-24"), linetype = "dashed",
+             color = "black", linewidth = 1) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_brewer(palette = "Set2", name = "Topic") +
+  labs(
+    title = "Topic Composition Over Time",
+    subtitle = "Weekly proportions. Black dashed line = Day of Invasion (2022-02-24)",
+    x = "Week",
+    y = "Proportion of Articles"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+topic_over_time_plot
+
+ggsave(plot = topic_over_time_plot, file.path(FIGURES_DESCRIPTIVE, "topic_composition_over_time.png"),
+       width = 12, height = 6)
 ```
 
 # Session Info
