@@ -369,6 +369,8 @@ if (nrow(highlight_point) > 0) {
          file.path(FIGURES_DESCRIPTIVE, "articles_per_day_anno.png"),
          width = 10, height = 6)
 }
+
+articles_per_day_plot_annotated
 ```
 
 # Country-Level Sentiment Change
