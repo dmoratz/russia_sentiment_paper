@@ -198,8 +198,10 @@ topic_ind <- ggplot(data_topic_counts_ind, aes(x = topic_clean, y = article_coun
 
 # Combine plots using patchwork
 topic_split <- (topic_state | topic_ind) +
-  plot_layout(guides = "collect") &
-  theme(legend.position = "bottom")
+  plot_layout(guides = "collect")
+
+topic_split <- topic_split + 
+               plot_annotation(theme = theme(legend.position = "bottom"))
 
 topic_split
 
