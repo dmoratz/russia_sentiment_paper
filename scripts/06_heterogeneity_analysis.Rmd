@@ -27,6 +27,7 @@ This script examines heterogeneous treatment effects by:
 
 ```{r setup, include=FALSE}
 source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_DAYS, "/"))
 ```
 
 # Load Data
@@ -125,7 +126,7 @@ state_align_discs_graph <- data_align %>%
 state_align_discs_graph
 
 ggsave(plot = state_align_discs_graph,
-       file.path(FIGURES_HETEROGENEITY, "state_align_discs.png"),
+       file.path(FIGURES_HETEROGENEITY_DAYS, "state_align_discs.png"),
        width = 10, height = 7)
 ```
 
@@ -487,7 +488,7 @@ ethnic_discs_graph <- data_ethnic %>%
 ethnic_discs_graph
 
 ggsave(plot = ethnic_discs_graph,
-       file.path(FIGURES_HETEROGENEITY, "ethnic_discs.png"),
+       file.path(FIGURES_HETEROGENEITY_DAYS, "ethnic_discs.png"),
        width = 10, height = 7)
 ```
 

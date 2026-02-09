@@ -89,16 +89,39 @@ FIGURES_DIR <- file.path(PROJECT_ROOT, "figures")
 
 # Figure subdirectories
 FIGURES_TABLES <- file.path(FIGURES_DIR, "tables")
-FIGURES_RDD <- file.path(FIGURES_DIR, "rdd")
-FIGURES_DIFF_DISC <- file.path(FIGURES_DIR, "diff_in_disc")
-FIGURES_HETEROGENEITY <- file.path(FIGURES_DIR, "heterogeneity")
 FIGURES_DESCRIPTIVE <- file.path(FIGURES_DIR, "descriptive")
 FIGURES_DAG <- file.path(FIGURES_DIR, "dag")
 
+# RDD subdirectories (by analysis variant)
+FIGURES_RDD <- file.path(FIGURES_DIR, "rdd")
+FIGURES_RDD_DAYS <- file.path(FIGURES_RDD, "days")
+FIGURES_RDD_CONT <- file.path(FIGURES_RDD, "continuous")
+FIGURES_RDD_DROP <- file.path(FIGURES_RDD, "drop")
+FIGURES_RDD_PROB <- file.path(FIGURES_RDD, "prob")
+
+# Diff-in-disc subdirectories (by analysis variant)
+FIGURES_DIFF_DISC <- file.path(FIGURES_DIR, "diff_in_disc")
+FIGURES_DIFF_DISC_DAYS <- file.path(FIGURES_DIFF_DISC, "days")
+FIGURES_DIFF_DISC_CONT <- file.path(FIGURES_DIFF_DISC, "continuous")
+FIGURES_DIFF_DISC_DROP <- file.path(FIGURES_DIFF_DISC, "drop")
+FIGURES_DIFF_DISC_PROB <- file.path(FIGURES_DIFF_DISC, "prob")
+
+# Heterogeneity subdirectories (by analysis variant)
+FIGURES_HETEROGENEITY <- file.path(FIGURES_DIR, "heterogeneity")
+FIGURES_HETEROGENEITY_DAYS <- file.path(FIGURES_HETEROGENEITY, "days")
+FIGURES_HETEROGENEITY_CONT <- file.path(FIGURES_HETEROGENEITY, "continuous")
+FIGURES_HETEROGENEITY_DROP <- file.path(FIGURES_HETEROGENEITY, "drop")
+FIGURES_HETEROGENEITY_PROB <- file.path(FIGURES_HETEROGENEITY, "prob")
+
 # Create directories if they don't exist
-for (d in c(DATA_RAW, DATA_PROCESSED, DATA_INTERMEDIATE, FIGURES_DIR,
-            FIGURES_TABLES, FIGURES_RDD, FIGURES_DIFF_DISC,
-            FIGURES_HETEROGENEITY, FIGURES_DESCRIPTIVE, FIGURES_DAG)) {
+all_dirs <- c(
+  DATA_RAW, DATA_PROCESSED, DATA_INTERMEDIATE, FIGURES_DIR,
+  FIGURES_TABLES, FIGURES_DESCRIPTIVE, FIGURES_DAG,
+  FIGURES_RDD, FIGURES_RDD_DAYS, FIGURES_RDD_CONT, FIGURES_RDD_DROP, FIGURES_RDD_PROB,
+  FIGURES_DIFF_DISC, FIGURES_DIFF_DISC_DAYS, FIGURES_DIFF_DISC_CONT, FIGURES_DIFF_DISC_DROP, FIGURES_DIFF_DISC_PROB,
+  FIGURES_HETEROGENEITY, FIGURES_HETEROGENEITY_DAYS, FIGURES_HETEROGENEITY_CONT, FIGURES_HETEROGENEITY_DROP, FIGURES_HETEROGENEITY_PROB
+)
+for (d in all_dirs) {
   if (!dir.exists(d)) dir.create(d, recursive = TRUE)
 }
 
@@ -276,9 +299,9 @@ if (requireNamespace("knitr", quietly = TRUE)) {
     message = FALSE,
     fig.width = 10,
     fig.height = 6,
-    fig.path = "../figures/",
     cache = FALSE
   )
+  # Note: fig.path is set per-script to direct figures to appropriate subfolders
 }
 
 # -----------------------------------------------------------------------------

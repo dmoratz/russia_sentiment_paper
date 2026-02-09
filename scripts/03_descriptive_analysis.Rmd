@@ -24,6 +24,7 @@ This script produces descriptive statistics, summary tables, and exploratory vis
 
 ```{r setup, include=FALSE}
 source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_DESCRIPTIVE, "/"))
 ```
 
 # Load Data
@@ -77,7 +78,7 @@ summary_statistics_table <- sample_summary %>%
 summary_statistics_table
 
 # Save table
-gtsave(summary_statistics_table, file.path(FIGURES_TABLES, "summary_statistics_table.html"))
+gtsave(summary_statistics_table, file.path(FIGURES_TABLES, "summary_statistics_table.tex"))
 ```
 
 # Distribution by Country
@@ -341,7 +342,7 @@ sentiment_by_topic_table <- summary_table %>%
 
 sentiment_by_topic_table
 
-gtsave(sentiment_by_topic_table, file.path(FIGURES_TABLES, "sentiment_by_topic.html"))
+gtsave(sentiment_by_topic_table, file.path(FIGURES_TABLES, "sentiment_by_topic.tex"))
 ```
 
 # Articles Over Time

@@ -23,6 +23,7 @@ This script performs the main Regression Discontinuity Design (RDD) analysis for
 
 ```{r setup-drop, include=FALSE}
 source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_RDD_DROP, "/"))
 ```
 
 # Load Data
@@ -347,7 +348,7 @@ invasion_on_sentiment_graph <- data_non_ukraine %>%
 invasion_on_sentiment_graph
 
 ggsave(plot = invasion_on_sentiment_graph,
-       file.path(FIGURES_RDD, "invasion_on_sentiment_cont_drop.png"),
+       file.path(FIGURES_RDD_DROP, "invasion_on_sentiment_cont_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -375,7 +376,7 @@ invasion_on_sentiment_graph_smooth <- data_non_ukraine %>%
 invasion_on_sentiment_graph_smooth
 
 ggsave(plot = invasion_on_sentiment_graph_smooth,
-       file.path(FIGURES_RDD, "invasion_on_sentiment_smooth_cont_drop.png"),
+       file.path(FIGURES_RDD_DROP, "invasion_on_sentiment_smooth_cont_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -423,7 +424,7 @@ invasion_on_sentiment_graph_pol <- optimal_bandwidth_data_pol %>%
 invasion_on_sentiment_graph_pol
 
 ggsave(plot = invasion_on_sentiment_graph_pol,
-       file.path(FIGURES_RDD, "invasion_on_sentiment_pol_cont_drop.png"),
+       file.path(FIGURES_RDD_DROP, "invasion_on_sentiment_pol_cont_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -459,7 +460,7 @@ invasion_on_sentiment_graph_mil <- optimal_bandwidth_data_mil %>%
 invasion_on_sentiment_graph_mil
 
 ggsave(plot = invasion_on_sentiment_graph_mil,
-       file.path(FIGURES_RDD, "invasion_on_sentiment_mil_cont_drop.png"),
+       file.path(FIGURES_RDD_DROP, "invasion_on_sentiment_mil_cont_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -495,7 +496,7 @@ invasion_on_sentiment_graph_econ <- optimal_bandwidth_data_econ %>%
 invasion_on_sentiment_graph_econ
 
 ggsave(plot = invasion_on_sentiment_graph_econ,
-       file.path(FIGURES_RDD, "invasion_on_sentiment_econ_cont_drop.png"),
+       file.path(FIGURES_RDD_DROP, "invasion_on_sentiment_econ_cont_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -531,7 +532,7 @@ invasion_on_sentiment_graph_cult <- optimal_bandwidth_data_cult %>%
 invasion_on_sentiment_graph_cult
 
 ggsave(plot = invasion_on_sentiment_graph_cult,
-       file.path(FIGURES_RDD, "invasion_on_sentiment_cult_cont_drop.png"),
+       file.path(FIGURES_RDD_DROP, "invasion_on_sentiment_cult_cont_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -567,7 +568,7 @@ invasion_on_sentiment_graph_oth <- optimal_bandwidth_data_oth %>%
 invasion_on_sentiment_graph_oth
 
 ggsave(plot = invasion_on_sentiment_graph_oth,
-       file.path(FIGURES_RDD, "invasion_on_sentiment_oth_cont_drop.png"),
+       file.path(FIGURES_RDD_DROP, "invasion_on_sentiment_oth_cont_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -628,7 +629,7 @@ invasion_on_sentiment_non_mil_graph <- data_non_mil %>%
 invasion_on_sentiment_non_mil_graph
 
 ggsave(plot = invasion_on_sentiment_non_mil_graph,
-       file.path(FIGURES_RDD, "invasion_on_sentiment_non_mil_cont_drop.png"),
+       file.path(FIGURES_RDD_DROP, "invasion_on_sentiment_non_mil_cont_drop.png"),
        width = 10, height = 7)
 ```
 

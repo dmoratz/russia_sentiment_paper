@@ -24,6 +24,7 @@ This script performs the Difference-in-Discontinuities analysis comparing state-
 
 ```{r setup, include=FALSE}
 source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_DIFF_DISC_CONT, "/"))
 ```
 
 # Load Data
@@ -103,7 +104,7 @@ invasion_discs_graph <- data_non_ukraine %>%
 invasion_discs_graph
 
 ggsave(plot = invasion_discs_graph,
-       file.path(FIGURES_DIFF_DISC, "invasion_discs_graph_cont.png"),
+       file.path(FIGURES_DIFF_DISC_CONT, "invasion_discs_graph_cont.png"),
        width = 10, height = 7)
 ```
 
@@ -276,7 +277,7 @@ invasion_discs_non_mil_graph <- data_non_mil %>%
 invasion_discs_non_mil_graph
 
 ggsave(plot = invasion_discs_non_mil_graph,
-       file.path(FIGURES_DIFF_DISC, "invasion_discs_non_mil_cont.png"),
+       file.path(FIGURES_DIFF_DISC_CONT, "invasion_discs_non_mil_cont.png"),
        width = 10, height = 7)
 ```
 

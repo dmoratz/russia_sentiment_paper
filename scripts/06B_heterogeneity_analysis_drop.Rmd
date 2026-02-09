@@ -27,6 +27,7 @@ This script examines heterogeneous treatment effects using time as a continuous 
 
 ```{r setup-drop, include=FALSE}
 source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_DROP, "/"))
 ```
 
 # Load Data
@@ -132,7 +133,7 @@ state_align_discs_graph <- data_align %>%
 state_align_discs_graph
 
 ggsave(plot = state_align_discs_graph,
-       file.path(FIGURES_HETEROGENEITY, "state_align_discs_cont_drop.png"),
+       file.path(FIGURES_HETEROGENEITY_DROP, "state_align_discs_cont_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -489,7 +490,7 @@ ethnic_discs_graph <- data_ethnic %>%
 ethnic_discs_graph
 
 ggsave(plot = ethnic_discs_graph,
-       file.path(FIGURES_HETEROGENEITY, "ethnic_discs_cont_drop.png"),
+       file.path(FIGURES_HETEROGENEITY_DROP, "ethnic_discs_cont_drop.png"),
        width = 10, height = 7)
 ```
 

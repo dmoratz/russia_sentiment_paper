@@ -98,7 +98,7 @@ table_1 <- modelsummary(
 
 table_1
 
-gtsave(table_1, file.path(FIGURES_TABLES, "table_1.html"))
+gtsave(table_1, file.path(FIGURES_TABLES, "table_1.tex"))
 ```
 
 ## Table 1 A: Continuous Running Variable
@@ -136,7 +136,7 @@ table_1_cont <- modelsummary(
 
 table_1_cont
 
-gtsave(table_1_cont, file.path(FIGURES_TABLES, "table_1_cont.html"))
+gtsave(table_1_cont, file.path(FIGURES_TABLES, "table_1_cont.tex"))
 ```
 
 ## Table 1B: RDD By Topic (Day)
@@ -172,7 +172,7 @@ table_1b <- modelsummary(
 
 table_1b
 
-gtsave(table_1b, file.path(FIGURES_TABLES, "table_1b.html"))
+gtsave(table_1b, file.path(FIGURES_TABLES, "table_1b.tex"))
 ```
 
 ## Table 1C: RDD By Topic (Continuous)
@@ -208,7 +208,7 @@ table_1c <- modelsummary(
 
 table_1c
 
-gtsave(table_1c, file.path(FIGURES_TABLES, "table_1c.html"))
+gtsave(table_1c, file.path(FIGURES_TABLES, "table_1c.tex"))
 ```
 
 # Table 2: Diff-in-Disc Results
@@ -248,7 +248,7 @@ table_2 <- modelsummary(
 
 table_2
 
-gtsave(table_2, file.path(FIGURES_TABLES, "table_2.html"))
+gtsave(table_2, file.path(FIGURES_TABLES, "table_2.tex"))
 ```
 
 ## Table 2A: Diff-in-Disc (Continuous)
@@ -288,7 +288,7 @@ table_2a <- modelsummary(
 
 table_2a
 
-gtsave(table_2a, file.path(FIGURES_TABLES, "table_2a.html"))
+gtsave(table_2a, file.path(FIGURES_TABLES, "table_2a.tex"))
 ```
 
 ## Table 2B: Diff-in-Disc By Topic (Day)
@@ -327,7 +327,7 @@ table_2b <- modelsummary(
 
 table_2b
 
-gtsave(table_2b, file.path(FIGURES_TABLES, "table_2b.html"))
+gtsave(table_2b, file.path(FIGURES_TABLES, "table_2b.tex"))
 ```
 
 ## Table 2C: Diff-in-Disc By Topic (Continuous)
@@ -366,7 +366,7 @@ table_2c <- modelsummary(
 
 table_2c
 
-gtsave(table_2c, file.path(FIGURES_TABLES, "table_2c.html"))
+gtsave(table_2c, file.path(FIGURES_TABLES, "table_2c.tex"))
 ```
 
 ## Table 2D: Diff-in-Disc By Topic Full Data (Day)
@@ -405,7 +405,7 @@ table_2d <- modelsummary(
 
 table_2d
 
-gtsave(table_2d, file.path(FIGURES_TABLES, "table_2d.html"))
+gtsave(table_2d, file.path(FIGURES_TABLES, "table_2d.tex"))
 ```
 
 ## Table 2E: Diff-in-Disc By Topic Full Data (Continuous)
@@ -444,7 +444,7 @@ table_2e <- modelsummary(
 
 table_2e
 
-gtsave(table_2e, file.path(FIGURES_TABLES, "table_2e.html"))
+gtsave(table_2e, file.path(FIGURES_TABLES, "table_2e.tex"))
 ```
 
 # Table 3: Heterogeneity by Russian Alignment
@@ -475,7 +475,7 @@ table_3 <- modelsummary(
 
 table_3
 
-gtsave(table_3, file.path(FIGURES_TABLES, "table_3.html"))
+gtsave(table_3, file.path(FIGURES_TABLES, "table_3.tex"))
 ```
 
 ## Table 3A: Heterogeneity (Continuous)
@@ -506,7 +506,7 @@ table_3a <- modelsummary(
 
 table_3a
 
-gtsave(table_3a, file.path(FIGURES_TABLES, "table_3a.html"))
+gtsave(table_3a, file.path(FIGURES_TABLES, "table_3a.tex"))
 ```
 
 ## Table 3B: Heterogeneity By Topic Optimal BW (Day)
@@ -536,7 +536,7 @@ table_3b <- modelsummary(
 
 table_3b
 
-gtsave(table_3b, file.path(FIGURES_TABLES, "table_3b.html"))
+gtsave(table_3b, file.path(FIGURES_TABLES, "table_3b.tex"))
 ```
 
 ## Table 3C: Heterogeneity By Topic Optimal BW (Continuous)
@@ -566,7 +566,7 @@ table_3c <- modelsummary(
 
 table_3c
 
-gtsave(table_3c, file.path(FIGURES_TABLES, "table_3c.html"))
+gtsave(table_3c, file.path(FIGURES_TABLES, "table_3c.tex"))
 ```
 
 ## Table 3D: Heterogeneity By Topic Full Data (Day)
@@ -596,7 +596,7 @@ table_3d <- modelsummary(
 
 table_3d
 
-gtsave(table_3d, file.path(FIGURES_TABLES, "table_3d.html"))
+gtsave(table_3d, file.path(FIGURES_TABLES, "table_3d.tex"))
 ```
 
 ## Table 3E: Heterogeneity By Topic Full Data (Continuous)
@@ -626,7 +626,7 @@ table_3e <- modelsummary(
 
 table_3e
 
-gtsave(table_3e, file.path(FIGURES_TABLES, "table_3e.html"))
+gtsave(table_3e, file.path(FIGURES_TABLES, "table_3e.tex"))
 ```
 
 # Table 4: Heterogeneity by Ethnic Russian Population
@@ -655,7 +655,7 @@ table_4 <- modelsummary(
 
 table_4
 
-gtsave(table_4, file.path(FIGURES_TABLES, "table_4.html"))
+gtsave(table_4, file.path(FIGURES_TABLES, "table_4.tex"))
 ```
 
 ## Table 4A: Ethnic Heterogeneity (Continuous)
@@ -684,7 +684,7 @@ table_4a <- modelsummary(
 
 table_4a
 
-gtsave(table_4a, file.path(FIGURES_TABLES, "table_4a.html"))
+gtsave(table_4a, file.path(FIGURES_TABLES, "table_4a.tex"))
 ```
 
 ## Table 4B: Ethnic By Topic Optimal BW (Day)
@@ -714,7 +714,7 @@ table_4b <- modelsummary(
 
 table_4b
 
-gtsave(table_4b, file.path(FIGURES_TABLES, "table_4b.html"))
+gtsave(table_4b, file.path(FIGURES_TABLES, "table_4b.tex"))
 ```
 
 ## Table 4C: Ethnic By Topic Optimal BW (Continuous)
@@ -744,7 +744,7 @@ table_4c <- modelsummary(
 
 table_4c
 
-gtsave(table_4c, file.path(FIGURES_TABLES, "table_4c.html"))
+gtsave(table_4c, file.path(FIGURES_TABLES, "table_4c.tex"))
 ```
 
 ## Table 4D: Ethnic By Topic Full Data (Day)
@@ -774,7 +774,7 @@ table_4d <- modelsummary(
 
 table_4d
 
-gtsave(table_4d, file.path(FIGURES_TABLES, "table_4d.html"))
+gtsave(table_4d, file.path(FIGURES_TABLES, "table_4d.tex"))
 ```
 
 ## Table 4E: Ethnic By Topic Full Data (Continuous)
@@ -804,7 +804,7 @@ table_4e <- modelsummary(
 
 table_4e
 
-gtsave(table_4e, file.path(FIGURES_TABLES, "table_4e.html"))
+gtsave(table_4e, file.path(FIGURES_TABLES, "table_4e.tex"))
 ```
 
 # Drop No-Time Articles Variant Tables
@@ -844,7 +844,7 @@ table_1d <- modelsummary(
 
 table_1d
 
-gtsave(table_1d, file.path(FIGURES_TABLES, "table_1d.html"))
+gtsave(table_1d, file.path(FIGURES_TABLES, "table_1d.tex"))
 ```
 
 ## Table 1E: RDD By Topic (Drop No-Time)
@@ -880,7 +880,7 @@ table_1e <- modelsummary(
 
 table_1e
 
-gtsave(table_1e, file.path(FIGURES_TABLES, "table_1e.html"))
+gtsave(table_1e, file.path(FIGURES_TABLES, "table_1e.tex"))
 ```
 
 ## Table 2F: Diff-in-Disc Main (Drop No-Time)
@@ -920,7 +920,7 @@ table_2f <- modelsummary(
 
 table_2f
 
-gtsave(table_2f, file.path(FIGURES_TABLES, "table_2f.html"))
+gtsave(table_2f, file.path(FIGURES_TABLES, "table_2f.tex"))
 ```
 
 ## Table 2G: Diff-in-Disc By Topic Optimal BW (Drop No-Time)
@@ -959,7 +959,7 @@ table_2g <- modelsummary(
 
 table_2g
 
-gtsave(table_2g, file.path(FIGURES_TABLES, "table_2g.html"))
+gtsave(table_2g, file.path(FIGURES_TABLES, "table_2g.tex"))
 ```
 
 ## Table 2H: Diff-in-Disc By Topic Full Data (Drop No-Time)
@@ -998,7 +998,7 @@ table_2h <- modelsummary(
 
 table_2h
 
-gtsave(table_2h, file.path(FIGURES_TABLES, "table_2h.html"))
+gtsave(table_2h, file.path(FIGURES_TABLES, "table_2h.tex"))
 ```
 
 ## Table 3F: Alignment Main (Drop No-Time)
@@ -1029,7 +1029,7 @@ table_3f <- modelsummary(
 
 table_3f
 
-gtsave(table_3f, file.path(FIGURES_TABLES, "table_3f.html"))
+gtsave(table_3f, file.path(FIGURES_TABLES, "table_3f.tex"))
 ```
 
 ## Table 3G: Alignment By Topic Optimal BW (Drop No-Time)
@@ -1059,7 +1059,7 @@ table_3g <- modelsummary(
 
 table_3g
 
-gtsave(table_3g, file.path(FIGURES_TABLES, "table_3g.html"))
+gtsave(table_3g, file.path(FIGURES_TABLES, "table_3g.tex"))
 ```
 
 ## Table 3H: Alignment By Topic Full Data (Drop No-Time)
@@ -1089,7 +1089,7 @@ table_3h <- modelsummary(
 
 table_3h
 
-gtsave(table_3h, file.path(FIGURES_TABLES, "table_3h.html"))
+gtsave(table_3h, file.path(FIGURES_TABLES, "table_3h.tex"))
 ```
 
 ## Table 4F: Ethnic Main (Drop No-Time)
@@ -1118,7 +1118,7 @@ table_4f <- modelsummary(
 
 table_4f
 
-gtsave(table_4f, file.path(FIGURES_TABLES, "table_4f.html"))
+gtsave(table_4f, file.path(FIGURES_TABLES, "table_4f.tex"))
 ```
 
 ## Table 4G: Ethnic By Topic Optimal BW (Drop No-Time)
@@ -1148,7 +1148,7 @@ table_4g <- modelsummary(
 
 table_4g
 
-gtsave(table_4g, file.path(FIGURES_TABLES, "table_4g.html"))
+gtsave(table_4g, file.path(FIGURES_TABLES, "table_4g.tex"))
 ```
 
 ## Table 4H: Ethnic By Topic Full Data (Drop No-Time)
@@ -1178,7 +1178,7 @@ table_4h <- modelsummary(
 
 table_4h
 
-gtsave(table_4h, file.path(FIGURES_TABLES, "table_4h.html"))
+gtsave(table_4h, file.path(FIGURES_TABLES, "table_4h.tex"))
 ```
 
 # Probabilistic Time Assignment Variant Tables
@@ -1218,7 +1218,7 @@ table_1f <- modelsummary(
 
 table_1f
 
-gtsave(table_1f, file.path(FIGURES_TABLES, "table_1f.html"))
+gtsave(table_1f, file.path(FIGURES_TABLES, "table_1f.tex"))
 ```
 
 ## Table 1G: RDD By Topic (Probabilistic Time)
@@ -1254,7 +1254,7 @@ table_1g <- modelsummary(
 
 table_1g
 
-gtsave(table_1g, file.path(FIGURES_TABLES, "table_1g.html"))
+gtsave(table_1g, file.path(FIGURES_TABLES, "table_1g.tex"))
 ```
 
 ## Table 2I: Diff-in-Disc Main (Probabilistic Time)
@@ -1294,7 +1294,7 @@ table_2i <- modelsummary(
 
 table_2i
 
-gtsave(table_2i, file.path(FIGURES_TABLES, "table_2i.html"))
+gtsave(table_2i, file.path(FIGURES_TABLES, "table_2i.tex"))
 ```
 
 ## Table 2J: Diff-in-Disc By Topic Optimal BW (Probabilistic Time)
@@ -1333,7 +1333,7 @@ table_2j <- modelsummary(
 
 table_2j
 
-gtsave(table_2j, file.path(FIGURES_TABLES, "table_2j.html"))
+gtsave(table_2j, file.path(FIGURES_TABLES, "table_2j.tex"))
 ```
 
 ## Table 2K: Diff-in-Disc By Topic Full Data (Probabilistic Time)
@@ -1372,7 +1372,7 @@ table_2k <- modelsummary(
 
 table_2k
 
-gtsave(table_2k, file.path(FIGURES_TABLES, "table_2k.html"))
+gtsave(table_2k, file.path(FIGURES_TABLES, "table_2k.tex"))
 ```
 
 ## Table 3I: Alignment Main (Probabilistic Time)
@@ -1403,7 +1403,7 @@ table_3i <- modelsummary(
 
 table_3i
 
-gtsave(table_3i, file.path(FIGURES_TABLES, "table_3i.html"))
+gtsave(table_3i, file.path(FIGURES_TABLES, "table_3i.tex"))
 ```
 
 ## Table 3J: Alignment By Topic Optimal BW (Probabilistic Time)
@@ -1433,7 +1433,7 @@ table_3j <- modelsummary(
 
 table_3j
 
-gtsave(table_3j, file.path(FIGURES_TABLES, "table_3j.html"))
+gtsave(table_3j, file.path(FIGURES_TABLES, "table_3j.tex"))
 ```
 
 ## Table 3K: Alignment By Topic Full Data (Probabilistic Time)
@@ -1463,7 +1463,7 @@ table_3k <- modelsummary(
 
 table_3k
 
-gtsave(table_3k, file.path(FIGURES_TABLES, "table_3k.html"))
+gtsave(table_3k, file.path(FIGURES_TABLES, "table_3k.tex"))
 ```
 
 ## Table 4I: Ethnic Main (Probabilistic Time)
@@ -1492,7 +1492,7 @@ table_4i <- modelsummary(
 
 table_4i
 
-gtsave(table_4i, file.path(FIGURES_TABLES, "table_4i.html"))
+gtsave(table_4i, file.path(FIGURES_TABLES, "table_4i.tex"))
 ```
 
 ## Table 4J: Ethnic By Topic Optimal BW (Probabilistic Time)
@@ -1522,7 +1522,7 @@ table_4j <- modelsummary(
 
 table_4j
 
-gtsave(table_4j, file.path(FIGURES_TABLES, "table_4j.html"))
+gtsave(table_4j, file.path(FIGURES_TABLES, "table_4j.tex"))
 ```
 
 ## Table 4K: Ethnic By Topic Full Data (Probabilistic Time)
@@ -1552,7 +1552,7 @@ table_4k <- modelsummary(
 
 table_4k
 
-gtsave(table_4k, file.path(FIGURES_TABLES, "table_4k.html"))
+gtsave(table_4k, file.path(FIGURES_TABLES, "table_4k.tex"))
 ```
 
 # Comparison Table: Countries by Alignment and Ethnic Population
@@ -1592,7 +1592,7 @@ comparison_table <- table_data %>%
 
 comparison_table
 
-gtsave(comparison_table, file.path(FIGURES_TABLES, "comparison_table.html"))
+gtsave(comparison_table, file.path(FIGURES_TABLES, "comparison_table.tex"))
 ```
 
 # Alignment Table
@@ -1621,7 +1621,7 @@ alignment_table <- table_data %>%
 
 alignment_table
 
-gtsave(alignment_table, file.path(FIGURES_TABLES, "alignment_table.html"))
+gtsave(alignment_table, file.path(FIGURES_TABLES, "alignment_table.tex"))
 ```
 
 # Ethnic Table
@@ -1650,7 +1650,7 @@ ethnic_table <- table_data %>%
 
 ethnic_table
 
-gtsave(ethnic_table, file.path(FIGURES_TABLES, "ethnic_table.html"))
+gtsave(ethnic_table, file.path(FIGURES_TABLES, "ethnic_table.tex"))
 ```
 
 # Export Tables to LaTeX
@@ -1683,53 +1683,53 @@ cat("=============================================================\n")
 cat("PUBLICATION OUTPUTS SUMMARY\n")
 cat("=============================================================\n")
 cat("\nTables generated:\n")
-cat("  - table_1.html: Main RDD results (H1, day)\n")
-cat("  - table_1_cont.html: Main RDD results (H1, continuous)\n")
-cat("  - table_1b.html: RDD by topic (day)\n")
-cat("  - table_1c.html: RDD by topic (continuous)\n")
-cat("  - table_2.html: Diff-in-disc results (H2, day)\n")
-cat("  - table_2a.html: Diff-in-disc results (H2, continuous)\n")
-cat("  - table_2b.html: Diff-in-disc by topic, optimal BW (day)\n")
-cat("  - table_2c.html: Diff-in-disc by topic, optimal BW (continuous)\n")
-cat("  - table_2d.html: Diff-in-disc by topic, full data (day)\n")
-cat("  - table_2e.html: Diff-in-disc by topic, full data (continuous)\n")
-cat("  - table_3.html: Heterogeneity by alignment (day)\n")
-cat("  - table_3a.html: Heterogeneity by alignment (continuous)\n")
-cat("  - table_3b.html: Heterogeneity by topic, optimal BW (day)\n")
-cat("  - table_3c.html: Heterogeneity by topic, optimal BW (continuous)\n")
-cat("  - table_3d.html: Heterogeneity by topic, full data (day)\n")
-cat("  - table_3e.html: Heterogeneity by topic, full data (continuous)\n")
-cat("  - table_4.html: Ethnic heterogeneity (day)\n")
-cat("  - table_4a.html: Ethnic heterogeneity (continuous)\n")
-cat("  - table_4b.html: Ethnic by topic, optimal BW (day)\n")
-cat("  - table_4c.html: Ethnic by topic, optimal BW (continuous)\n")
-cat("  - table_4d.html: Ethnic by topic, full data (day)\n")
-cat("  - table_4e.html: Ethnic by topic, full data (continuous)\n")
-cat("  - table_1d.html: RDD main (drop no-time)\n")
-cat("  - table_1e.html: RDD by topic (drop no-time)\n")
-cat("  - table_2f.html: Diff-in-disc main (drop no-time)\n")
-cat("  - table_2g.html: Diff-in-disc by topic, opt BW (drop no-time)\n")
-cat("  - table_2h.html: Diff-in-disc by topic, full data (drop no-time)\n")
-cat("  - table_3f.html: Alignment main (drop no-time)\n")
-cat("  - table_3g.html: Alignment by topic, opt BW (drop no-time)\n")
-cat("  - table_3h.html: Alignment by topic, full data (drop no-time)\n")
-cat("  - table_4f.html: Ethnic main (drop no-time)\n")
-cat("  - table_4g.html: Ethnic by topic, opt BW (drop no-time)\n")
-cat("  - table_4h.html: Ethnic by topic, full data (drop no-time)\n")
-cat("  - table_1f.html: RDD main (probabilistic time)\n")
-cat("  - table_1g.html: RDD by topic (probabilistic time)\n")
-cat("  - table_2i.html: Diff-in-disc main (probabilistic time)\n")
-cat("  - table_2j.html: Diff-in-disc by topic, opt BW (probabilistic time)\n")
-cat("  - table_2k.html: Diff-in-disc by topic, full data (probabilistic time)\n")
-cat("  - table_3i.html: Alignment main (probabilistic time)\n")
-cat("  - table_3j.html: Alignment by topic, opt BW (probabilistic time)\n")
-cat("  - table_3k.html: Alignment by topic, full data (probabilistic time)\n")
-cat("  - table_4i.html: Ethnic main (probabilistic time)\n")
-cat("  - table_4j.html: Ethnic by topic, opt BW (probabilistic time)\n")
-cat("  - table_4k.html: Ethnic by topic, full data (probabilistic time)\n")
-cat("  - comparison_table.html: Country classification\n")
-cat("  - alignment_table.html: Alignment comparison\n")
-cat("  - ethnic_table.html: Ethnic population comparison\n")
+cat("  - table_1.tex: Main RDD results (H1, day)\n")
+cat("  - table_1_cont.tex: Main RDD results (H1, continuous)\n")
+cat("  - table_1b.tex: RDD by topic (day)\n")
+cat("  - table_1c.tex: RDD by topic (continuous)\n")
+cat("  - table_2.tex: Diff-in-disc results (H2, day)\n")
+cat("  - table_2a.tex: Diff-in-disc results (H2, continuous)\n")
+cat("  - table_2b.tex: Diff-in-disc by topic, optimal BW (day)\n")
+cat("  - table_2c.tex: Diff-in-disc by topic, optimal BW (continuous)\n")
+cat("  - table_2d.tex: Diff-in-disc by topic, full data (day)\n")
+cat("  - table_2e.tex: Diff-in-disc by topic, full data (continuous)\n")
+cat("  - table_3.tex: Heterogeneity by alignment (day)\n")
+cat("  - table_3a.tex: Heterogeneity by alignment (continuous)\n")
+cat("  - table_3b.tex: Heterogeneity by topic, optimal BW (day)\n")
+cat("  - table_3c.tex: Heterogeneity by topic, optimal BW (continuous)\n")
+cat("  - table_3d.tex: Heterogeneity by topic, full data (day)\n")
+cat("  - table_3e.tex: Heterogeneity by topic, full data (continuous)\n")
+cat("  - table_4.tex: Ethnic heterogeneity (day)\n")
+cat("  - table_4a.tex: Ethnic heterogeneity (continuous)\n")
+cat("  - table_4b.tex: Ethnic by topic, optimal BW (day)\n")
+cat("  - table_4c.tex: Ethnic by topic, optimal BW (continuous)\n")
+cat("  - table_4d.tex: Ethnic by topic, full data (day)\n")
+cat("  - table_4e.tex: Ethnic by topic, full data (continuous)\n")
+cat("  - table_1d.tex: RDD main (drop no-time)\n")
+cat("  - table_1e.tex: RDD by topic (drop no-time)\n")
+cat("  - table_2f.tex: Diff-in-disc main (drop no-time)\n")
+cat("  - table_2g.tex: Diff-in-disc by topic, opt BW (drop no-time)\n")
+cat("  - table_2h.tex: Diff-in-disc by topic, full data (drop no-time)\n")
+cat("  - table_3f.tex: Alignment main (drop no-time)\n")
+cat("  - table_3g.tex: Alignment by topic, opt BW (drop no-time)\n")
+cat("  - table_3h.tex: Alignment by topic, full data (drop no-time)\n")
+cat("  - table_4f.tex: Ethnic main (drop no-time)\n")
+cat("  - table_4g.tex: Ethnic by topic, opt BW (drop no-time)\n")
+cat("  - table_4h.tex: Ethnic by topic, full data (drop no-time)\n")
+cat("  - table_1f.tex: RDD main (probabilistic time)\n")
+cat("  - table_1g.tex: RDD by topic (probabilistic time)\n")
+cat("  - table_2i.tex: Diff-in-disc main (probabilistic time)\n")
+cat("  - table_2j.tex: Diff-in-disc by topic, opt BW (probabilistic time)\n")
+cat("  - table_2k.tex: Diff-in-disc by topic, full data (probabilistic time)\n")
+cat("  - table_3i.tex: Alignment main (probabilistic time)\n")
+cat("  - table_3j.tex: Alignment by topic, opt BW (probabilistic time)\n")
+cat("  - table_3k.tex: Alignment by topic, full data (probabilistic time)\n")
+cat("  - table_4i.tex: Ethnic main (probabilistic time)\n")
+cat("  - table_4j.tex: Ethnic by topic, opt BW (probabilistic time)\n")
+cat("  - table_4k.tex: Ethnic by topic, full data (probabilistic time)\n")
+cat("  - comparison_table.tex: Country classification\n")
+cat("  - alignment_table.tex: Alignment comparison\n")
+cat("  - ethnic_table.tex: Ethnic population comparison\n")
 cat("\nFigures generated in previous scripts:\n")
 cat("  - invasion_on_sentiment.png\n")
 cat("  - invasion_on_sentiment_non_mil.png\n")
@@ -1779,7 +1779,7 @@ loo_table <- loo_data %>%
 
 loo_table
 
-gtsave(loo_table, file.path(FIGURES_TABLES, "table_loo_robustness.html"))
+gtsave(loo_table, file.path(FIGURES_TABLES, "table_loo_robustness.tex"))
 ```
 
 # Placebo Test Summary Table
@@ -1843,7 +1843,7 @@ table_placebo <- placebo_summary %>%
 
 table_placebo
 
-gtsave(table_placebo, file.path(FIGURES_TABLES, "table_placebo_summary.html"))
+gtsave(table_placebo, file.path(FIGURES_TABLES, "table_placebo_summary.tex"))
 ```
 
 # Session Info
