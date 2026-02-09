@@ -450,15 +450,16 @@ gtsave(table_2e, file.path(FIGURES_TABLES, "table_2e.html"))
 # Table 3: Heterogeneity by Russian Alignment
 
 ```{r table3}
-note_t3 <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t3 <- "All standard errors are clustered at the source level. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_3 <- modelsummary(
   list(
-    "(1)" = results_het$model5a,
-    "(2)" = results_het$model5a_full,
-    "(3)" = results_het$model5a_opt,
-    "(4)" = results_het$model5a_opt_non_mil,
-    "(5)" = results_het$model5a_opt_russian
+    "(1)" = results_het$model5a_csto,
+    "(2)" = results_het$model5a_neutral,
+    "(3)" = results_het$model5a_full,
+    "(4)" = results_het$model5a_opt,
+    "(5)" = results_het$model5a_opt_non_mil,
+    "(6)" = results_het$model5a_opt_russian
   ),
   output = "gt",
   fmt = 3,
@@ -480,15 +481,16 @@ gtsave(table_3, file.path(FIGURES_TABLES, "table_3.html"))
 ## Table 3A: Heterogeneity (Continuous)
 
 ```{r table3a}
-note_t3a <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t3a <- "All standard errors are clustered at the source level. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_3a <- modelsummary(
   list(
-    "(1)" = results_het_cont$model5a,
-    "(2)" = results_het_cont$model5a_full,
-    "(3)" = results_het_cont$model5a_opt,
-    "(4)" = results_het_cont$model5a_opt_non_mil,
-    "(5)" = results_het_cont$model5a_opt_russian
+    "(1)" = results_het_cont$model5a_csto,
+    "(2)" = results_het_cont$model5a_neutral,
+    "(3)" = results_het_cont$model5a_full,
+    "(4)" = results_het_cont$model5a_opt,
+    "(5)" = results_het_cont$model5a_opt_non_mil,
+    "(6)" = results_het_cont$model5a_opt_russian
   ),
   output = "gt",
   fmt = 3,
@@ -630,15 +632,14 @@ gtsave(table_3e, file.path(FIGURES_TABLES, "table_3e.html"))
 # Table 4: Heterogeneity by Ethnic Russian Population
 
 ```{r table4}
-note_t4 <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t4 <- "All standard errors are clustered at the source level. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_4 <- modelsummary(
   list(
-    "(1)" = results_het$model6a,
-    "(2)" = results_het$model6a_full,
-    "(3)" = results_het$model6a_opt,
-    "(4)" = results_het$model6a_opt_non_mil,
-    "(5)" = results_het$model6a_opt_russian
+    "(1)" = results_het$model6a_full,
+    "(2)" = results_het$model6a_opt,
+    "(3)" = results_het$model6a_opt_non_mil,
+    "(4)" = results_het$model6a_opt_russian
   ),
   output = "gt",
   fmt = 3,
@@ -660,15 +661,14 @@ gtsave(table_4, file.path(FIGURES_TABLES, "table_4.html"))
 ## Table 4A: Ethnic Heterogeneity (Continuous)
 
 ```{r table4a}
-note_t4a <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t4a <- "All standard errors are clustered at the source level. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_4a <- modelsummary(
   list(
-    "(1)" = results_het_cont$model6a,
-    "(2)" = results_het_cont$model6a_full,
-    "(3)" = results_het_cont$model6a_opt,
-    "(4)" = results_het_cont$model6a_opt_non_mil,
-    "(5)" = results_het_cont$model6a_opt_russian
+    "(1)" = results_het_cont$model6a_full,
+    "(2)" = results_het_cont$model6a_opt,
+    "(3)" = results_het_cont$model6a_opt_non_mil,
+    "(4)" = results_het_cont$model6a_opt_russian
   ),
   output = "gt",
   fmt = 3,
@@ -1004,15 +1004,16 @@ gtsave(table_2h, file.path(FIGURES_TABLES, "table_2h.html"))
 ## Table 3F: Alignment Main (Drop No-Time)
 
 ```{r table3f}
-note_t3f <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t3f <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_3f <- modelsummary(
   list(
-    "(1)" = results_het_drop$model5a,
-    "(2)" = results_het_drop$model5a_full,
-    "(3)" = results_het_drop$model5a_opt,
-    "(4)" = results_het_drop$model5a_opt_non_mil,
-    "(5)" = results_het_drop$model5a_opt_russian
+    "(1)" = results_het_drop$model5a_csto,
+    "(2)" = results_het_drop$model5a_neutral,
+    "(3)" = results_het_drop$model5a_full,
+    "(4)" = results_het_drop$model5a_opt,
+    "(5)" = results_het_drop$model5a_opt_non_mil,
+    "(6)" = results_het_drop$model5a_opt_russian
   ),
   output = "gt",
   fmt = 3,
@@ -1094,15 +1095,14 @@ gtsave(table_3h, file.path(FIGURES_TABLES, "table_3h.html"))
 ## Table 4F: Ethnic Main (Drop No-Time)
 
 ```{r table4f}
-note_t4f <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t4f <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_4f <- modelsummary(
   list(
-    "(1)" = results_het_drop$model6a,
-    "(2)" = results_het_drop$model6a_full,
-    "(3)" = results_het_drop$model6a_opt,
-    "(4)" = results_het_drop$model6a_opt_non_mil,
-    "(5)" = results_het_drop$model6a_opt_russian
+    "(1)" = results_het_drop$model6a_full,
+    "(2)" = results_het_drop$model6a_opt,
+    "(3)" = results_het_drop$model6a_opt_non_mil,
+    "(4)" = results_het_drop$model6a_opt_russian
   ),
   output = "gt",
   fmt = 3,
@@ -1378,15 +1378,16 @@ gtsave(table_2k, file.path(FIGURES_TABLES, "table_2k.html"))
 ## Table 3I: Alignment Main (Probabilistic Time)
 
 ```{r table3i}
-note_t3i <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t3i <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_3i <- modelsummary(
   list(
-    "(1)" = results_het_prob$model5a,
-    "(2)" = results_het_prob$model5a_full,
-    "(3)" = results_het_prob$model5a_opt,
-    "(4)" = results_het_prob$model5a_opt_non_mil,
-    "(5)" = results_het_prob$model5a_opt_russian
+    "(1)" = results_het_prob$model5a_csto,
+    "(2)" = results_het_prob$model5a_neutral,
+    "(3)" = results_het_prob$model5a_full,
+    "(4)" = results_het_prob$model5a_opt,
+    "(5)" = results_het_prob$model5a_opt_non_mil,
+    "(6)" = results_het_prob$model5a_opt_russian
   ),
   output = "gt",
   fmt = 3,
@@ -1468,15 +1469,14 @@ gtsave(table_3k, file.path(FIGURES_TABLES, "table_3k.html"))
 ## Table 4I: Ethnic Main (Probabilistic Time)
 
 ```{r table4i}
-note_t4i <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t4i <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
 
 table_4i <- modelsummary(
   list(
-    "(1)" = results_het_prob$model6a,
-    "(2)" = results_het_prob$model6a_full,
-    "(3)" = results_het_prob$model6a_opt,
-    "(4)" = results_het_prob$model6a_opt_non_mil,
-    "(5)" = results_het_prob$model6a_opt_russian
+    "(1)" = results_het_prob$model6a_full,
+    "(2)" = results_het_prob$model6a_opt,
+    "(3)" = results_het_prob$model6a_opt_non_mil,
+    "(4)" = results_het_prob$model6a_opt_russian
   ),
   output = "gt",
   fmt = 3,
