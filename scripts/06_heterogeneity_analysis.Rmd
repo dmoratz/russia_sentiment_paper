@@ -135,22 +135,38 @@ ggsave(plot = state_align_discs_graph,
 
 ```{r align-csto}
 data_align_state_csto <- data_align %>%
-  filter(state_owned == 1, csto == 1)
+  filter(state_owned == 1, csto == 1) %>%
+  filter(!topic_clean %in% "Military")
 
-model5a_state <- felm(sentiment_clean ~ running * treatment | source_domain + topic_clean | 0 | source_domain,
-                      data = data_align_state_csto)
+covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_csto)
+  
 
-summary(model5a_state)
+model5a_csto <- rdrobust(
+  y = data_align_state_csto$sentiment_clean, 
+  x = data_align_state_csto$running,
+  covs = covs_matrix,
+  cluster = data_align_state_csto$source_domain
+)
+
+summary(model5a_csto)
 ```
 
 ### Neutral Countries Only
 
 ```{r align-neutral}
 data_align_state_neutral <- data_align %>%
-  filter(state_owned == 1, csto == 0)
+  filter(state_owned == 1, csto == 0)%>%
+  filter(!topic_clean %in% "Military")
 
-model5a_neutral <- felm(sentiment_clean ~ running * treatment | source_domain + topic_clean | 0 | source_domain,
-                        data = data_align_state_neutral)
+covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_csto)
+  
+
+model5a_neutral <- rdrobust(
+  y = data_align_state_csto$sentiment_clean, 
+  x = data_align_state_csto$running,
+  covs = covs_matrix,
+  cluster = data_align_state_csto$source_domain
+)
 
 summary(model5a_neutral)
 ```
@@ -744,7 +760,7 @@ results_het <- list(
   model5a_opt = model5a_opt,
   model5a_opt_non_mil = model5a_opt_non_mil,
   model5a_opt_russian = model5a_opt_russian,
-  model5a_csto = model5a_state,
+  model5a_csto = model5a_csto,
   model5a_neutral = model5a_neutral,
   model5a_opt_pol = model5a_opt_pol,
   model5a_opt_mil = model5a_opt_mil,
