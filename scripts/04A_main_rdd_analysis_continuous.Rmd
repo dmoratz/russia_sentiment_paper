@@ -652,8 +652,8 @@ summary(model4_opt_nonnato)
 data_dec <- data_non_ukraine %>%
   filter(date_publish < "2022-02-19") %>%
   mutate(
-    running_continuous = as.numeric(difftime(date_time_publish, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
-    treatment = ifelse(date_time_publish < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+    running_continuous = as.numeric(difftime(date_publish_continuous, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    treatment = ifelse(date_publish_continuous < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
   )
 
 # Full model specification using rdrobust (matches model4_opt)
