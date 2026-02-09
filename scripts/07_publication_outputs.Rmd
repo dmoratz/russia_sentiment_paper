@@ -1742,6 +1742,110 @@ cat("  - topic_distribution.png\n")
 cat("  - topic_split.png\n")
 cat("=============================================================\n")
 ```
+
+# Leave-One-Out Country Robustness Table
+
+```{r loo-table}
+loo_data <- results_het$loo_summary
+
+note_loo <- "Leave-one-out robustness analysis for the non-military topics model. Each row shows results when excluding the specified country from the sample. Bandwidth is recalculated for each subset. Coefficient shown is for the running:treatment:csto interaction term. Standard errors clustered at source domain level."
+note_loo_wrapped <- str_wrap(note_loo, width = 80)
+
+loo_table <- loo_data %>%
+  mutate(
+    estimate_fmt = sprintf("%.3f%s", estimate,
+                     case_when(p_value < 0.001 ~ "***",
+                               p_value < 0.01 ~ "**",
+                               p_value < 0.05 ~ "*",
+                               TRUE ~ "")),
+    std_error_fmt = sprintf("(%.3f)", std_error),
+    p_value_fmt = sprintf("%.3f", p_value),
+    n_obs_fmt = format(n_obs, big.mark = ","),
+    bandwidth_fmt = sprintf("%.1f", bandwidth)
+  ) %>%
+  select(country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
+  gt() %>%
+  cols_label(
+    country_dropped = "Country Dropped",
+    estimate_fmt = "Coefficient",
+    std_error_fmt = "Std. Error",
+    p_value_fmt = "p-value",
+    n_obs_fmt = "N",
+    bandwidth_fmt = "Bandwidth"
+  ) %>%
+  tab_header(title = "Table A: Leave-One-Out Country Robustness Analysis",
+             subtitle = "Non-Military Topics Model") %>%
+  tab_footnote(footnote = note_loo_wrapped)
+
+loo_table
+
+gtsave(loo_table, file.path(FIGURES_TABLES, "table_loo_robustness.html"))
+```
+
+# Placebo Test Summary Table
+
+```{r placebo-summary}
+# Extract placebo results from all hypothesis results
+# Note: H1 uses rdrobust, H2 and H3 use felm
+
+# Extract rdrobust result for H1
+placebo_h1 <- results_h1$model_placebo
+h1_estimate <- placebo_h1$coef[1]  # Conventional RD estimate
+h1_se <- placebo_h1$se[1]
+h1_pval <- placebo_h1$pv[1]
+h1_bw <- placebo_h1$bws[1, 1]
+h1_n <- placebo_h1$N_h[1] + placebo_h1$N_h[2]
+
+# Extract felm results for H2 and H3
+placebo_h2 <- results_h2$model_placebo
+placebo_h3 <- results_het$model_placebo_nonmil
+
+h2_coef <- summary(placebo_h2)$coef["treatment", ]
+h3_coef <- summary(placebo_h3)$coef["treatment", ]
+
+# Create summary data frame
+placebo_summary <- tibble(
+  Model = c("(1) H1: Full Model (RDD)", "(2) H2: Diff-in-Disc", "(3) H3: Non-Military"),
+  Estimate = c(h1_estimate, h2_coef["Estimate"], h3_coef["Estimate"]),
+  Std_Error = c(h1_se, h2_coef["Cluster s.e."], h3_coef["Cluster s.e."]),
+  p_value = c(h1_pval, h2_coef["Pr(>|t|)"], h3_coef["Pr(>|t|)"]),
+  Bandwidth = c(h1_bw, results_h2$optimal_bw_placebo, results_het$optimal_bw_placebo_nonmil),
+  N = c(h1_n, nobs(placebo_h2), nobs(placebo_h3))
+)
+
+note_placebo <- "Placebo tests using December 7, 2021 (Putin's announcement) as a false treatment date. Data restricted to pre-invasion period (before Feb 19, 2022). Model 1 uses rdrobust; Models 2-3 use felm with optimal bandwidth. Non-significant treatment effects suggest parallel trends assumption holds."
+note_placebo_wrapped <- str_wrap(note_placebo, width = 80)
+
+table_placebo <- placebo_summary %>%
+  mutate(
+    Estimate_fmt = sprintf("%.3f%s", Estimate,
+                     case_when(p_value < 0.001 ~ "***",
+                               p_value < 0.01 ~ "**",
+                               p_value < 0.05 ~ "*",
+                               TRUE ~ "")),
+    Std_Error_fmt = sprintf("(%.3f)", Std_Error),
+    p_value_fmt = sprintf("%.3f", p_value),
+    Bandwidth_fmt = sprintf("%.1f", Bandwidth),
+    N_fmt = format(N, big.mark = ",")
+  ) %>%
+  select(Model, Estimate_fmt, Std_Error_fmt, p_value_fmt, Bandwidth_fmt, N_fmt) %>%
+  gt() %>%
+  cols_label(
+    Model = "Model",
+    Estimate_fmt = "Estimate",
+    Std_Error_fmt = "Std. Error",
+    p_value_fmt = "p-value",
+    Bandwidth_fmt = "Bandwidth",
+    N_fmt = "N"
+  ) %>%
+  tab_header(title = "Table B: Placebo Test Summary (December 7, 2021)") %>%
+  tab_footnote(footnote = note_placebo_wrapped)
+
+table_placebo
+
+gtsave(table_placebo, file.path(FIGURES_TABLES, "table_placebo_summary.html"))
+```
+
 # Session Info
 
 ```{r session-info}

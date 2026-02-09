@@ -351,7 +351,7 @@ model_did <- felm(sentiment_clean ~ treatment * state_owned | country + topic_cl
 summary(model_did)
 ```
 
-# Placebo Test: December 7th Announcement
+# Placebo Test: December 7th Announcement (with Optimal Bandwidth)
 
 ```{r placebo}
 data_dec <- data %>%
@@ -361,8 +361,22 @@ data_dec <- data %>%
     treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
   )
 
+# Find optimal bandwidth for placebo
+bw_placebo <- rdbwselect(y = data_dec$sentiment_clean,
+                         x = data_dec$running,
+                         kernel = "triangular",
+                         cluster = data_dec$source_domain,
+                         p = 1,
+                         bwselect = "mserd")
+
+optimal_bw_placebo <- bw_placebo$bws[1, 1]
+cat("Placebo optimal bandwidth:", round(optimal_bw_placebo, 1), "days\n")
+
+data_dec_bw <- data_dec %>%
+  filter(running < optimal_bw_placebo, running > -optimal_bw_placebo)
+
 model4a <- felm(sentiment_clean ~ running * treatment | country + Topic | 0 | source_domain,
-                data = data_dec)
+                data = data_dec_bw)
 
 summary(model4a)
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
@@ -512,7 +526,8 @@ results_h2 <- list(
   optimal_bw_mil = optimal_bw_mil,
   optimal_bw_econ = optimal_bw_econ,
   optimal_bw_cult = optimal_bw_cult,
-  optimal_bw_oth = optimal_bw_oth
+  optimal_bw_oth = optimal_bw_oth,
+  optimal_bw_placebo = optimal_bw_placebo
 )
 
 saveRDS(results_h2, file.path(DATA_INTERMEDIATE, "05_h2_results.rds"))

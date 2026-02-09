@@ -360,18 +360,32 @@ model_did <- felm(sentiment_clean ~ treatment * state_owned | country + topic_cl
 summary(model_did)
 ```
 
-# Placebo Test: December 7th Announcement
+# Placebo Test: December 7th Announcement (with Optimal Bandwidth)
 
 ```{r placebo-drop}
 data_dec <- data %>%
   filter(date_publish < "2022-02-19") %>%
   mutate(
-    running_continuous = as.numeric(difftime(date_publish, as.POSIXct("2021-12-07 00:00:00"), units = "hours")),
-    treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
+    running_continuous = as.numeric(difftime(date_time_publish, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    treatment = ifelse(date_time_publish < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
   )
 
+# Find optimal bandwidth for placebo
+bw_placebo <- rdbwselect(y = data_dec$sentiment_clean,
+                         x = data_dec$running_continuous,
+                         kernel = "triangular",
+                         cluster = data_dec$source_domain,
+                         p = 1,
+                         bwselect = "mserd")
+
+optimal_bw_placebo <- bw_placebo$bws[1, 1]
+cat("Placebo optimal bandwidth:", round(optimal_bw_placebo, 1), "seconds\n")
+
+data_dec_bw <- data_dec %>%
+  filter(running_continuous < optimal_bw_placebo, running_continuous > -optimal_bw_placebo)
+
 model4a <- felm(sentiment_clean ~ running_continuous * treatment | country + Topic | 0 | source_domain,
-                data = data_dec)
+                data = data_dec_bw)
 
 summary(model4a)
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
@@ -521,7 +535,8 @@ results_h2_drop <- list(
   optimal_bw_mil = optimal_bw_mil,
   optimal_bw_econ = optimal_bw_econ,
   optimal_bw_cult = optimal_bw_cult,
-  optimal_bw_oth = optimal_bw_oth
+  optimal_bw_oth = optimal_bw_oth,
+  optimal_bw_placebo = optimal_bw_placebo
 )
 
 saveRDS(results_h2_drop, file.path(DATA_INTERMEDIATE, "05_h2_results_drop.rds"))

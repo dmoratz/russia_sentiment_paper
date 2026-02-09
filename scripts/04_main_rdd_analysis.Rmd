@@ -657,6 +657,31 @@ model4_opt_nonnato <- rdrobust(
 summary(model4_opt_nonnato)
 ```
 
+# Placebo Test: December 7th Announcement
+
+```{r placebo-dec}
+data_dec <- data_non_ukraine %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running = as.numeric(date_publish - as.Date("2021-12-07")),
+    treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
+  )
+
+# Full model specification using rdrobust (matches model4_opt)
+covs_matrix_dec <- model.matrix(~ country + source_domain + topic_clean - 1,
+                                data = data_dec)
+
+model_placebo <- rdrobust(
+  y = data_dec$sentiment_clean,
+  x = data_dec$running,
+  covs = covs_matrix_dec,
+  cluster = data_dec$source_domain
+)
+
+summary(model_placebo)
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
 # Summary Table (Table 1)
 
 ```{r table1}
@@ -706,7 +731,8 @@ results_h1 <- list(
   model4_opt_econ = model4_opt_econ,
   model4_opt_cult = model4_opt_cult,
   model4_opt_oth = model4_opt_oth,
-  optimal_bandwidth = optimal_bw
+  optimal_bandwidth = optimal_bw,
+  model_placebo = model_placebo
 )
 
 saveRDS(results_h1, file.path(DATA_INTERMEDIATE, "04_h1_results.rds"))

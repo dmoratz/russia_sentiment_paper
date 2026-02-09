@@ -142,22 +142,36 @@ ggsave(plot = state_align_discs_graph,
 
 ```{r align-csto-drop}
 data_align_state_csto <- data_align %>%
-  filter(state_owned == 1, csto == 1)
+  filter(state_owned == 1, csto == 1) %>%
+  filter(!topic_clean %in% "Military")
 
-model5a_state <- felm(sentiment_clean ~ running_continuous * treatment | source_domain + topic_clean | 0 | source_domain,
-                      data = data_align_state_csto)
+covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_csto)
 
-summary(model5a_state)
+model5a_csto <- rdrobust(
+  y = data_align_state_csto$sentiment_clean,
+  x = data_align_state_csto$running_continuous,
+  covs = covs_matrix,
+  cluster = data_align_state_csto$source_domain
+)
+
+summary(model5a_csto)
 ```
 
 ### Neutral Countries Only
 
 ```{r align-neutral-drop}
 data_align_state_neutral <- data_align %>%
-  filter(state_owned == 1, csto == 0)
+  filter(state_owned == 1, csto == 0) %>%
+  filter(!topic_clean %in% "Military")
 
-model5a_neutral <- felm(sentiment_clean ~ running_continuous * treatment | source_domain + topic_clean | 0 | source_domain,
-                        data = data_align_state_neutral)
+covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_neutral)
+
+model5a_neutral <- rdrobust(
+  y = data_align_state_neutral$sentiment_clean,
+  x = data_align_state_neutral$running_continuous,
+  covs = covs_matrix,
+  cluster = data_align_state_neutral$source_domain
+)
 
 summary(model5a_neutral)
 ```
@@ -238,6 +252,88 @@ model5a_opt_non_mil <- felm(sentiment_clean ~ running_continuous * treatment * c
                         data = optimal_bandwidth_data_state_non_mil)
 
 summary(model5a_opt_non_mil)
+```
+
+## Leave-One-Out Country Robustness
+
+```{r loo-country-drop}
+countries <- unique(data_align_state_non_mil$country)
+loo_results <- list()
+
+for (cntry in countries) {
+  data_loo <- data_align_state_non_mil %>%
+    filter(country != cntry)
+
+  # Re-calculate optimal bandwidth for LOO data
+  bw_loo <- rdbwselect(y = data_loo$sentiment_clean,
+                       x = data_loo$running_continuous,
+                       kernel = "triangular",
+                       cluster = data_loo$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
+
+  optimal_bw_loo <- bw_loo$bws[1, 1]
+
+  data_loo_bw <- data_loo %>%
+    filter(running_continuous < optimal_bw_loo, running_continuous > -optimal_bw_loo)
+
+  model_loo <- felm(sentiment_clean ~ running_continuous * treatment * csto | topic_clean | 0 | source_domain,
+                    data = data_loo_bw)
+
+  loo_results[[cntry]] <- list(
+    model = model_loo,
+    bandwidth = optimal_bw_loo,
+    n = nrow(data_loo_bw),
+    country_dropped = cntry
+  )
+}
+
+# Extract key coefficient (running_continuous:treatment:csto interaction)
+loo_summary <- map_df(names(loo_results), function(cntry) {
+  mod <- loo_results[[cntry]]$model
+  coef_row <- summary(mod)$coef["running_continuous:treatment:csto", ]
+  tibble(
+    country_dropped = cntry,
+    estimate = coef_row["Estimate"],
+    std_error = coef_row["Cluster s.e."],
+    p_value = coef_row["Pr(>|t|)"],
+    n_obs = loo_results[[cntry]]$n,
+    bandwidth = loo_results[[cntry]]$bandwidth
+  )
+})
+
+print(loo_summary)
+```
+
+## Placebo Test: December 7th Announcement (Non-Military Topics)
+
+```{r placebo-dec-nonmil-drop}
+data_dec_align <- data_align_state_non_mil %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running_continuous = as.numeric(difftime(date_time_publish, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    treatment = ifelse(date_time_publish < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+  )
+
+# Find optimal bandwidth for placebo
+bw_placebo_nonmil <- rdbwselect(y = data_dec_align$sentiment_clean,
+                                x = data_dec_align$running_continuous,
+                                kernel = "triangular",
+                                cluster = data_dec_align$source_domain,
+                                p = 1,
+                                bwselect = "mserd")
+
+optimal_bw_placebo_nonmil <- bw_placebo_nonmil$bws[1, 1]
+cat("Placebo optimal bandwidth (non-mil):", round(optimal_bw_placebo_nonmil, 1), "seconds\n")
+
+data_dec_align_bw <- data_dec_align %>%
+  filter(running_continuous < optimal_bw_placebo_nonmil, running_continuous > -optimal_bw_placebo_nonmil)
+
+model_placebo_nonmil <- felm(sentiment_clean ~ running_continuous * treatment * csto | topic_clean | 0 | source_domain,
+                              data = data_dec_align_bw)
+
+summary(model_placebo_nonmil)
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
 ```
 
 ## Russian-Related Articles Only
@@ -786,7 +882,11 @@ results_het_drop <- list(
   optimal_bw_align_mil = optimal_bw_align_mil,
   optimal_bw_align_econ = optimal_bw_align_econ,
   optimal_bw_align_cult = optimal_bw_align_cult,
-  optimal_bw_align_oth = optimal_bw_align_oth
+  optimal_bw_align_oth = optimal_bw_align_oth,
+  loo_results = loo_results,
+  loo_summary = loo_summary,
+  model_placebo_nonmil = model_placebo_nonmil,
+  optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil
 )
 
 saveRDS(results_het_drop, file.path(DATA_INTERMEDIATE, "06_heterogeneity_results_drop.rds"))
