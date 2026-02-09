@@ -570,7 +570,7 @@ ggsave(plot = invasion_on_sentiment_graph_oth,
 
 ```{r non-military-prob}
 data_non_mil <- optimal_bandwidth_data %>%
-  filter(!topic_clean == "Military")
+  filter(topic_clean != "Military")
 
 cat("Non-military sample:", nrow(data_non_mil), "articles\n")
 
