@@ -1,0 +1,29 @@
+\begin{table}[!t]
+\caption*{
+{\large Table A: Leave-One-Out Country Robustness Analysis} \\ 
+{\small Non-Military Topics Model}
+} 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrrrr}
+\toprule
+Country Dropped & Coefficient & Std. Error & p-value & N & Bandwidth \\ 
+\midrule\addlinespace[2.5pt]
+Belarus & -0.159* & (0.068) & 0.020 & 6,780 & 92.9 \\ 
+Armenia & -0.120* & (0.051) & 0.019 & 6,516 & 53.1 \\ 
+Georgia & -0.103*** & (0.030) & 0.001 & 6,833 & 49.2 \\ 
+Azerbaijan & -0.167** & (0.061) & 0.006 & 6,302 & 48.8 \\ 
+Kazakhstan & -0.132** & (0.045) & 0.003 & 7,040 & 50.3 \\ 
+Moldova & -0.162** & (0.056) & 0.004 & 6,924 & 48.7 \\ 
+Kosovo & -0.198* & (0.086) & 0.022 & 5,861 & 43.7 \\ 
+Serbia & -0.172** & (0.060) & 0.004 & 7,114 & 51.1 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+Leave-one-out robustness analysis for the non-military topics model. Each
+row shows results when excluding the specified country from the sample.
+Bandwidth is recalculated for each subset. Coefficient shown is for the
+running:treatment:csto interaction term. Standard errors clustered at source
+domain level.\\
+\end{minipage}
+\end{table}
+

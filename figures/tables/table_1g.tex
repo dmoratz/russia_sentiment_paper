@@ -1,0 +1,27 @@
+\begin{table}[!t]
+\caption{Table 1G: RDD By Topic (Probabilistic Time Assignment)} 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.086*** & -0.201*** & -0.169*** & -0.378*** & -0.141*** \\ 
+{} & {(0.018)} & {(0.026)} & {(0.027)} & {(0.046)} & {(0.017)} \\ 
+State FEs & X & X & X & X & X \\ 
+Source FEs & X & X & X & X & X \\ 
+Topic FEs & - & - & - & - & - \\ 
+Num.Obs. & 61682 & 43569 & 26241 & 10467 & 32135 \\ 
+nobs.left & 20616 & 8822 & 5544 & 4004 & 12518 \\ 
+nobs.right & 41066 & 34747 & 20697 & 6463 & 19617 \\ 
+bandwidth.left & 1585065.63405894 & 2679829.98658597 & 3223509.19269421 & 3549439.71384002 & 3312586.79457877 \\ 
+bandwidth.right & 1585065.63405894 & 2679829.98658597 & 3223509.19269421 & 3549439.71384002 & 3312586.79457877 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are assigned times via KDE sampling. All models use the
+optimal bandwidth with country and source fixed effects.\\
+\end{minipage}
+\end{table}
+

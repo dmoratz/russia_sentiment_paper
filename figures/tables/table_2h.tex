@@ -1,0 +1,27 @@
+\begin{table}[!t]
+\caption{Table 2H: Diff-in-Disc By Topic, Full Data (Drop No-Time Articles)} 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.073*** & -0.160*** & -0.144*** & -0.223*** & -0.166*** \\ 
+ & (0.013) & (0.016) & (0.020) & (0.026) & (0.022) \\ 
+State Owned x Treatment & 0.045 & 0.001 & 0.019 & -0.020 & 0.131** \\ 
+{} & {(0.025)} & {(0.029)} & {(0.052)} & {(0.080)} & {(0.045)} \\ 
+State FEs & X & X & X & X & X \\ 
+Source FEs & - & - & - & - & - \\ 
+Topic FEs & - & - & - & - & - \\ 
+Num.Obs. & 49792 & 36308 & 21086 & 8298 & 24615 \\ 
+R2 & 0.023 & 0.040 & 0.067 & 0.069 & 0.037 \\ 
+R2 Adj. & 0.023 & 0.039 & 0.066 & 0.067 & 0.036 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are dropped. All models use the full dataset (no bandwidth
+restriction) with country fixed effects only.\\
+\end{minipage}
+\end{table}
+

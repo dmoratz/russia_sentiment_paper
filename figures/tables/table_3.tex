@@ -1,0 +1,32 @@
+\begin{table}[!t]
+\caption{Table 3: Russian Alignment Heterogeneity (State Media)} 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.096*** & 0.023 & -0.030 & 0.004 & 0.094* & 0.054 \\ 
+ & (0.027) & (0.040) & (0.073) & (0.032) & (0.039) & (0.067) \\ 
+CSTO x Treatment &  &  & -0.059 & -0.074 & -0.152** & -0.148* \\ 
+{} & {} & {} & {(0.074)} & {(0.045)} & {(0.050)} & {(0.073)} \\ 
+Num.Obs. & 17733 & 4802 & 26911 & 8878 & 7410 & 5841 \\ 
+R2 &  &  & 0.063 & 0.056 & 0.046 & 0.076 \\ 
+R2 Adj. &  &  & 0.063 & 0.055 & 0.045 & 0.074 \\ 
+nobs.right & 10487 & 2983 &  &  &  &  \\ 
+bandwidth.left & 30.2830111568679 & 46.5756070608293 &  &  &  &  \\ 
+bandwidth.right & 30.2830111568679 & 46.5756070608293 &  &  &  &  \\ 
+nobs.left & 7246 & 1819 &  &  &  &  \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Model 1 shows RDD results
+for CSTO countries only. Model 2 shows RDD results for Neutral countries only.
+Model 3 uses full data with topic fixed effects. Model 4 uses the optimal
+bandwidth with topic fixed effects. Model 5 omits military-related articles and
+uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military)
+articles with a re-optimized bandwidth. Sample restricted to state-owned media
+in non-NATO countries.\\
+\end{minipage}
+\end{table}
+

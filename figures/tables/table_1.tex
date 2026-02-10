@@ -1,0 +1,29 @@
+\begin{table}[!t]
+\caption{Table 1: Effect of Russian Invasion on Media Sentiment (RDD) with Day Running Variable} 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) & (7) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.165*** & -0.154*** & -0.131*** & -0.117*** & -0.139*** & -0.092*** & -0.147*** \\ 
+{} & {(0.021)} & {(0.017)} & {(0.013)} & {(0.012)} & {(0.008)} & {(0.014)} & {(0.014)} \\ 
+State FEs & - & X & X & X & X & X & X \\ 
+Source FEs & - & - & X & X & X & X & X \\ 
+Topic FEs & - & - & - & X & X & X & X \\ 
+Num.Obs. & 174094 & 174094 & 174094 & 174094 & 174094 & 130525 & 121894 \\ 
+R2 &  &  &  &  & 0.087 &  &  \\ 
+R2 Adj. &  &  &  &  & 0.086 &  &  \\ 
+nobs.left & 51504 & 51504 & 51504 & 51504 &  & 42682 & 39608 \\ 
+nobs.right & 122590 & 122590 & 122590 & 122590 &  & 87843 & 82286 \\ 
+bandwidth.left & 38.8453672695904 & 37.1242901112061 & 30.232445940068 & 29.2337629826131 &  & 25.1484108477982 & 37.1191309779363 \\ 
+bandwidth.right & 38.8453672695904 & 37.1242901112061 & 30.232445940068 & 29.2337629826131 &  & 25.1484108477982 & 37.1191309779363 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Models 1-4 uses the
+optimal bandwidth. Model 5 uses a linear specification with the full set of
+articles. Model 6 omits Military Topics. Model 7 omits NATO allies.\\
+\end{minipage}
+\end{table}
+

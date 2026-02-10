@@ -1,0 +1,26 @@
+\begin{table}[!t]
+\caption{Table 2C: Diff-in-Disc By Topic (Continuous Running Variable)} 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.108*** & -0.259*** & -0.226*** & -0.335*** & -0.181*** \\ 
+ & (0.015) & (0.042) & (0.036) & (0.041) & (0.022) \\ 
+State Owned x Treatment & 0.098* & -0.023 & 0.137 & -0.047 & 0.154** \\ 
+{} & {(0.040)} & {(0.055)} & {(0.077)} & {(0.101)} & {(0.050)} \\ 
+State FEs & X & X & X & X & X \\ 
+Source FEs & - & - & - & - & - \\ 
+Topic FEs & - & - & - & - & - \\ 
+Num.Obs. & 16790 & 17378 & 9491 & 3561 & 13703 \\ 
+R2 & 0.032 & 0.045 & 0.052 & 0.073 & 0.047 \\ 
+R2 Adj. & 0.031 & 0.044 & 0.050 & 0.069 & 0.046 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. All models use a
+per-topic re-optimized bandwidth with country fixed effects only.\\
+\end{minipage}
+\end{table}
+
