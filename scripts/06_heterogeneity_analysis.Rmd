@@ -223,7 +223,7 @@ summary(model5a_opt)
 sd_state_owned <- sd(data_align_state$sentiment_clean)
 cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
 
-coef_csto_int <- summary(model5a_opt)$coef["running:treatment:csto", "Estimate"]
+coef_csto_int <- summary(model5a_opt)$coef["treatment:csto", "Estimate"]
 cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
 ```
 
@@ -286,10 +286,10 @@ for (cntry in countries) {
   )
 }
 
-# Extract key coefficient (running:treatment:csto interaction)
+# Extract key coefficient (treatment:csto interaction)
 loo_summary <- map_df(names(loo_results), function(cntry) {
   mod <- loo_results[[cntry]]$model
-  coef_row <- summary(mod)$coef["running:treatment:csto", ]
+  coef_row <- summary(mod)$coef["treatment:csto", ]
   tibble(
     country_dropped = cntry,
     estimate = coef_row["Estimate"],

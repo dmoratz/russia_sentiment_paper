@@ -219,7 +219,7 @@ summary(model5a_opt)
 sd_state_owned <- sd(data_align_state$sentiment_clean)
 cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
 
-coef_csto_int <- summary(model5a_opt)$coef["running_continuous:treatment:csto", "Estimate"]
+coef_csto_int <- summary(model5a_opt)$coef["treatment:csto", "Estimate"]
 cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
 ```
 
@@ -282,10 +282,10 @@ for (cntry in countries) {
   )
 }
 
-# Extract key coefficient (running_continuous:treatment:csto interaction)
+# Extract key coefficient (treatment:csto interaction)
 loo_summary <- map_df(names(loo_results), function(cntry) {
   mod <- loo_results[[cntry]]$model
-  coef_row <- summary(mod)$coef["running_continuous:treatment:csto", ]
+  coef_row <- summary(mod)$coef["treatment:csto", ]
   tibble(
     country_dropped = cntry,
     estimate = coef_row["Estimate"],
@@ -305,8 +305,8 @@ print(loo_summary)
 data_dec_align <- data_align_state_non_mil %>%
   filter(date_publish < "2022-02-19") %>%
   mutate(
-    running_continuous = as.numeric(difftime(date_time_publish, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
-    treatment = ifelse(date_time_publish < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+    running_continuous = as.numeric(difftime(date_publish_continuous, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    treatment = ifelse(date_publish_continuous < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
   )
 
 # Find optimal bandwidth for placebo
@@ -838,7 +838,7 @@ results_het_cont <- list(
   model5a_opt = model5a_opt,
   model5a_opt_non_mil = model5a_opt_non_mil,
   model5a_opt_russian = model5a_opt_russian,
-  model5a_csto = model5a_state,
+  model5a_csto = model5a_csto,
   model5a_neutral = model5a_neutral,
   model5a_opt_pol = model5a_opt_pol,
   model5a_opt_mil = model5a_opt_mil,
