@@ -1748,7 +1748,7 @@ cat("=============================================================\n")
 ```{r loo-table}
 loo_data <- results_het$loo_summary
 
-note_loo <- "Leave-one-out robustness analysis for the non-military topics model. Each row shows results when excluding the specified country from the sample. Bandwidth is recalculated for each subset. Coefficient shown is for the running:treatment:csto interaction term. Standard errors clustered at source domain level."
+note_loo <- "Leave-one-out robustness analysis for the non-military topics model. Each row shows results when excluding the specified country from the sample. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:csto interaction term. Standard errors clustered at source domain level."
 note_loo_wrapped <- str_wrap(note_loo, width = 80)
 
 loo_table <- loo_data %>%
