@@ -376,7 +376,7 @@ cat("Placebo optimal bandwidth:", round(optimal_bw_placebo, 1), "days\n")
 data_dec_bw <- data_dec %>%
   filter(running < optimal_bw_placebo, running > -optimal_bw_placebo)
 
-model4a <- felm(sentiment_clean ~ running * treatment | country + Topic | 0 | source_domain,
+model4a <- felm(sentiment_clean ~ running * treatment * state_owned | country + Topic | 0 | source_domain,
                 data = data_dec_bw)
 
 summary(model4a)
@@ -387,24 +387,30 @@ cat("\nNote: Non-significant treatment effect suggests parallel trends assumptio
 
 ```{r placebo-plot, fig.width=10, fig.height=7}
 agg_data_dec <- data_dec %>%
-  group_by(running) %>%
+  group_by(running, state_owned) %>%
   summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
 
 data_dec %>%
-  mutate(treatment = as.factor(treatment)) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  mutate(indicator = as.factor(indicator)) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
   geom_point(data = agg_data_dec,
              aes(x = running, y = sentiment_clean, size = num_obs),
              alpha = 0.2, inherit.aes = FALSE) +
   geom_smooth(method = "lm") +
-  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Dec 7") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
   scale_size(name = "Observations") +
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Placebo Test: Effect of December 7th Announcement",
+    title = "Placebo Test: Effect of December 7th Announcement (Daily)",
     subtitle = "Pre-Invasion Period Only",
-    x = "Days Pre/Post Announcement",
+    x = "Days Pre/Post Invasion",
     y = "Sentiment"
   )
 ```
