@@ -350,6 +350,14 @@ model3a_opt <- felm(sentiment_clean ~ running_continuous * treatment * state_own
                     data = optimal_bw_combined_data)
 
 summary(model3a_opt)
+
+# Saturated Model
+model3a_opt_saturated <- felm(sentiment_clean ~ running_continuous * treatment * state_owned |
+                          source_domain:topic_clean + country:state_owned + country:topic_clean:treatment |
+                          0 | source_domain,
+                          data = optimal_bw_combined_data)
+
+summary(model3a_opt_saturated)
 ```
 
 # Diff-in-Diff (Within Bandwidth)
@@ -524,6 +532,7 @@ results_h2_drop <- list(
   model2b = model2b,
   model3a = model3a,
   model3a_opt = model3a_opt,
+  model3a_opt_saturated = model3a_opt_saturated,
   model_did = model_did,
   model_placebo = model4a,
   model2a_opt_pol = model2a_opt_pol,

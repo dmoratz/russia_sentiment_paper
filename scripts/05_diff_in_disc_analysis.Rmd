@@ -662,6 +662,7 @@ results_h2 <- list(
   model2b = model2b,
   model3a = model3a,
   model3a_opt = model3a_opt,
+  model3a_opt_saturated = model3a_opt_saturated,
   model_did = model_did,
   model_placebo = model4a,
   model2a_opt_pol = model2a_opt_pol,

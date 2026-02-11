@@ -908,6 +908,7 @@ results_h1 <- list(
   model4_opt = model4_opt,
   model4_non_nato = model4_opt_nonnato,
   model4_non_mil = model4_opt_nonmil,
+  model4_felm_saturated = model4_felm_saturated,
   model4_opt_pol = model4_opt_pol,
   model4_opt_mil = model4_opt_mil,
   model4_opt_econ = model4_opt_econ,

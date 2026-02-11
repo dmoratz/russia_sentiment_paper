@@ -218,6 +218,26 @@ cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
 cat("Effect size (in SD units):", round(effect_size, 3), "\n")
 ```
 
+# Saturated Model
+
+```{r saturated-model-drop}
+# Filter to optimal bandwidth and create post indicator
+optimal_bandwidth_data_filtered <- optimal_bandwidth_data %>%
+  filter(abs(running_continuous) <= optimal_bw) %>%
+  mutate(post = ifelse(running_continuous >= 0, 1, 0))
+
+# Fully saturated felm RDD model
+model4_felm_saturated <- felm(
+  sentiment_clean ~ post + running_continuous + running_continuous:post |
+    source_domain:topic_clean + country:topic_clean:post |
+    0 |
+    source_domain,
+  data = optimal_bandwidth_data_filtered
+)
+
+summary(model4_felm_saturated)
+```
+
 # RDD Models By Topic
 
 ```{r topic-subsets-drop}
@@ -720,6 +740,7 @@ results_h1_drop <- list(
   model4_opt = model4_opt,
   model4_non_nato = model4_opt_nonnato,
   model4_non_mil = model4_opt_nonmil,
+  model4_felm_saturated = model4_felm_saturated,
   model4_opt_pol = model4_opt_pol,
   model4_opt_mil = model4_opt_mil,
   model4_opt_econ = model4_opt_econ,

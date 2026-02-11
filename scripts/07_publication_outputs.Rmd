@@ -63,6 +63,39 @@ data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 cat("Results loaded successfully.\n")
 ```
 
+# Helper Functions for Bootstrap Standard Errors
+
+```{r bootstrap-helpers}
+# Helper function to create a vcov-like function that returns bootstrap SEs
+# This allows modelsummary to display bootstrap standard errors
+create_bootstrap_vcov <- function(model, boot_result, coef_name) {
+  # Get the original vcov matrix
+  original_vcov <- vcov(model)
+
+  # Create a modified vcov matrix with bootstrap SE for the key coefficient
+  modified_vcov <- original_vcov
+
+  # Find the coefficient index
+  coef_idx <- which(names(coef(model)) == coef_name)
+
+  if (length(coef_idx) > 0 && !is.null(boot_result$se)) {
+    # Replace the diagonal element with bootstrap variance (SE^2)
+    modified_vcov[coef_idx, coef_idx] <- boot_result$se^2
+  }
+
+  return(modified_vcov)
+}
+
+# Helper to get significance stars from bootstrap p-value
+get_boot_stars <- function(p_val) {
+  if (is.null(p_val) || is.na(p_val)) return("")
+  if (p_val < 0.001) return("***")
+  if (p_val < 0.01) return("**")
+  if (p_val < 0.05) return("*")
+  return("")
+}
+```
+
 # Table 1: Main RDD Results
 
 ```{r table1}
@@ -105,14 +138,14 @@ gtsave(table_1, file.path(FIGURES_TABLES, "table_1.tex"))
 
 ```{r table1a}
 rows_t1a <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
-  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t1a, 'position') <- c(3, 4, 5)
 
-note_t1a <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies."
+note_t1a <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies. Model 8 uses full saturation (country-source-topic FEs)."
 
 table_1_cont <- modelsummary(
   list(
@@ -122,12 +155,13 @@ table_1_cont <- modelsummary(
     "(4)" = results_h1_cont$model4_opt,
     "(5)" = results_h1_cont$model1_full_linear,
     "(6)" = results_h1_cont$model4_non_mil,
-    "(7)" = results_h1_cont$model4_non_nato
+    "(7)" = results_h1_cont$model4_non_nato,
+    "(8)" = results_h1_cont$model4_felm_saturated
   ),
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
-  coef_map = c("treatment" = "Invasion"),
+  coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   title = "Table 1A: Effect of Russian Invasion on Media Sentiment (RDD) with Continuous Running Variable",
   add_rows = rows_t1a,
@@ -255,14 +289,14 @@ gtsave(table_2, file.path(FIGURES_TABLES, "table_2.tex"))
 
 ```{r table2a}
 rows_t2a <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t2a, 'position') <- c(5, 6, 7)
 
-note_t2a <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth."
+note_t2a <- "All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs)."
 
 table_2a <- modelsummary(
   list(
@@ -271,7 +305,8 @@ table_2a <- modelsummary(
     "(3)" = results_h2_cont$model2d,
     "(4)" = results_h2_cont$model2b,
     "(5)" = results_h2_cont$model3a,
-    "(6)" = results_h2_cont$model3a_opt
+    "(6)" = results_h2_cont$model3a_opt,
+    "(7)" = results_h2_cont$model3a_opt_saturated
   ),
   output = "gt",
   fmt = 3,
@@ -450,7 +485,16 @@ gtsave(table_2e, file.path(FIGURES_TABLES, "table_2e.tex"))
 # Table 3: Heterogeneity by Russian Alignment
 
 ```{r table3}
-note_t3 <- "All standard errors are clustered at the source level. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t3 <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-7, clustered at source level. Models 1-2 use rdrobust standard errors. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 7 uses full saturation (country-source-topic FEs). Sample restricted to state-owned media in non-NATO countries."
+
+# Create vcov list with bootstrap SEs for felm models (columns 3-7)
+vcov_t3 <- list(
+  "(3)" = create_bootstrap_vcov(results_het$model5a_full, results_het$bootstrap_se$model5a_full, "treatment:csto"),
+  "(4)" = create_bootstrap_vcov(results_het$model5a_opt, results_het$bootstrap_se$model5a_opt, "treatment:csto"),
+  "(5)" = create_bootstrap_vcov(results_het$model5a_opt_non_mil, results_het$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
+  "(6)" = create_bootstrap_vcov(results_het$model5a_opt_russian, results_het$bootstrap_se$model5a_opt_russian, "treatment:csto"),
+  "(7)" = create_bootstrap_vcov(results_het$model5a_fully_saturated, results_het$bootstrap_se$model5a_fully_saturated, "treatment:csto")
+)
 
 table_3 <- modelsummary(
   list(
@@ -459,8 +503,10 @@ table_3 <- modelsummary(
     "(3)" = results_het$model5a_full,
     "(4)" = results_het$model5a_opt,
     "(5)" = results_het$model5a_opt_non_mil,
-    "(6)" = results_het$model5a_opt_russian
+    "(6)" = results_het$model5a_opt_russian,
+    "(7)" = results_het$model5a_fully_saturated
   ),
+  vcov = vcov_t3,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -481,7 +527,15 @@ gtsave(table_3, file.path(FIGURES_TABLES, "table_3.tex"))
 ## Table 3A: Heterogeneity (Continuous)
 
 ```{r table3a}
-note_t3a <- "All standard errors are clustered at the source level. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t3a <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+# Create vcov list with bootstrap SEs for felm models
+vcov_t3a <- list(
+  "(3)" = create_bootstrap_vcov(results_het_cont$model5a_full, results_het_cont$bootstrap_se$model5a_full, "treatment:csto"),
+  "(4)" = create_bootstrap_vcov(results_het_cont$model5a_opt, results_het_cont$bootstrap_se$model5a_opt, "treatment:csto"),
+  "(5)" = create_bootstrap_vcov(results_het_cont$model5a_opt_non_mil, results_het_cont$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
+  "(6)" = create_bootstrap_vcov(results_het_cont$model5a_opt_russian, results_het_cont$bootstrap_se$model5a_opt_russian, "treatment:csto")
+)
 
 table_3a <- modelsummary(
   list(
@@ -492,6 +546,7 @@ table_3a <- modelsummary(
     "(5)" = results_het_cont$model5a_opt_non_mil,
     "(6)" = results_het_cont$model5a_opt_russian
   ),
+  vcov = vcov_t3a,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -512,7 +567,16 @@ gtsave(table_3a, file.path(FIGURES_TABLES, "table_3a.tex"))
 ## Table 3B: Heterogeneity By Topic Optimal BW (Day)
 
 ```{r table3b}
-note_t3b <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+note_t3b <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t3b <- list(
+  "Political" = create_bootstrap_vcov(results_het$model5a_opt_pol, results_het$bootstrap_se$model5a_opt_pol, "treatment:csto"),
+  "Military" = create_bootstrap_vcov(results_het$model5a_opt_mil, results_het$bootstrap_se$model5a_opt_mil, "treatment:csto"),
+  "Economic" = create_bootstrap_vcov(results_het$model5a_opt_econ, results_het$bootstrap_se$model5a_opt_econ, "treatment:csto"),
+  "Cultural" = create_bootstrap_vcov(results_het$model5a_opt_cult, results_het$bootstrap_se$model5a_opt_cult, "treatment:csto"),
+  "Other" = create_bootstrap_vcov(results_het$model5a_opt_oth, results_het$bootstrap_se$model5a_opt_oth, "treatment:csto")
+)
 
 table_3b <- modelsummary(
   list(
@@ -522,6 +586,7 @@ table_3b <- modelsummary(
     "Cultural" = results_het$model5a_opt_cult,
     "Other" = results_het$model5a_opt_oth
   ),
+  vcov = vcov_t3b,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -542,7 +607,16 @@ gtsave(table_3b, file.path(FIGURES_TABLES, "table_3b.tex"))
 ## Table 3C: Heterogeneity By Topic Optimal BW (Continuous)
 
 ```{r table3c}
-note_t3c <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+note_t3c <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t3c <- list(
+  "Political" = create_bootstrap_vcov(results_het_cont$model5a_opt_pol, results_het_cont$bootstrap_se$model5a_opt_pol, "treatment:csto"),
+  "Military" = create_bootstrap_vcov(results_het_cont$model5a_opt_mil, results_het_cont$bootstrap_se$model5a_opt_mil, "treatment:csto"),
+  "Economic" = create_bootstrap_vcov(results_het_cont$model5a_opt_econ, results_het_cont$bootstrap_se$model5a_opt_econ, "treatment:csto"),
+  "Cultural" = create_bootstrap_vcov(results_het_cont$model5a_opt_cult, results_het_cont$bootstrap_se$model5a_opt_cult, "treatment:csto"),
+  "Other" = create_bootstrap_vcov(results_het_cont$model5a_opt_oth, results_het_cont$bootstrap_se$model5a_opt_oth, "treatment:csto")
+)
 
 table_3c <- modelsummary(
   list(
@@ -552,6 +626,7 @@ table_3c <- modelsummary(
     "Cultural" = results_het_cont$model5a_opt_cult,
     "Other" = results_het_cont$model5a_opt_oth
   ),
+  vcov = vcov_t3c,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -572,7 +647,16 @@ gtsave(table_3c, file.path(FIGURES_TABLES, "table_3c.tex"))
 ## Table 3D: Heterogeneity By Topic Full Data (Day)
 
 ```{r table3d}
-note_t3d <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+note_t3d <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t3d <- list(
+  "Political" = create_bootstrap_vcov(results_het$model5a_full_pol, results_het$bootstrap_se$model5a_full_pol, "treatment:csto"),
+  "Military" = create_bootstrap_vcov(results_het$model5a_full_mil, results_het$bootstrap_se$model5a_full_mil, "treatment:csto"),
+  "Economic" = create_bootstrap_vcov(results_het$model5a_full_econ, results_het$bootstrap_se$model5a_full_econ, "treatment:csto"),
+  "Cultural" = create_bootstrap_vcov(results_het$model5a_full_cult, results_het$bootstrap_se$model5a_full_cult, "treatment:csto"),
+  "Other" = create_bootstrap_vcov(results_het$model5a_full_oth, results_het$bootstrap_se$model5a_full_oth, "treatment:csto")
+)
 
 table_3d <- modelsummary(
   list(
@@ -582,6 +666,7 @@ table_3d <- modelsummary(
     "Cultural" = results_het$model5a_full_cult,
     "Other" = results_het$model5a_full_oth
   ),
+  vcov = vcov_t3d,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -602,7 +687,16 @@ gtsave(table_3d, file.path(FIGURES_TABLES, "table_3d.tex"))
 ## Table 3E: Heterogeneity By Topic Full Data (Continuous)
 
 ```{r table3e}
-note_t3e <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+note_t3e <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t3e <- list(
+  "Political" = create_bootstrap_vcov(results_het_cont$model5a_full_pol, results_het_cont$bootstrap_se$model5a_full_pol, "treatment:csto"),
+  "Military" = create_bootstrap_vcov(results_het_cont$model5a_full_mil, results_het_cont$bootstrap_se$model5a_full_mil, "treatment:csto"),
+  "Economic" = create_bootstrap_vcov(results_het_cont$model5a_full_econ, results_het_cont$bootstrap_se$model5a_full_econ, "treatment:csto"),
+  "Cultural" = create_bootstrap_vcov(results_het_cont$model5a_full_cult, results_het_cont$bootstrap_se$model5a_full_cult, "treatment:csto"),
+  "Other" = create_bootstrap_vcov(results_het_cont$model5a_full_oth, results_het_cont$bootstrap_se$model5a_full_oth, "treatment:csto")
+)
 
 table_3e <- modelsummary(
   list(
@@ -612,6 +706,7 @@ table_3e <- modelsummary(
     "Cultural" = results_het_cont$model5a_full_cult,
     "Other" = results_het_cont$model5a_full_oth
   ),
+  vcov = vcov_t3e,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -632,7 +727,15 @@ gtsave(table_3e, file.path(FIGURES_TABLES, "table_3e.tex"))
 # Table 4: Heterogeneity by Ethnic Russian Population
 
 ```{r table4}
-note_t4 <- "All standard errors are clustered at the source level. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t4 <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+# Create vcov list with bootstrap SEs for all models
+vcov_t4 <- list(
+  "(1)" = create_bootstrap_vcov(results_het$model6a_full, results_het$bootstrap_se$model6a_full, "treatment:high_russia"),
+  "(2)" = create_bootstrap_vcov(results_het$model6a_opt, results_het$bootstrap_se$model6a_opt, "treatment:high_russia"),
+  "(3)" = create_bootstrap_vcov(results_het$model6a_opt_non_mil, results_het$bootstrap_se$model6a_opt_non_mil, "treatment:high_russia"),
+  "(4)" = create_bootstrap_vcov(results_het$model6a_opt_russian, results_het$bootstrap_se$model6a_opt_russian, "treatment:high_russia")
+)
 
 table_4 <- modelsummary(
   list(
@@ -641,6 +744,7 @@ table_4 <- modelsummary(
     "(3)" = results_het$model6a_opt_non_mil,
     "(4)" = results_het$model6a_opt_russian
   ),
+  vcov = vcov_t4,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -661,7 +765,15 @@ gtsave(table_4, file.path(FIGURES_TABLES, "table_4.tex"))
 ## Table 4A: Ethnic Heterogeneity (Continuous)
 
 ```{r table4a}
-note_t4a <- "All standard errors are clustered at the source level. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t4a <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+# Create vcov list with bootstrap SEs
+vcov_t4a <- list(
+  "(1)" = create_bootstrap_vcov(results_het_cont$model6a_full, results_het_cont$bootstrap_se$model6a_full, "treatment:high_russia"),
+  "(2)" = create_bootstrap_vcov(results_het_cont$model6a_opt, results_het_cont$bootstrap_se$model6a_opt, "treatment:high_russia"),
+  "(3)" = create_bootstrap_vcov(results_het_cont$model6a_opt_non_mil, results_het_cont$bootstrap_se$model6a_opt_non_mil, "treatment:high_russia"),
+  "(4)" = create_bootstrap_vcov(results_het_cont$model6a_opt_russian, results_het_cont$bootstrap_se$model6a_opt_russian, "treatment:high_russia")
+)
 
 table_4a <- modelsummary(
   list(
@@ -670,6 +782,7 @@ table_4a <- modelsummary(
     "(3)" = results_het_cont$model6a_opt_non_mil,
     "(4)" = results_het_cont$model6a_opt_russian
   ),
+  vcov = vcov_t4a,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -690,7 +803,16 @@ gtsave(table_4a, file.path(FIGURES_TABLES, "table_4a.tex"))
 ## Table 4B: Ethnic By Topic Optimal BW (Day)
 
 ```{r table4b}
-note_t4b <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+note_t4b <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t4b <- list(
+  "Political" = create_bootstrap_vcov(results_het$model6a_opt_pol, results_het$bootstrap_se$model6a_opt_pol, "treatment:high_russia"),
+  "Military" = create_bootstrap_vcov(results_het$model6a_opt_mil, results_het$bootstrap_se$model6a_opt_mil, "treatment:high_russia"),
+  "Economic" = create_bootstrap_vcov(results_het$model6a_opt_econ, results_het$bootstrap_se$model6a_opt_econ, "treatment:high_russia"),
+  "Cultural" = create_bootstrap_vcov(results_het$model6a_opt_cult, results_het$bootstrap_se$model6a_opt_cult, "treatment:high_russia"),
+  "Other" = create_bootstrap_vcov(results_het$model6a_opt_oth, results_het$bootstrap_se$model6a_opt_oth, "treatment:high_russia")
+)
 
 table_4b <- modelsummary(
   list(
@@ -700,6 +822,7 @@ table_4b <- modelsummary(
     "Cultural" = results_het$model6a_opt_cult,
     "Other" = results_het$model6a_opt_oth
   ),
+  vcov = vcov_t4b,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -720,7 +843,16 @@ gtsave(table_4b, file.path(FIGURES_TABLES, "table_4b.tex"))
 ## Table 4C: Ethnic By Topic Optimal BW (Continuous)
 
 ```{r table4c}
-note_t4c <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+note_t4c <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t4c <- list(
+  "Political" = create_bootstrap_vcov(results_het_cont$model6a_opt_pol, results_het_cont$bootstrap_se$model6a_opt_pol, "treatment:high_russia"),
+  "Military" = create_bootstrap_vcov(results_het_cont$model6a_opt_mil, results_het_cont$bootstrap_se$model6a_opt_mil, "treatment:high_russia"),
+  "Economic" = create_bootstrap_vcov(results_het_cont$model6a_opt_econ, results_het_cont$bootstrap_se$model6a_opt_econ, "treatment:high_russia"),
+  "Cultural" = create_bootstrap_vcov(results_het_cont$model6a_opt_cult, results_het_cont$bootstrap_se$model6a_opt_cult, "treatment:high_russia"),
+  "Other" = create_bootstrap_vcov(results_het_cont$model6a_opt_oth, results_het_cont$bootstrap_se$model6a_opt_oth, "treatment:high_russia")
+)
 
 table_4c <- modelsummary(
   list(
@@ -730,6 +862,7 @@ table_4c <- modelsummary(
     "Cultural" = results_het_cont$model6a_opt_cult,
     "Other" = results_het_cont$model6a_opt_oth
   ),
+  vcov = vcov_t4c,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -750,7 +883,16 @@ gtsave(table_4c, file.path(FIGURES_TABLES, "table_4c.tex"))
 ## Table 4D: Ethnic By Topic Full Data (Day)
 
 ```{r table4d}
-note_t4d <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+note_t4d <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t4d <- list(
+  "Political" = create_bootstrap_vcov(results_het$model6a_full_pol, results_het$bootstrap_se$model6a_full_pol, "treatment:high_russia"),
+  "Military" = create_bootstrap_vcov(results_het$model6a_full_mil, results_het$bootstrap_se$model6a_full_mil, "treatment:high_russia"),
+  "Economic" = create_bootstrap_vcov(results_het$model6a_full_econ, results_het$bootstrap_se$model6a_full_econ, "treatment:high_russia"),
+  "Cultural" = create_bootstrap_vcov(results_het$model6a_full_cult, results_het$bootstrap_se$model6a_full_cult, "treatment:high_russia"),
+  "Other" = create_bootstrap_vcov(results_het$model6a_full_oth, results_het$bootstrap_se$model6a_full_oth, "treatment:high_russia")
+)
 
 table_4d <- modelsummary(
   list(
@@ -760,6 +902,7 @@ table_4d <- modelsummary(
     "Cultural" = results_het$model6a_full_cult,
     "Other" = results_het$model6a_full_oth
   ),
+  vcov = vcov_t4d,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -780,7 +923,16 @@ gtsave(table_4d, file.path(FIGURES_TABLES, "table_4d.tex"))
 ## Table 4E: Ethnic By Topic Full Data (Continuous)
 
 ```{r table4e}
-note_t4e <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+note_t4e <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t4e <- list(
+  "Political" = create_bootstrap_vcov(results_het_cont$model6a_full_pol, results_het_cont$bootstrap_se$model6a_full_pol, "treatment:high_russia"),
+  "Military" = create_bootstrap_vcov(results_het_cont$model6a_full_mil, results_het_cont$bootstrap_se$model6a_full_mil, "treatment:high_russia"),
+  "Economic" = create_bootstrap_vcov(results_het_cont$model6a_full_econ, results_het_cont$bootstrap_se$model6a_full_econ, "treatment:high_russia"),
+  "Cultural" = create_bootstrap_vcov(results_het_cont$model6a_full_cult, results_het_cont$bootstrap_se$model6a_full_cult, "treatment:high_russia"),
+  "Other" = create_bootstrap_vcov(results_het_cont$model6a_full_oth, results_het_cont$bootstrap_se$model6a_full_oth, "treatment:high_russia")
+)
 
 table_4e <- modelsummary(
   list(
@@ -790,6 +942,7 @@ table_4e <- modelsummary(
     "Cultural" = results_het_cont$model6a_full_cult,
     "Other" = results_het_cont$model6a_full_oth
   ),
+  vcov = vcov_t4e,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -813,14 +966,14 @@ gtsave(table_4e, file.path(FIGURES_TABLES, "table_4e.tex"))
 
 ```{r table1d}
 rows_t1d <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
-  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t1d, 'position') <- c(3, 4, 5)
 
-note_t1d <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies."
+note_t1d <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies. Model 8 uses full saturation (country-source-topic FEs)."
 
 table_1d <- modelsummary(
   list(
@@ -830,12 +983,13 @@ table_1d <- modelsummary(
     "(4)" = results_h1_drop$model4_opt,
     "(5)" = results_h1_drop$model1_full_linear,
     "(6)" = results_h1_drop$model4_non_mil,
-    "(7)" = results_h1_drop$model4_non_nato
+    "(7)" = results_h1_drop$model4_non_nato,
+    "(8)" = results_h1_drop$model4_felm_saturated
   ),
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
-  coef_map = c("treatment" = "Invasion"),
+  coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   title = "Table 1D: RDD with Continuous Running Variable (Drop No-Time Articles)",
   add_rows = rows_t1d,
@@ -887,14 +1041,14 @@ gtsave(table_1e, file.path(FIGURES_TABLES, "table_1e.tex"))
 
 ```{r table2f}
 rows_t2f <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t2f, 'position') <- c(5, 6, 7)
 
-note_t2f <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters with a re-optimized bandwidth."
+note_t2f <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs)."
 
 table_2f <- modelsummary(
   list(
@@ -903,7 +1057,8 @@ table_2f <- modelsummary(
     "(3)" = results_h2_drop$model2d,
     "(4)" = results_h2_drop$model2b,
     "(5)" = results_h2_drop$model3a,
-    "(6)" = results_h2_drop$model3a_opt
+    "(6)" = results_h2_drop$model3a_opt,
+    "(7)" = results_h2_drop$model3a_opt_saturated
   ),
   output = "gt",
   fmt = 3,
@@ -1004,7 +1159,15 @@ gtsave(table_2h, file.path(FIGURES_TABLES, "table_2h.tex"))
 ## Table 3F: Alignment Main (Drop No-Time)
 
 ```{r table3f}
-note_t3f <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t3f <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Articles without publication times are dropped. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+# Create vcov list with bootstrap SEs for felm models
+vcov_t3f <- list(
+  "(3)" = create_bootstrap_vcov(results_het_drop$model5a_full, results_het_drop$bootstrap_se$model5a_full, "treatment:csto"),
+  "(4)" = create_bootstrap_vcov(results_het_drop$model5a_opt, results_het_drop$bootstrap_se$model5a_opt, "treatment:csto"),
+  "(5)" = create_bootstrap_vcov(results_het_drop$model5a_opt_non_mil, results_het_drop$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
+  "(6)" = create_bootstrap_vcov(results_het_drop$model5a_opt_russian, results_het_drop$bootstrap_se$model5a_opt_russian, "treatment:csto")
+)
 
 table_3f <- modelsummary(
   list(
@@ -1015,6 +1178,7 @@ table_3f <- modelsummary(
     "(5)" = results_het_drop$model5a_opt_non_mil,
     "(6)" = results_het_drop$model5a_opt_russian
   ),
+  vcov = vcov_t3f,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -1095,7 +1259,15 @@ gtsave(table_3h, file.path(FIGURES_TABLES, "table_3h.tex"))
 ## Table 4F: Ethnic Main (Drop No-Time)
 
 ```{r table4f}
-note_t4f <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t4f <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Articles without publication times are dropped. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+# Create vcov list with bootstrap SEs
+vcov_t4f <- list(
+  "(1)" = create_bootstrap_vcov(results_het_drop$model6a_full, results_het_drop$bootstrap_se$model6a_full, "treatment:high_russia"),
+  "(2)" = create_bootstrap_vcov(results_het_drop$model6a_opt, results_het_drop$bootstrap_se$model6a_opt, "treatment:high_russia"),
+  "(3)" = create_bootstrap_vcov(results_het_drop$model6a_opt_non_mil, results_het_drop$bootstrap_se$model6a_opt_non_mil, "treatment:high_russia"),
+  "(4)" = create_bootstrap_vcov(results_het_drop$model6a_opt_russian, results_het_drop$bootstrap_se$model6a_opt_russian, "treatment:high_russia")
+)
 
 table_4f <- modelsummary(
   list(
@@ -1104,6 +1276,7 @@ table_4f <- modelsummary(
     "(3)" = results_het_drop$model6a_opt_non_mil,
     "(4)" = results_het_drop$model6a_opt_russian
   ),
+  vcov = vcov_t4f,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -1187,14 +1360,14 @@ gtsave(table_4h, file.path(FIGURES_TABLES, "table_4h.tex"))
 
 ```{r table1f}
 rows_t1f <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
-  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t1f, 'position') <- c(3, 4, 5)
 
-note_t1f <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling from same-source distributions. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies."
+note_t1f <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling from same-source distributions. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies. Model 8 uses full saturation (country-source-topic FEs)."
 
 table_1f <- modelsummary(
   list(
@@ -1204,12 +1377,13 @@ table_1f <- modelsummary(
     "(4)" = results_h1_prob$model4_opt,
     "(5)" = results_h1_prob$model1_full_linear,
     "(6)" = results_h1_prob$model4_non_mil,
-    "(7)" = results_h1_prob$model4_non_nato
+    "(7)" = results_h1_prob$model4_non_nato,
+    "(8)" = results_h1_prob$model4_felm_saturated
   ),
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
-  coef_map = c("treatment" = "Invasion"),
+  coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   title = "Table 1F: RDD with Probabilistic Time Assignment",
   add_rows = rows_t1f,
@@ -1261,14 +1435,14 @@ gtsave(table_1g, file.path(FIGURES_TABLES, "table_1g.tex"))
 
 ```{r table2i}
 rows_t2i <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X'
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X'
 )
 attr(rows_t2i, 'position') <- c(5, 6, 7)
 
-note_t2i <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters with a re-optimized bandwidth."
+note_t2i <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs)."
 
 table_2i <- modelsummary(
   list(
@@ -1277,7 +1451,8 @@ table_2i <- modelsummary(
     "(3)" = results_h2_prob$model2d,
     "(4)" = results_h2_prob$model2b,
     "(5)" = results_h2_prob$model3a,
-    "(6)" = results_h2_prob$model3a_opt
+    "(6)" = results_h2_prob$model3a_opt,
+    "(7)" = results_h2_prob$model3a_opt_saturated
   ),
   output = "gt",
   fmt = 3,
@@ -1378,7 +1553,15 @@ gtsave(table_2k, file.path(FIGURES_TABLES, "table_2k.tex"))
 ## Table 3I: Alignment Main (Probabilistic Time)
 
 ```{r table3i}
-note_t3i <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t3i <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Articles without publication times are assigned times via KDE sampling. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+# Create vcov list with bootstrap SEs for felm models
+vcov_t3i <- list(
+  "(3)" = create_bootstrap_vcov(results_het_prob$model5a_full, results_het_prob$bootstrap_se$model5a_full, "treatment:csto"),
+  "(4)" = create_bootstrap_vcov(results_het_prob$model5a_opt, results_het_prob$bootstrap_se$model5a_opt, "treatment:csto"),
+  "(5)" = create_bootstrap_vcov(results_het_prob$model5a_opt_non_mil, results_het_prob$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
+  "(6)" = create_bootstrap_vcov(results_het_prob$model5a_opt_russian, results_het_prob$bootstrap_se$model5a_opt_russian, "treatment:csto")
+)
 
 table_3i <- modelsummary(
   list(
@@ -1389,6 +1572,7 @@ table_3i <- modelsummary(
     "(5)" = results_het_prob$model5a_opt_non_mil,
     "(6)" = results_het_prob$model5a_opt_russian
   ),
+  vcov = vcov_t3i,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
@@ -1469,7 +1653,15 @@ gtsave(table_3k, file.path(FIGURES_TABLES, "table_3k.tex"))
 ## Table 4I: Ethnic Main (Probabilistic Time)
 
 ```{r table4i}
-note_t4i <- "All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+note_t4i <- "Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Articles without publication times are assigned times via KDE sampling. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries."
+
+# Create vcov list with bootstrap SEs
+vcov_t4i <- list(
+  "(1)" = create_bootstrap_vcov(results_het_prob$model6a_full, results_het_prob$bootstrap_se$model6a_full, "treatment:high_russia"),
+  "(2)" = create_bootstrap_vcov(results_het_prob$model6a_opt, results_het_prob$bootstrap_se$model6a_opt, "treatment:high_russia"),
+  "(3)" = create_bootstrap_vcov(results_het_prob$model6a_opt_non_mil, results_het_prob$bootstrap_se$model6a_opt_non_mil, "treatment:high_russia"),
+  "(4)" = create_bootstrap_vcov(results_het_prob$model6a_opt_russian, results_het_prob$bootstrap_se$model6a_opt_russian, "treatment:high_russia")
+)
 
 table_4i <- modelsummary(
   list(
@@ -1478,6 +1670,7 @@ table_4i <- modelsummary(
     "(3)" = results_het_prob$model6a_opt_non_mil,
     "(4)" = results_het_prob$model6a_opt_russian
   ),
+  vcov = vcov_t4i,
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),

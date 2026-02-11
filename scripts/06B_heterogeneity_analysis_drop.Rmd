@@ -33,6 +33,8 @@ knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_DROP, "/"))
 # Load Data
 
 ```{r load-drop}
+library(fwildclusterboot)
+
 data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
 
@@ -45,6 +47,26 @@ data_non_ukraine <- data_non_ukraine %>% filter(has_time == TRUE)
 
 cat("Full data after dropping no-time articles:", nrow(data), "articles\n")
 cat("Non-Ukraine data after dropping no-time articles:", nrow(data_non_ukraine), "articles\n")
+
+# Helper function for wild cluster bootstrap
+run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 9999) {
+  boot_result <- boottest(
+    object = model,
+    param = param,
+    clustid = clustid,
+    B = B,
+    impose_null = TRUE,
+    type = "rademacher"
+  )
+
+  list(
+    se = boot_result$se,
+    p_val = boot_result$p_val,
+    ci_lower = boot_result$conf_int[1],
+    ci_upper = boot_result$conf_int[2],
+    t_stat = boot_result$teststat
+  )
+}
 ```
 
 # Russian Alignment Analysis (CSTO vs Neutral)
@@ -187,6 +209,11 @@ model5a <- felm(sentiment_clean ~ running_continuous * treatment * csto | 0 | 0 
                 data = data_align_state)
 
 summary(model5a)
+
+# Wild cluster bootstrap for model5a
+boot_model5a <- run_wild_bootstrap(model5a, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a$se, "\n")
+cat("Bootstrap p-value:", boot_model5a$p_val, "\n")
 ```
 
 ## Full Data with Topic FEs
@@ -196,6 +223,11 @@ model5a_full <- felm(sentiment_clean ~ running_continuous * treatment * csto | t
                      data = data_align_state)
 
 summary(model5a_full)
+
+# Wild cluster bootstrap for model5a_full
+boot_model5a_full <- run_wild_bootstrap(model5a_full, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_full$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_full$p_val, "\n")
 ```
 
 ## Optimal Bandwidth
@@ -218,6 +250,11 @@ model5a_opt <- felm(sentiment_clean ~ running_continuous * treatment * csto | to
                     data = optimal_bandwidth_data_state)
 
 summary(model5a_opt)
+
+# Wild cluster bootstrap for model5a_opt
+boot_model5a_opt <- run_wild_bootstrap(model5a_opt, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt$p_val, "\n")
 ```
 
 ## Effect Size
@@ -253,6 +290,11 @@ model5a_opt_non_mil <- felm(sentiment_clean ~ running_continuous * treatment * c
                         data = optimal_bandwidth_data_state_non_mil)
 
 summary(model5a_opt_non_mil)
+
+# Wild cluster bootstrap for model5a_opt_non_mil
+boot_model5a_opt_non_mil <- run_wild_bootstrap(model5a_opt_non_mil, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt_non_mil$p_val, "\n")
 ```
 
 ## Leave-One-Out Country Robustness
@@ -361,6 +403,11 @@ model5a_opt_russian <- felm(sentiment_clean ~ running_continuous * treatment * c
                         data = optimal_bandwidth_data_state_russian)
 
 summary(model5a_opt_russian)
+
+# Wild cluster bootstrap for model5a_opt_russian
+boot_model5a_opt_russian <- run_wild_bootstrap(model5a_opt_russian, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_russian$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt_russian$p_val, "\n")
 ```
 
 ## By-Topic Models: Full Data
@@ -432,6 +479,22 @@ model5a_opt_cult <- felm(sentiment_clean ~ running_continuous * treatment * csto
                          data = opt_align_cult)
 model5a_opt_oth <- felm(sentiment_clean ~ running_continuous * treatment * csto | 0 | 0 | source_domain,
                         data = opt_align_oth)
+
+# Wild cluster bootstrap for topic-specific models (optimal BW)
+boot_model5a_opt_pol <- run_wild_bootstrap(model5a_opt_pol, "treatment:csto")
+boot_model5a_opt_mil <- run_wild_bootstrap(model5a_opt_mil, "treatment:csto")
+boot_model5a_opt_econ <- run_wild_bootstrap(model5a_opt_econ, "treatment:csto")
+boot_model5a_opt_cult <- run_wild_bootstrap(model5a_opt_cult, "treatment:csto")
+boot_model5a_opt_oth <- run_wild_bootstrap(model5a_opt_oth, "treatment:csto")
+
+# Wild cluster bootstrap for topic-specific models (full data)
+boot_model5a_full_pol <- run_wild_bootstrap(model5a_full_pol, "treatment:csto")
+boot_model5a_full_mil <- run_wild_bootstrap(model5a_full_mil, "treatment:csto")
+boot_model5a_full_econ <- run_wild_bootstrap(model5a_full_econ, "treatment:csto")
+boot_model5a_full_cult <- run_wild_bootstrap(model5a_full_cult, "treatment:csto")
+boot_model5a_full_oth <- run_wild_bootstrap(model5a_full_oth, "treatment:csto")
+
+cat("Bootstrap completed for all model5a topic-specific variants\n")
 ```
 
 # Ethnic Russian Population Analysis
@@ -506,6 +569,11 @@ model6a <- felm(sentiment_clean ~ running_continuous * treatment * high_russia |
                 data = data_ethnic_state)
 
 summary(model6a)
+
+# Wild cluster bootstrap for model6a
+boot_model6a <- run_wild_bootstrap(model6a, "treatment:high_russia")
+cat("Bootstrap SE for treatment:high_russia:", boot_model6a$se, "\n")
+cat("Bootstrap p-value:", boot_model6a$p_val, "\n")
 ```
 
 ## Full Data with Topic FEs
@@ -515,6 +583,11 @@ model6a_full <- felm(sentiment_clean ~ running_continuous * treatment * high_rus
                      data = data_ethnic_state)
 
 summary(model6a_full)
+
+# Wild cluster bootstrap for model6a_full
+boot_model6a_full <- run_wild_bootstrap(model6a_full, "treatment:high_russia")
+cat("Bootstrap SE for treatment:high_russia:", boot_model6a_full$se, "\n")
+cat("Bootstrap p-value:", boot_model6a_full$p_val, "\n")
 ```
 
 ## Optimal Bandwidth
@@ -537,6 +610,11 @@ model6a_opt <- felm(sentiment_clean ~ running_continuous * treatment * high_russ
                     data = optimal_bandwidth_data_ethnic)
 
 summary(model6a_opt)
+
+# Wild cluster bootstrap for model6a_opt
+boot_model6a_opt <- run_wild_bootstrap(model6a_opt, "treatment:high_russia")
+cat("Bootstrap SE for treatment:high_russia:", boot_model6a_opt$se, "\n")
+cat("Bootstrap p-value:", boot_model6a_opt$p_val, "\n")
 ```
 
 ## Non-Military Topics
@@ -562,6 +640,11 @@ model6a_opt_non_mil <- felm(sentiment_clean ~ running_continuous * treatment * h
                             data = optimal_bandwidth_data_ethnic_non_mil)
 
 summary(model6a_opt_non_mil)
+
+# Wild cluster bootstrap for model6a_opt_non_mil
+boot_model6a_opt_non_mil <- run_wild_bootstrap(model6a_opt_non_mil, "treatment:high_russia")
+cat("Bootstrap SE for treatment:high_russia:", boot_model6a_opt_non_mil$se, "\n")
+cat("Bootstrap p-value:", boot_model6a_opt_non_mil$p_val, "\n")
 ```
 
 ## Russian-Related Articles Only
@@ -588,6 +671,11 @@ model6a_opt_russian <- felm(sentiment_clean ~ running_continuous * treatment * h
                             data = optimal_bandwidth_data_ethnic_russian)
 
 summary(model6a_opt_russian)
+
+# Wild cluster bootstrap for model6a_opt_russian
+boot_model6a_opt_russian <- run_wild_bootstrap(model6a_opt_russian, "treatment:high_russia")
+cat("Bootstrap SE for treatment:high_russia:", boot_model6a_opt_russian$se, "\n")
+cat("Bootstrap p-value:", boot_model6a_opt_russian$p_val, "\n")
 ```
 
 ## By-Topic Models: Full Data
@@ -609,6 +697,13 @@ model6a_full_cult <- felm(sentiment_clean ~ running_continuous * treatment * hig
                           data = data_ethnic_state_cult)
 model6a_full_oth <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
                          data = data_ethnic_state_oth)
+
+# Wild cluster bootstrap for topic-specific model6a (full data)
+boot_model6a_full_pol <- run_wild_bootstrap(model6a_full_pol, "treatment:high_russia")
+boot_model6a_full_mil <- run_wild_bootstrap(model6a_full_mil, "treatment:high_russia")
+boot_model6a_full_econ <- run_wild_bootstrap(model6a_full_econ, "treatment:high_russia")
+boot_model6a_full_cult <- run_wild_bootstrap(model6a_full_cult, "treatment:high_russia")
+boot_model6a_full_oth <- run_wild_bootstrap(model6a_full_oth, "treatment:high_russia")
 ```
 
 ## By-Topic Models: Per-Topic Optimal Bandwidth
@@ -659,6 +754,13 @@ model6a_opt_cult <- felm(sentiment_clean ~ running_continuous * treatment * high
                          data = opt_ethnic_cult)
 model6a_opt_oth <- felm(sentiment_clean ~ running_continuous * treatment * high_russia | 0 | 0 | source_domain,
                         data = opt_ethnic_oth)
+
+# Wild cluster bootstrap for topic-specific model6a (optimal BW)
+boot_model6a_opt_pol <- run_wild_bootstrap(model6a_opt_pol, "treatment:high_russia")
+boot_model6a_opt_mil <- run_wild_bootstrap(model6a_opt_mil, "treatment:high_russia")
+boot_model6a_opt_econ <- run_wild_bootstrap(model6a_opt_econ, "treatment:high_russia")
+boot_model6a_opt_cult <- run_wild_bootstrap(model6a_opt_cult, "treatment:high_russia")
+boot_model6a_opt_oth <- run_wild_bootstrap(model6a_opt_oth, "treatment:high_russia")
 ```
 
 # Summary Table (Table 4F)
@@ -872,6 +974,52 @@ results_het_drop <- list(
   model6a_full_econ = model6a_full_econ,
   model6a_full_cult = model6a_full_cult,
   model6a_full_oth = model6a_full_oth,
+
+  # Bootstrap standard errors
+  bootstrap_se = list(
+    # Main model5a variants
+    model5a = boot_model5a,
+    model5a_full = boot_model5a_full,
+    model5a_opt = boot_model5a_opt,
+    model5a_opt_non_mil = boot_model5a_opt_non_mil,
+    model5a_opt_russian = boot_model5a_opt_russian,
+
+    # Topic-specific model5a (optimal BW)
+    model5a_opt_pol = boot_model5a_opt_pol,
+    model5a_opt_mil = boot_model5a_opt_mil,
+    model5a_opt_econ = boot_model5a_opt_econ,
+    model5a_opt_cult = boot_model5a_opt_cult,
+    model5a_opt_oth = boot_model5a_opt_oth,
+
+    # Topic-specific model5a (full data)
+    model5a_full_pol = boot_model5a_full_pol,
+    model5a_full_mil = boot_model5a_full_mil,
+    model5a_full_econ = boot_model5a_full_econ,
+    model5a_full_cult = boot_model5a_full_cult,
+    model5a_full_oth = boot_model5a_full_oth,
+
+    # Main model6a variants
+    model6a = boot_model6a,
+    model6a_full = boot_model6a_full,
+    model6a_opt = boot_model6a_opt,
+    model6a_opt_non_mil = boot_model6a_opt_non_mil,
+    model6a_opt_russian = boot_model6a_opt_russian,
+
+    # Topic-specific model6a (optimal BW)
+    model6a_opt_pol = boot_model6a_opt_pol,
+    model6a_opt_mil = boot_model6a_opt_mil,
+    model6a_opt_econ = boot_model6a_opt_econ,
+    model6a_opt_cult = boot_model6a_opt_cult,
+    model6a_opt_oth = boot_model6a_opt_oth,
+
+    # Topic-specific model6a (full data)
+    model6a_full_pol = boot_model6a_full_pol,
+    model6a_full_mil = boot_model6a_full_mil,
+    model6a_full_econ = boot_model6a_full_econ,
+    model6a_full_cult = boot_model6a_full_cult,
+    model6a_full_oth = boot_model6a_full_oth
+  ),
+
   optimal_bandwidth_ethnic = optimal_bw_ethnic,
   optimal_bw_ethnic_pol = optimal_bw_ethnic_pol,
   optimal_bw_ethnic_mil = optimal_bw_ethnic_mil,
