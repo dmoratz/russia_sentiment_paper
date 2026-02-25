@@ -1,22 +1,27 @@
 # =============================================================================
 # figure_dag.R
-# Creates a publication-ready DAG for the Russia Sentiment Paper
+# Creates publication-ready DAGs for the Russia Sentiment Paper
 # =============================================================================
 #
-# This script generates a Directed Acyclic Graph (DAG) showing the causal
-# structure of the analysis. Key feature: Topic is highlighted as a COLLIDER
-# (square shape, orange) because it receives arrows from both Invasion
-# (treatment) and Editor Sets Priorities (influenced by Ownership).
+# This script generates two separate DAG figures showing the causal structure:
+#   A. Problem: Only controlling for Topic (backdoor path OPEN)
+#   B. Solution: Controlling for Country, Ownership, and Topic (backdoor BLOCKED)
+#
+# Key features:
+#   - Text-only nodes (no circles/shapes)
+#   - Individual boxes around each control variable
+#   - Backdoor path highlighted with dashed red arrows in the "problem" figure
 #
 # Color scheme:
-#   - Blue: Key causal variables (Media Ownership, Invasion)
-#   - Orange: Collider (Topic) and arrows into it
-#   - Green: Outcome (Sentiment)
-#   - White/Black: Mediating variables
+#   - Blue text: Causal variables (Country, Media Ownership, Invasion)
+#   - Orange arrows: Arrows into the collider (Topic)
+#   - Green text: Outcome (Predicted Sentiment)
+#   - Red dashed arrows: Open backdoor path (in problem figure)
+#   - Black text: Mediating variables
 #
 # Output:
-#   - figures/figure_dag.pdf (vector format for publication)
-#   - figures/figure_dag.png (300 DPI raster)
+#   - figures/dag/figure_dag_problem.pdf/png (backdoor path open)
+#   - figures/dag/figure_dag_solution.pdf/png (backdoor path blocked)
 #
 # =============================================================================
 
@@ -66,49 +71,39 @@ colors <- list(
 # -----------------------------------------------------------------------------
 
 nodes_df <- data.frame(
-  name = c("ownership", "priorities", "tone", "topic",
+  name = c("country", "ownership", "priorities", "tone", "topic",
            "invasion", "draft", "article", "sentiment"),
-  x = c(0, 1.8, 3.6, 2.2, 2.2, 4, 5.5, 7),
-  y = c(2.5, 3.5, 3.5, 2, 0.5, 2, 2.5, 2.5),
-  label = c("Media\nOwnership", "Editor Sets\nPriorities", "Editor\nTone/Style",
-            "Topic", "Invasion", "Journalist\nDraft", "Full Article\nText", "Sentiment"),
-  # Label offsets (closer to nodes now)
-  label_x_offset = c(0, 0, 0, 0.42, 0, 0, 0, 0),
-  label_y_offset = c(-0.38, 0.38, 0.38, 0, -0.38, -0.38, -0.38, -0.38),
+  x = c(1.0, 3.0, 1.0, 3.5, 2.2, 0, 4.0, 5.5, 7.0),
+  y = c(4.0, 4.0, 2.5, 2.5, 1.5, 1.0, 1.0, 1.0, 1.0),
+  label = c("Country", "Media\nOwnership", "Editorial\nPriorities", "Tone/Style",
+            "Topic", "Invasion", "Journalist\nDraft", "Full Article\nText", "Predicted\nSentiment"),
   # Label alignment
-  hjust = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
-  vjust = c(1, 0, 0, 1, 1, 1, 1, 1),
+  hjust = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+  vjust = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
   # Node types
-  is_collider = c(FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE),
-  is_causal = c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE),
-  is_outcome = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE),
+  is_collider = c(FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE),
+  is_causal = c(TRUE, TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE),
+  is_outcome = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE),
+  is_control = c(TRUE, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE),
   stringsAsFactors = FALSE
 )
 
-# Assign fill colors based on node type
-nodes_df$fill_color <- ifelse(nodes_df$is_causal, colors$causal,
+# Assign text colors based on node type
+nodes_df$text_color <- ifelse(nodes_df$is_causal, colors$causal,
                         ifelse(nodes_df$is_collider, colors$collider,
                         ifelse(nodes_df$is_outcome, colors$outcome,
-                               colors$mediator_fill)))
-
-# Assign border colors
-nodes_df$border_color <- ifelse(nodes_df$fill_color == "white", "black", nodes_df$fill_color)
-
-# Assign text colors (white text on dark backgrounds)
-nodes_df$text_color <- ifelse(nodes_df$fill_color %in% c(colors$causal, colors$outcome),
-                               "black", "black")
-
-# Assign shapes (22 = square for collider, 21 = circle for others)
-nodes_df$shape <- ifelse(nodes_df$is_collider, 22, 21)
+                               "black")))
 
 # -----------------------------------------------------------------------------
 # Define Edges (Arrows)
 # -----------------------------------------------------------------------------
 
 edges_df <- data.frame(
-  from = c("ownership", "ownership", "priorities", "priorities", "invasion",
+  from = c("country", "country", "country", "country",
+           "ownership", "ownership", "priorities", "invasion", "invasion",
            "topic", "tone", "draft", "article"),
-  to = c("priorities", "tone", "tone", "topic", "topic",
+  to = c("ownership", "priorities", "tone", "topic",
+         "priorities", "tone", "topic", "topic", "draft",
          "draft", "article", "article", "sentiment"),
   stringsAsFactors = FALSE
 )
@@ -155,10 +150,37 @@ for (i in 1:nrow(edges_df)) {
 }
 
 # -----------------------------------------------------------------------------
-# Create the Plot
+# Create the Solution DAG (Full model with all controls)
 # -----------------------------------------------------------------------------
 
-dag_plot <- ggplot() +
+dag_solution <- ggplot() +
+
+  # Box around Country
+  annotate(
+    "rect",
+    xmin = 1.0 - 0.55, xmax = 1.0 + 0.55,
+    ymin = 4.0 - 0.25, ymax = 4.0 + 0.25,
+    fill = "gray95", color = "gray60",
+    linetype = "dashed", linewidth = 0.5
+  ) +
+
+  # Box around Media Ownership
+  annotate(
+    "rect",
+    xmin = 3.0 - 0.65, xmax = 3.0 + 0.65,
+    ymin = 4.0 - 0.4, ymax = 4.0 + 0.4,
+    fill = "gray95", color = "gray60",
+    linetype = "dashed", linewidth = 0.5
+  ) +
+
+  # Box around Topic
+  annotate(
+    "rect",
+    xmin = 2.2 - 0.45, xmax = 2.2 + 0.45,
+    ymin = 1.5 - 0.25, ymax = 1.5 + 0.25,
+    fill = "gray95", color = "gray60",
+    linetype = "dashed", linewidth = 0.5
+  ) +
 
   # Draw regular edges (gray)
   geom_segment(
@@ -180,69 +202,21 @@ dag_plot <- ggplot() +
     lineend = "round"
   ) +
 
-  # Draw mediator nodes (white circles)
-  geom_point(
-    data = nodes_df[!nodes_df$is_collider & !nodes_df$is_causal & !nodes_df$is_outcome, ],
-    aes(x = x, y = y),
-    shape = 21,
-    size = 12,
-    fill = colors$mediator_fill,
-    color = colors$mediator_border,
-    stroke = 0.8
-  ) +
-
-  # Draw causal nodes (blue circles) - Ownership and Invasion
-  geom_point(
-    data = nodes_df[nodes_df$is_causal, ],
-    aes(x = x, y = y),
-    shape = 21,
-    size = 12,
-    fill = colors$causal,
-    color = colors$causal,
-    stroke = 0.8
-  ) +
-
-  # Draw outcome node (green circle) - Sentiment
-  geom_point(
-    data = nodes_df[nodes_df$is_outcome, ],
-    aes(x = x, y = y),
-    shape = 21,
-    size = 12,
-    fill = colors$outcome,
-    color = colors$outcome,
-    stroke = 0.8
-  ) +
-
-  # Draw collider node (orange SQUARE) - Topic
-  geom_point(
-    data = nodes_df[nodes_df$is_collider, ],
-    aes(x = x, y = y),
-    shape = 22,  # Square
-    size = 12,
-    fill = colors$collider,
-    color = colors$collider,
-    stroke = 0.8
-  ) +
-
-  # Add text labels
+  # Add text labels (no circles - text only)
   geom_text(
     data = nodes_df,
-    aes(x = x + label_x_offset,
-        y = y + label_y_offset,
-        label = label,
-        hjust = hjust,
-        vjust = vjust),
+    aes(x = x, y = y, label = label, color = text_color),
     size = 2.8,
     family = "sans",
     lineheight = 0.85,
-    color = "black"
+    fontface = "bold"
   ) +
+  scale_color_identity() +
 
   # Add title
   ggtitle("Causal Graph for the Impact of Invasion on Sentiment") +
 
   # Clean theme
-
   theme_void() +
   theme(
     plot.title = element_text(
@@ -257,49 +231,161 @@ dag_plot <- ggplot() +
   ) +
 
   # Fixed coordinates
-  coord_fixed(ratio = 0.7, xlim = c(-1, 8), ylim = c(-0.2, 4.3))
-
-# Print the plot
-print(dag_plot)
+  coord_fixed(ratio = 0.7, xlim = c(-1, 8), ylim = c(-0.2, 5))
 
 # -----------------------------------------------------------------------------
-# Export Figures
+# Create the Problem DAG (Only controlling for Topic - shows open backdoor)
 # -----------------------------------------------------------------------------
 
-# Export as PDF (vector format for publication)
+# For the problem DAG, we show only Topic boxed, and highlight the backdoor path in red
+# The backdoor path is: Country -> Ownership -> Priorities -> Topic <- Invasion
+
+# Mark which edges are part of the backdoor path
+# The backdoor path goes: Topic <- Priorities <- Ownership <- Country -> Tone -> Article -> Sentiment
+# (and also Ownership -> Tone)
+edges_df$is_backdoor <- (edges_df$from == "priorities" & edges_df$to == "topic") |
+                        (edges_df$from == "ownership" & edges_df$to == "priorities") |
+                        (edges_df$from == "country" & edges_df$to == "ownership") |
+                        (edges_df$from == "country" & edges_df$to == "tone") |
+                        (edges_df$from == "ownership" & edges_df$to == "tone") |
+                        (edges_df$from == "tone" & edges_df$to == "article") |
+                        (edges_df$from == "article" & edges_df$to == "sentiment")
+
+dag_problem <- ggplot() +
+
+  # Box around Topic only (the only control in "problem" scenario)
+  annotate(
+    "rect",
+    xmin = 2.2 - 0.45, xmax = 2.2 + 0.45,
+    ymin = 1.5 - 0.25, ymax = 1.5 + 0.25,
+    fill = "gray95", color = "gray60",
+    linetype = "dashed", linewidth = 0.5
+  ) +
+
+  # Draw regular edges (gray) - excluding backdoor path
+  geom_segment(
+    data = edges_df[!edges_df$is_backdoor, ],
+    aes(x = x, y = y, xend = xend, yend = yend),
+    arrow = arrow(length = unit(0.08, "inches"), type = "closed"),
+    linewidth = 0.4,
+    color = colors$arrow_regular,
+    lineend = "round"
+  ) +
+
+  # Draw backdoor path edges in RED DASHED
+  geom_segment(
+    data = edges_df[edges_df$is_backdoor, ],
+    aes(x = x, y = y, xend = xend, yend = yend),
+    arrow = arrow(length = unit(0.08, "inches"), type = "closed"),
+    linewidth = 0.8,
+    color = "#E41A1C",
+    linetype = "dashed",
+    lineend = "round"
+  ) +
+
+  # Add text labels
+  geom_text(
+    data = nodes_df,
+    aes(x = x, y = y, label = label, color = text_color),
+    size = 2.8,
+    family = "sans",
+    lineheight = 0.85,
+    fontface = "bold"
+  ) +
+  scale_color_identity() +
+
+  # Title indicating the problem
+  ggtitle("A. Controlling for Topic Only\n(Backdoor path OPEN)") +
+
+  # Clean theme
+  theme_void() +
+  theme(
+    plot.title = element_text(
+      hjust = 0.5,
+      face = "bold",
+      size = 9,
+      color = "#E41A1C",
+      margin = margin(b = 10)
+    ),
+    plot.margin = margin(10, 10, 10, 10, "pt"),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA)
+  ) +
+
+  # Fixed coordinates
+
+  coord_fixed(ratio = 0.7, xlim = c(-1, 8), ylim = c(-0.2, 5))
+
+# Update the solution DAG title
+dag_solution <- dag_solution +
+  ggtitle("B. Controlling for Country, Ownership, and Topic\n(Backdoor path BLOCKED)")
+
+# Update solution title styling
+dag_solution <- dag_solution +
+  theme(
+    plot.title = element_text(
+      hjust = 0.5,
+      face = "bold",
+      size = 9,
+      color = "#1B7837",
+      margin = margin(b = 10)
+    )
+  )
+
+# -----------------------------------------------------------------------------
+# Print the Plots
+# -----------------------------------------------------------------------------
+
+print(dag_problem)
+print(dag_solution)
+
+# -----------------------------------------------------------------------------
+# Export Figures (Two Separate Files)
+# -----------------------------------------------------------------------------
+
+# Export Problem DAG (backdoor path open)
 ggsave(
-  filename = file.path(output_dir, "figure_dag.pdf"),
-  plot = dag_plot,
+  filename = file.path(output_dir, "figure_dag_problem.pdf"),
+  plot = dag_problem,
   width = 7,
-  height = 5.6,
+  height = 5,
   units = "in",
   device = "pdf"
 )
-cat("Saved:", file.path(output_dir, "figure_dag.pdf"), "\n")
+cat("Saved:", file.path(output_dir, "figure_dag_problem.pdf"), "\n")
 
-# Export as PNG (300 DPI for submission)
 ggsave(
-  filename = file.path(output_dir, "figure_dag.png"),
-  plot = dag_plot,
-  width = 3.5,
-  height = 2.8,
-  units = "in",
-  dpi = 300,
-  bg = "white"
-)
-cat("Saved:", file.path(output_dir, "figure_dag.png"), "\n")
-
-# Also save a larger version for presentations
-ggsave(
-  filename = file.path(output_dir, "figure_dag_large.png"),
-  plot = dag_plot,
+  filename = file.path(output_dir, "figure_dag_problem.png"),
+  plot = dag_problem,
   width = 7,
-  height = 5.6,
+  height = 5,
   units = "in",
   dpi = 300,
   bg = "white"
 )
-cat("Saved:", file.path(output_dir, "figure_dag_large.png"), "\n")
+cat("Saved:", file.path(output_dir, "figure_dag_problem.png"), "\n")
+
+# Export Solution DAG (backdoor path blocked)
+ggsave(
+  filename = file.path(output_dir, "figure_dag_solution.pdf"),
+  plot = dag_solution,
+  width = 7,
+  height = 5,
+  units = "in",
+  device = "pdf"
+)
+cat("Saved:", file.path(output_dir, "figure_dag_solution.pdf"), "\n")
+
+ggsave(
+  filename = file.path(output_dir, "figure_dag_solution.png"),
+  plot = dag_solution,
+  width = 7,
+  height = 5,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
+cat("Saved:", file.path(output_dir, "figure_dag_solution.png"), "\n")
 
 # -----------------------------------------------------------------------------
 # Session Info
