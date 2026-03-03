@@ -238,15 +238,18 @@ optimal_bw_align <- bw_align$bws[1, 1]
 cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
 
 optimal_bandwidth_data_state <- data_align_state %>%
-  filter(running < optimal_bw_align, running > -optimal_bw_align)
+  filter(running < optimal_bw_align, running > -optimal_bw_align) %>%
+  mutate(topic_clean = as.factor(topic_clean))
 
-model5a_opt <- felm(sentiment_clean ~ running * treatment * csto | topic_clean | 0 | source_domain,
-                    data = optimal_bandwidth_data_state)
 
+model5a_opt <- feols(sentiment_clean ~ running*treatment*csto,
+                         fixef = "topic_clean",
+                         cluster = ~source_domain,
+                         data = optimal_bandwidth_data_state)
 summary(model5a_opt)
 
 # Wild cluster bootstrap for model5a_opt
-boot_model5a_opt <- run_wild_bootstrap(model5a_opt, "treatment:csto")
+boot_model5a_opt <- run_wild_bootstrap(model5a_opt_alt, "treatment:csto")
 cat("Bootstrap SE for treatment:csto:", boot_model5a_opt$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt$p_val, "\n")
 ```
