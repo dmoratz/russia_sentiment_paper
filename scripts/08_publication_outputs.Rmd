@@ -1,0 +1,2517 @@
+---
+title: "08 - Publication Outputs"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script generates all publication-quality tables and figures.
+
+**Inputs:**
+- `data/intermediate/04_h1_results.rds`
+- `data/intermediate/04_h1_results_continuous.rds`
+- `data/intermediate/04_h1_results_drop.rds`
+- `data/intermediate/04_h1_results_prob.rds`
+- `data/intermediate/05_h2_results.rds`
+- `data/intermediate/05_h2_results_continuous.rds`
+- `data/intermediate/05_h2_results_drop.rds`
+- `data/intermediate/05_h2_results_prob.rds`
+- `data/intermediate/06_alignment_results.rds`
+- `data/intermediate/06_alignment_results_continuous.rds`
+- `data/intermediate/06_alignment_results_drop.rds`
+- `data/intermediate/06_alignment_results_prob.rds`
+- `data/intermediate/07_ethnic_results.rds`
+- `data/intermediate/07_ethnic_results_continuous.rds`
+- `data/intermediate/07_ethnic_results_drop.rds`
+- `data/intermediate/07_ethnic_results_prob.rds`
+- `data/intermediate/02_cleaned_data.rds`
+
+**Outputs:**
+- Final publication tables (HTML, TeX, PNG)
+- Final publication figures
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+```
+
+# Load Results
+
+```{r load}
+# H1: Main RDD results (04 scripts)
+results_h1      <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results.rds"))
+results_h1_cont <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_continuous.rds"))
+results_h1_drop <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_drop.rds"))
+results_h1_prob <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_prob.rds"))
+
+# H2: Diff-in-disc results (05 scripts)
+results_h2      <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results.rds"))
+results_h2_cont <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_continuous.rds"))
+results_h2_drop <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_drop.rds"))
+results_h2_prob <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_prob.rds"))
+
+# Russian alignment results (06 scripts – model5a variants)
+results_align      <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results.rds"))
+results_align_cont <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results_continuous.rds"))
+results_align_drop <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results_drop.rds"))
+results_align_prob <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results_prob.rds"))
+
+# Ethnic Russian population results (07 scripts – model6a variants)
+results_ethnic      <- readRDS(file.path(DATA_INTERMEDIATE, "07_ethnic_results.rds"))
+results_ethnic_cont <- readRDS(file.path(DATA_INTERMEDIATE, "07_ethnic_results_continuous.rds"))
+results_ethnic_drop <- readRDS(file.path(DATA_INTERMEDIATE, "07_ethnic_results_drop.rds"))
+results_ethnic_prob <- readRDS(file.path(DATA_INTERMEDIATE, "07_ethnic_results_prob.rds"))
+
+# Raw data for country classification tables
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+
+cat("Results loaded successfully.\n")
+```
+
+# Helper Functions for Bootstrap Standard Errors
+
+```{r bootstrap-helpers}
+# Helper function to create a vcov-like function that returns bootstrap SEs
+# This allows modelsummary to display bootstrap standard errors
+create_bootstrap_vcov <- function(model, boot_result, coef_name) {
+  # Get the original vcov matrix
+  original_vcov <- vcov(model)
+
+  # Create a modified vcov matrix with bootstrap SE for the key coefficient
+  modified_vcov <- original_vcov
+
+  # Find the coefficient index
+  coef_idx <- which(names(coef(model)) == coef_name)
+
+  if (length(coef_idx) > 0 && !is.null(boot_result$se)) {
+    # Replace the diagonal element with bootstrap variance (SE^2)
+    modified_vcov[coef_idx, coef_idx] <- boot_result$se^2
+  }
+
+  return(modified_vcov)
+}
+
+# Helper to get significance stars from bootstrap p-value
+get_boot_stars <- function(p_val) {
+  if (is.null(p_val) || is.na(p_val)) return("")
+  if (p_val < 0.001) return("***")
+  if (p_val < 0.01) return("**")
+  if (p_val < 0.05) return("*")
+  return("")
+}
+
+# Helper to count unique clusters from a felm model
+get_n_clusters <- function(model) {
+  tryCatch(as.character(length(unique(model$clustervar[[1]]))),
+           error = function(e) "—")
+}
+```
+
+# Table Output Helper
+
+```{r save-table-helper}
+# Save a gt table as both .tex and .html
+save_table <- function(tbl, name) {
+  gtsave(tbl, file.path(FIGURES_TABLES, paste0(name, ".tex")))
+  gtsave(tbl, file.path(FIGURES_TABLES, paste0(name, ".html")))
+  invisible(tbl)
+}
+
+# Standard SE notation footnote appended to all table notes
+SE_NOTE <- "† Wild cluster bootstrap SEs (B=9999, Rademacher, null imposed), clustered by source domain. ‡ Cluster-robust SEs from rdrobust."
+```
+
+# Table 1: Main RDD Results
+
+```{r table1}
+n_cl_t1 <- sapply(list(results_h1$model1_opt, results_h1$model2_opt, results_h1$model3_opt,
+                        results_h1$model4_opt, results_h1$model1_full_linear,
+                        results_h1$model4_non_mil, results_h1$model4_non_nato), get_n_clusters)
+rows_t1 <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t1[1], n_cl_t1[2], n_cl_t1[3], n_cl_t1[4], n_cl_t1[5], n_cl_t1[6], n_cl_t1[7]
+)
+attr(rows_t1, 'position') <- c(3, 4, 5, 6)
+
+note_t1 <- paste("All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies.", SE_NOTE)
+
+table_1 <- modelsummary(
+  list(
+    "(1)" = results_h1$model1_opt,
+    "(2)" = results_h1$model2_opt,
+    "(3)" = results_h1$model3_opt,
+    "(4)" = results_h1$model4_opt,
+    "(5)" = results_h1$model1_full_linear,
+    "(6)" = results_h1$model4_non_mil,
+    "(7)" = results_h1$model4_non_nato
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1: Effect of Russian Invasion on Media Sentiment (RDD) with Day Running Variable",
+  add_rows = rows_t1,
+  notes = str_wrap(note_t1, 80)
+)
+
+table_1
+
+save_table(table_1, "table_01_rdd_main")
+```
+
+## Table 1 A: Continuous Running Variable
+
+```{r table1a}
+n_cl_t1a <- sapply(list(results_h1_cont$model1_opt, results_h1_cont$model2_opt,
+                         results_h1_cont$model3_opt, results_h1_cont$model4_opt,
+                         results_h1_cont$model1_full_linear, results_h1_cont$model4_non_mil,
+                         results_h1_cont$model4_non_nato, results_h1_cont$model4_felm_saturated),
+                   get_n_clusters)
+rows_t1a <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t1a[1], n_cl_t1a[2], n_cl_t1a[3], n_cl_t1a[4], n_cl_t1a[5], n_cl_t1a[6], n_cl_t1a[7], n_cl_t1a[8]
+)
+attr(rows_t1a, 'position') <- c(3, 4, 5, 6)
+
+note_t1a <- paste("All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies. Model 8 uses full saturation (country-source-topic FEs).", SE_NOTE)
+
+table_1_cont <- modelsummary(
+  list(
+    "(1)" = results_h1_cont$model1_opt,
+    "(2)" = results_h1_cont$model2_opt,
+    "(3)" = results_h1_cont$model3_opt,
+    "(4)" = results_h1_cont$model4_opt,
+    "(5)" = results_h1_cont$model1_full_linear,
+    "(6)" = results_h1_cont$model4_non_mil,
+    "(7)" = results_h1_cont$model4_non_nato,
+    "(8)" = results_h1_cont$model4_felm_saturated
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1A: Effect of Russian Invasion on Media Sentiment (RDD) with Continuous Running Variable",
+  add_rows = rows_t1a,
+  notes = str_wrap(note_t1a, 80)
+)
+
+table_1_cont
+
+save_table(table_1_cont, "table_01a_rdd_continuous")
+```
+
+## Table 1B: RDD By Topic (Day)
+
+```{r table1b}
+n_cl_t1b <- sapply(list(results_h1$model4_opt_pol, results_h1$model4_opt_mil,
+                         results_h1$model4_opt_econ, results_h1$model4_opt_cult,
+                         results_h1$model4_opt_oth), get_n_clusters)
+rows_t1b <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t1b[1], n_cl_t1b[2], n_cl_t1b[3], n_cl_t1b[4], n_cl_t1b[5]
+)
+attr(rows_t1b, 'position') <- c(3, 4, 5, 6)
+
+note_t1b <- paste("All standard errors are clustered at the source level. All models use the optimal bandwidth with country and source fixed effects.", SE_NOTE)
+
+table_1b <- modelsummary(
+  list(
+    "Political" = results_h1$model4_opt_pol,
+    "Military" = results_h1$model4_opt_mil,
+    "Economic" = results_h1$model4_opt_econ,
+    "Cultural" = results_h1$model4_opt_cult,
+    "Other" = results_h1$model4_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1B: RDD By Topic (Day Running Variable)",
+  add_rows = rows_t1b,
+  notes = str_wrap(note_t1b, 80)
+)
+
+table_1b
+
+save_table(table_1b, "table_01b_rdd_by_topic_day")
+```
+
+## Table 1C: RDD By Topic (Continuous)
+
+```{r table1c}
+n_cl_t1c <- sapply(list(results_h1_cont$model4_opt_pol, results_h1_cont$model4_opt_mil,
+                         results_h1_cont$model4_opt_econ, results_h1_cont$model4_opt_cult,
+                         results_h1_cont$model4_opt_oth), get_n_clusters)
+rows_t1c <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t1c[1], n_cl_t1c[2], n_cl_t1c[3], n_cl_t1c[4], n_cl_t1c[5]
+)
+attr(rows_t1c, 'position') <- c(3, 4, 5, 6)
+
+note_t1c <- paste("All standard errors are clustered at the source level. All models use the optimal bandwidth with country and source fixed effects.", SE_NOTE)
+
+table_1c <- modelsummary(
+  list(
+    "Political" = results_h1_cont$model4_opt_pol,
+    "Military" = results_h1_cont$model4_opt_mil,
+    "Economic" = results_h1_cont$model4_opt_econ,
+    "Cultural" = results_h1_cont$model4_opt_cult,
+    "Other" = results_h1_cont$model4_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1C: RDD By Topic (Continuous Running Variable)",
+  add_rows = rows_t1c,
+  notes = str_wrap(note_t1c, 80)
+)
+
+table_1c
+
+save_table(table_1c, "table_01c_rdd_by_topic_continuous")
+```
+
+# Table 2: Diff-in-Disc Results
+
+```{r table2}
+n_cl_t2 <- sapply(list(results_h2$model2a, results_h2$model2a_opt, results_h2$model2d,
+                        results_h2$model2b, results_h2$model3a, results_h2$model3a_opt),
+                  get_n_clusters)
+rows_t2 <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t2[1], n_cl_t2[2], n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6]
+)
+attr(rows_t2, 'position') <- c(5, 6, 7, 8)
+
+note_t2 <- paste("All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth.", SE_NOTE)
+
+table_2 <- modelsummary(
+  list(
+    "(1)" = results_h2$model2a,
+    "(2)" = results_h2$model2a_opt,
+    "(3)" = results_h2$model2d,
+    "(4)" = results_h2$model2b,
+    "(5)" = results_h2$model3a,
+    "(6)" = results_h2$model3a_opt
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2: Difference in Discontinuities Analysis",
+  add_rows = rows_t2,
+  notes = str_wrap(note_t2, 80)
+)
+
+table_2
+
+save_table(table_2, "table_02_diff_disc_main")
+```
+
+## Table 2A: Diff-in-Disc (Continuous)
+
+```{r table2a}
+n_cl_t2a <- sapply(list(results_h2_cont$model2a, results_h2_cont$model2a_opt,
+                         results_h2_cont$model2d, results_h2_cont$model2b,
+                         results_h2_cont$model3a, results_h2_cont$model3a_opt,
+                         results_h2_cont$model3a_opt_saturated), get_n_clusters)
+rows_t2a <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t2a[1], n_cl_t2a[2], n_cl_t2a[3], n_cl_t2a[4], n_cl_t2a[5], n_cl_t2a[6], n_cl_t2a[7]
+)
+attr(rows_t2a, 'position') <- c(5, 6, 7, 8)
+
+note_t2a <- paste("All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs).", SE_NOTE)
+
+table_2a <- modelsummary(
+  list(
+    "(1)" = results_h2_cont$model2a,
+    "(2)" = results_h2_cont$model2a_opt,
+    "(3)" = results_h2_cont$model2d,
+    "(4)" = results_h2_cont$model2b,
+    "(5)" = results_h2_cont$model3a,
+    "(6)" = results_h2_cont$model3a_opt,
+    "(7)" = results_h2_cont$model3a_opt_saturated
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2A: Difference in Discontinuities (Continuous Running Variable)",
+  add_rows = rows_t2a,
+  notes = str_wrap(note_t2a, 80)
+)
+
+table_2a
+
+save_table(table_2a, "table_02a_diff_disc_continuous")
+```
+
+## Table 2B: Diff-in-Disc By Topic (Day)
+
+```{r table2b}
+n_cl_t2b <- sapply(list(results_h2$model2a_opt_pol, results_h2$model2a_opt_mil,
+                         results_h2$model2a_opt_econ, results_h2$model2a_opt_cult,
+                         results_h2$model2a_opt_oth), get_n_clusters)
+rows_t2b <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t2b[1], n_cl_t2b[2], n_cl_t2b[3], n_cl_t2b[4], n_cl_t2b[5]
+)
+attr(rows_t2b, 'position') <- c(5, 6, 7, 8)
+
+note_t2b <- paste("All standard errors are clustered at the source level. All models use a per-topic re-optimized bandwidth with country fixed effects only.", SE_NOTE)
+
+table_2b <- modelsummary(
+  list(
+    "Political" = results_h2$model2a_opt_pol,
+    "Military" = results_h2$model2a_opt_mil,
+    "Economic" = results_h2$model2a_opt_econ,
+    "Cultural" = results_h2$model2a_opt_cult,
+    "Other" = results_h2$model2a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2B: Diff-in-Disc By Topic (Day Running Variable)",
+  add_rows = rows_t2b,
+  notes = str_wrap(note_t2b, 80)
+)
+
+table_2b
+
+save_table(table_2b, "table_02b_diff_disc_by_topic_day")
+```
+
+## Table 2C: Diff-in-Disc By Topic (Continuous)
+
+```{r table2c}
+n_cl_t2c <- sapply(list(results_h2_cont$model2a_opt_pol, results_h2_cont$model2a_opt_mil,
+                         results_h2_cont$model2a_opt_econ, results_h2_cont$model2a_opt_cult,
+                         results_h2_cont$model2a_opt_oth), get_n_clusters)
+rows_t2c <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t2c[1], n_cl_t2c[2], n_cl_t2c[3], n_cl_t2c[4], n_cl_t2c[5]
+)
+attr(rows_t2c, 'position') <- c(5, 6, 7, 8)
+
+note_t2c <- paste("All standard errors are clustered at the source level. All models use a per-topic re-optimized bandwidth with country fixed effects only.", SE_NOTE)
+
+table_2c <- modelsummary(
+  list(
+    "Political" = results_h2_cont$model2a_opt_pol,
+    "Military" = results_h2_cont$model2a_opt_mil,
+    "Economic" = results_h2_cont$model2a_opt_econ,
+    "Cultural" = results_h2_cont$model2a_opt_cult,
+    "Other" = results_h2_cont$model2a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2C: Diff-in-Disc By Topic (Continuous Running Variable)",
+  add_rows = rows_t2c,
+  notes = str_wrap(note_t2c, 80)
+)
+
+table_2c
+
+save_table(table_2c, "table_02c_diff_disc_by_topic_continuous")
+```
+
+## Table 2D: Diff-in-Disc By Topic Full Data (Day)
+
+```{r table2d}
+n_cl_t2d <- sapply(list(results_h2$model2a_full_pol, results_h2$model2a_full_mil,
+                         results_h2$model2a_full_econ, results_h2$model2a_full_cult,
+                         results_h2$model2a_full_oth), get_n_clusters)
+rows_t2d <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t2d[1], n_cl_t2d[2], n_cl_t2d[3], n_cl_t2d[4], n_cl_t2d[5]
+)
+attr(rows_t2d, 'position') <- c(5, 6, 7, 8)
+
+note_t2d <- paste("All standard errors are clustered at the source level. All models use the full dataset (no bandwidth restriction) with country fixed effects only.", SE_NOTE)
+
+table_2d <- modelsummary(
+  list(
+    "Political" = results_h2$model2a_full_pol,
+    "Military" = results_h2$model2a_full_mil,
+    "Economic" = results_h2$model2a_full_econ,
+    "Cultural" = results_h2$model2a_full_cult,
+    "Other" = results_h2$model2a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2D: Diff-in-Disc By Topic Full Data (Day Running Variable)",
+  add_rows = rows_t2d,
+  notes = str_wrap(note_t2d, 80)
+)
+
+table_2d
+
+save_table(table_2d, "table_02d_diff_disc_by_topic_full_day")
+```
+
+## Table 2E: Diff-in-Disc By Topic Full Data (Continuous)
+
+```{r table2e}
+n_cl_t2e <- sapply(list(results_h2_cont$model2a_full_pol, results_h2_cont$model2a_full_mil,
+                         results_h2_cont$model2a_full_econ, results_h2_cont$model2a_full_cult,
+                         results_h2_cont$model2a_full_oth), get_n_clusters)
+rows_t2e <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t2e[1], n_cl_t2e[2], n_cl_t2e[3], n_cl_t2e[4], n_cl_t2e[5]
+)
+attr(rows_t2e, 'position') <- c(5, 6, 7, 8)
+
+note_t2e <- paste("All standard errors are clustered at the source level. All models use the full dataset (no bandwidth restriction) with country fixed effects only.", SE_NOTE)
+
+table_2e <- modelsummary(
+  list(
+    "Political" = results_h2_cont$model2a_full_pol,
+    "Military" = results_h2_cont$model2a_full_mil,
+    "Economic" = results_h2_cont$model2a_full_econ,
+    "Cultural" = results_h2_cont$model2a_full_cult,
+    "Other" = results_h2_cont$model2a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2E: Diff-in-Disc By Topic Full Data (Continuous Running Variable)",
+  add_rows = rows_t2e,
+  notes = str_wrap(note_t2e, 80)
+)
+
+table_2e
+
+save_table(table_2e, "table_02e_diff_disc_by_topic_full_continuous")
+```
+
+# Table 3: Heterogeneity by Russian Alignment
+
+```{r table3}
+n_cl_t3 <- sapply(list(results_align$model5a_csto, results_align$model5a_neutral,
+                       results_align$model5a_full, results_align$model5a_opt,
+                       results_align$model5a_opt_non_mil, results_align$model5a_opt_russian,
+                       results_align$model5a_fully_saturated), get_n_clusters)
+rows_t3 <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
+  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t3[1], n_cl_t3[2], n_cl_t3[3], n_cl_t3[4], n_cl_t3[5], n_cl_t3[6], n_cl_t3[7]
+)
+attr(rows_t3, 'position') <- c(5, 6, 7, 8)
+
+note_t3 <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-7, clustered at source level. Models 1-2 use rdrobust standard errors. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 7 uses full saturation (country-source-topic FEs). Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for felm models (columns 3-7)
+vcov_t3 <- list(
+  "(3)" = create_bootstrap_vcov(results_align$model5a_full, results_align$bootstrap_se$model5a_full, "treatment:csto"),
+  "(4)" = create_bootstrap_vcov(results_align$model5a_opt, results_align$bootstrap_se$model5a_opt, "treatment:csto"),
+  "(5)" = create_bootstrap_vcov(results_align$model5a_opt_non_mil, results_align$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
+  "(6)" = create_bootstrap_vcov(results_align$model5a_opt_russian, results_align$bootstrap_se$model5a_opt_russian, "treatment:csto"),
+  "(7)" = create_bootstrap_vcov(results_align$model5a_fully_saturated, results_align$bootstrap_se$model5a_fully_saturated, "treatment:csto")
+)
+
+table_3 <- modelsummary(
+  list(
+    "(1)" = results_align$model5a_csto,
+    "(2)" = results_align$model5a_neutral,
+    "(3)" = results_align$model5a_full,
+    "(4)" = results_align$model5a_opt,
+    "(5)" = results_align$model5a_opt_non_mil,
+    "(6)" = results_align$model5a_opt_russian,
+    "(7)" = results_align$model5a_fully_saturated
+  ),
+  vcov = vcov_t3,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3: Russian Alignment Heterogeneity (State Media)",
+  add_rows = rows_t3,
+  notes = str_wrap(note_t3, 80)
+)
+
+table_3
+
+save_table(table_3, "table_03_alignment_main")
+```
+
+## Table 3A: Heterogeneity (Continuous)
+
+```{r table3a}
+n_cl_t3a <- sapply(list(results_align_cont$model5a_csto, results_align_cont$model5a_neutral,
+                        results_align_cont$model5a_full, results_align_cont$model5a_opt,
+                        results_align_cont$model5a_opt_non_mil, results_align_cont$model5a_opt_russian),
+                   get_n_clusters)
+rows_t3a <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t3a[1], n_cl_t3a[2], n_cl_t3a[3], n_cl_t3a[4], n_cl_t3a[5], n_cl_t3a[6]
+)
+attr(rows_t3a, 'position') <- c(5, 6, 7, 8)
+
+note_t3a <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for felm models
+vcov_t3a <- list(
+  "(3)" = create_bootstrap_vcov(results_align_cont$model5a_full, results_align_cont$bootstrap_se$model5a_full, "treatment:csto"),
+  "(4)" = create_bootstrap_vcov(results_align_cont$model5a_opt, results_align_cont$bootstrap_se$model5a_opt, "treatment:csto"),
+  "(5)" = create_bootstrap_vcov(results_align_cont$model5a_opt_non_mil, results_align_cont$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
+  "(6)" = create_bootstrap_vcov(results_align_cont$model5a_opt_russian, results_align_cont$bootstrap_se$model5a_opt_russian, "treatment:csto")
+)
+
+table_3a <- modelsummary(
+  list(
+    "(1)" = results_align_cont$model5a_csto,
+    "(2)" = results_align_cont$model5a_neutral,
+    "(3)" = results_align_cont$model5a_full,
+    "(4)" = results_align_cont$model5a_opt,
+    "(5)" = results_align_cont$model5a_opt_non_mil,
+    "(6)" = results_align_cont$model5a_opt_russian
+  ),
+  vcov = vcov_t3a,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3A: Russian Alignment Heterogeneity (Continuous Running Variable)",
+  add_rows = rows_t3a,
+  notes = str_wrap(note_t3a, 80)
+)
+
+table_3a
+
+save_table(table_3a, "table_03a_alignment_continuous")
+```
+
+## Table 3B: Heterogeneity By Topic Optimal BW (Day)
+
+```{r table3b}
+n_cl_t3b <- sapply(list(results_align$model5a_opt_pol, results_align$model5a_opt_mil,
+                        results_align$model5a_opt_econ, results_align$model5a_opt_cult,
+                        results_align$model5a_opt_oth), get_n_clusters)
+rows_t3b <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t3b[1], n_cl_t3b[2], n_cl_t3b[3], n_cl_t3b[4], n_cl_t3b[5]
+)
+attr(rows_t3b, 'position') <- c(5, 6, 7, 8)
+
+note_t3b <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t3b <- list(
+  "Political" = create_bootstrap_vcov(results_align$model5a_opt_pol, results_align$bootstrap_se$model5a_opt_pol, "treatment:csto"),
+  "Military" = create_bootstrap_vcov(results_align$model5a_opt_mil, results_align$bootstrap_se$model5a_opt_mil, "treatment:csto"),
+  "Economic" = create_bootstrap_vcov(results_align$model5a_opt_econ, results_align$bootstrap_se$model5a_opt_econ, "treatment:csto"),
+  "Cultural" = create_bootstrap_vcov(results_align$model5a_opt_cult, results_align$bootstrap_se$model5a_opt_cult, "treatment:csto"),
+  "Other" = create_bootstrap_vcov(results_align$model5a_opt_oth, results_align$bootstrap_se$model5a_opt_oth, "treatment:csto")
+)
+
+table_3b <- modelsummary(
+  list(
+    "Political" = results_align$model5a_opt_pol,
+    "Military" = results_align$model5a_opt_mil,
+    "Economic" = results_align$model5a_opt_econ,
+    "Cultural" = results_align$model5a_opt_cult,
+    "Other" = results_align$model5a_opt_oth
+  ),
+  vcov = vcov_t3b,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3B: Heterogeneity By Topic (Per-Topic Optimal BW, Day)",
+  add_rows = rows_t3b,
+  notes = str_wrap(note_t3b, 80)
+)
+
+table_3b
+
+save_table(table_3b, "table_03b_alignment_by_topic_day")
+```
+
+## Table 3C: Heterogeneity By Topic Optimal BW (Continuous)
+
+```{r table3c}
+n_cl_t3c <- sapply(list(results_align_cont$model5a_opt_pol, results_align_cont$model5a_opt_mil,
+                        results_align_cont$model5a_opt_econ, results_align_cont$model5a_opt_cult,
+                        results_align_cont$model5a_opt_oth), get_n_clusters)
+rows_t3c <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t3c[1], n_cl_t3c[2], n_cl_t3c[3], n_cl_t3c[4], n_cl_t3c[5]
+)
+attr(rows_t3c, 'position') <- c(5, 6, 7, 8)
+
+note_t3c <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t3c <- list(
+  "Political" = create_bootstrap_vcov(results_align_cont$model5a_opt_pol, results_align_cont$bootstrap_se$model5a_opt_pol, "treatment:csto"),
+  "Military" = create_bootstrap_vcov(results_align_cont$model5a_opt_mil, results_align_cont$bootstrap_se$model5a_opt_mil, "treatment:csto"),
+  "Economic" = create_bootstrap_vcov(results_align_cont$model5a_opt_econ, results_align_cont$bootstrap_se$model5a_opt_econ, "treatment:csto"),
+  "Cultural" = create_bootstrap_vcov(results_align_cont$model5a_opt_cult, results_align_cont$bootstrap_se$model5a_opt_cult, "treatment:csto"),
+  "Other" = create_bootstrap_vcov(results_align_cont$model5a_opt_oth, results_align_cont$bootstrap_se$model5a_opt_oth, "treatment:csto")
+)
+
+table_3c <- modelsummary(
+  list(
+    "Political" = results_align_cont$model5a_opt_pol,
+    "Military" = results_align_cont$model5a_opt_mil,
+    "Economic" = results_align_cont$model5a_opt_econ,
+    "Cultural" = results_align_cont$model5a_opt_cult,
+    "Other" = results_align_cont$model5a_opt_oth
+  ),
+  vcov = vcov_t3c,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3C: Heterogeneity By Topic (Per-Topic Optimal BW, Continuous)",
+  add_rows = rows_t3c,
+  notes = str_wrap(note_t3c, 80)
+)
+
+table_3c
+
+save_table(table_3c, "table_03c_alignment_by_topic_continuous")
+```
+
+## Table 3D: Heterogeneity By Topic Full Data (Day)
+
+```{r table3d}
+n_cl_t3d <- sapply(list(results_align$model5a_full_pol, results_align$model5a_full_mil,
+                        results_align$model5a_full_econ, results_align$model5a_full_cult,
+                        results_align$model5a_full_oth), get_n_clusters)
+rows_t3d <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t3d[1], n_cl_t3d[2], n_cl_t3d[3], n_cl_t3d[4], n_cl_t3d[5]
+)
+attr(rows_t3d, 'position') <- c(5, 6, 7, 8)
+
+note_t3d <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t3d <- list(
+  "Political" = create_bootstrap_vcov(results_align$model5a_full_pol, results_align$bootstrap_se$model5a_full_pol, "treatment:csto"),
+  "Military" = create_bootstrap_vcov(results_align$model5a_full_mil, results_align$bootstrap_se$model5a_full_mil, "treatment:csto"),
+  "Economic" = create_bootstrap_vcov(results_align$model5a_full_econ, results_align$bootstrap_se$model5a_full_econ, "treatment:csto"),
+  "Cultural" = create_bootstrap_vcov(results_align$model5a_full_cult, results_align$bootstrap_se$model5a_full_cult, "treatment:csto"),
+  "Other" = create_bootstrap_vcov(results_align$model5a_full_oth, results_align$bootstrap_se$model5a_full_oth, "treatment:csto")
+)
+
+table_3d <- modelsummary(
+  list(
+    "Political" = results_align$model5a_full_pol,
+    "Military" = results_align$model5a_full_mil,
+    "Economic" = results_align$model5a_full_econ,
+    "Cultural" = results_align$model5a_full_cult,
+    "Other" = results_align$model5a_full_oth
+  ),
+  vcov = vcov_t3d,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3D: Heterogeneity By Topic (Full Data, Day)",
+  add_rows = rows_t3d,
+  notes = str_wrap(note_t3d, 80)
+)
+
+table_3d
+
+save_table(table_3d, "table_03d_alignment_by_topic_full_day")
+```
+
+## Table 3E: Heterogeneity By Topic Full Data (Continuous)
+
+```{r table3e}
+n_cl_t3e <- sapply(list(results_align_cont$model5a_full_pol, results_align_cont$model5a_full_mil,
+                        results_align_cont$model5a_full_econ, results_align_cont$model5a_full_cult,
+                        results_align_cont$model5a_full_oth), get_n_clusters)
+rows_t3e <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t3e[1], n_cl_t3e[2], n_cl_t3e[3], n_cl_t3e[4], n_cl_t3e[5]
+)
+attr(rows_t3e, 'position') <- c(5, 6, 7, 8)
+
+note_t3e <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t3e <- list(
+  "Political" = create_bootstrap_vcov(results_align_cont$model5a_full_pol, results_align_cont$bootstrap_se$model5a_full_pol, "treatment:csto"),
+  "Military" = create_bootstrap_vcov(results_align_cont$model5a_full_mil, results_align_cont$bootstrap_se$model5a_full_mil, "treatment:csto"),
+  "Economic" = create_bootstrap_vcov(results_align_cont$model5a_full_econ, results_align_cont$bootstrap_se$model5a_full_econ, "treatment:csto"),
+  "Cultural" = create_bootstrap_vcov(results_align_cont$model5a_full_cult, results_align_cont$bootstrap_se$model5a_full_cult, "treatment:csto"),
+  "Other" = create_bootstrap_vcov(results_align_cont$model5a_full_oth, results_align_cont$bootstrap_se$model5a_full_oth, "treatment:csto")
+)
+
+table_3e <- modelsummary(
+  list(
+    "Political" = results_align_cont$model5a_full_pol,
+    "Military" = results_align_cont$model5a_full_mil,
+    "Economic" = results_align_cont$model5a_full_econ,
+    "Cultural" = results_align_cont$model5a_full_cult,
+    "Other" = results_align_cont$model5a_full_oth
+  ),
+  vcov = vcov_t3e,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3E: Heterogeneity By Topic (Full Data, Continuous)",
+  add_rows = rows_t3e,
+  notes = str_wrap(note_t3e, 80)
+)
+
+table_3e
+
+save_table(table_3e, "table_03e_alignment_by_topic_full_continuous")
+```
+
+# Table 4: Heterogeneity by Ethnic Russian Population
+
+```{r table4}
+n_cl_t4 <- sapply(list(results_ethnic$model6a_full, results_ethnic$model6a_opt,
+                       results_ethnic$model6a_opt_non_mil, results_ethnic$model6a_opt_russian),
+                  get_n_clusters)
+rows_t4 <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4,
+  'State FEs', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t4[1], n_cl_t4[2], n_cl_t4[3], n_cl_t4[4]
+)
+attr(rows_t4, 'position') <- c(5, 6, 7, 8)
+
+note_t4 <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for all models
+vcov_t4 <- list(
+  "(1)" = create_bootstrap_vcov(results_ethnic$model6a_full, results_ethnic$bootstrap_se$model6a_full, "treatment:high_russia"),
+  "(2)" = create_bootstrap_vcov(results_ethnic$model6a_opt, results_ethnic$bootstrap_se$model6a_opt, "treatment:high_russia"),
+  "(3)" = create_bootstrap_vcov(results_ethnic$model6a_opt_non_mil, results_ethnic$bootstrap_se$model6a_opt_non_mil, "treatment:high_russia"),
+  "(4)" = create_bootstrap_vcov(results_ethnic$model6a_opt_russian, results_ethnic$bootstrap_se$model6a_opt_russian, "treatment:high_russia")
+)
+
+table_4 <- modelsummary(
+  list(
+    "(1)" = results_ethnic$model6a_full,
+    "(2)" = results_ethnic$model6a_opt,
+    "(3)" = results_ethnic$model6a_opt_non_mil,
+    "(4)" = results_ethnic$model6a_opt_russian
+  ),
+  vcov = vcov_t4,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4: Ethnic Russian Population Heterogeneity (State Media)",
+  add_rows = rows_t4,
+  notes = str_wrap(note_t4, 80)
+)
+
+table_4
+
+save_table(table_4, "table_04_ethnic_main")
+```
+
+## Table 4A: Ethnic Heterogeneity (Continuous)
+
+```{r table4a}
+n_cl_t4a <- sapply(list(results_ethnic_cont$model6a_full, results_ethnic_cont$model6a_opt,
+                        results_ethnic_cont$model6a_opt_non_mil, results_ethnic_cont$model6a_opt_russian),
+                   get_n_clusters)
+rows_t4a <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4,
+  'State FEs', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t4a[1], n_cl_t4a[2], n_cl_t4a[3], n_cl_t4a[4]
+)
+attr(rows_t4a, 'position') <- c(5, 6, 7, 8)
+
+note_t4a <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs
+vcov_t4a <- list(
+  "(1)" = create_bootstrap_vcov(results_ethnic_cont$model6a_full, results_ethnic_cont$bootstrap_se$model6a_full, "treatment:high_russia"),
+  "(2)" = create_bootstrap_vcov(results_ethnic_cont$model6a_opt, results_ethnic_cont$bootstrap_se$model6a_opt, "treatment:high_russia"),
+  "(3)" = create_bootstrap_vcov(results_ethnic_cont$model6a_opt_non_mil, results_ethnic_cont$bootstrap_se$model6a_opt_non_mil, "treatment:high_russia"),
+  "(4)" = create_bootstrap_vcov(results_ethnic_cont$model6a_opt_russian, results_ethnic_cont$bootstrap_se$model6a_opt_russian, "treatment:high_russia")
+)
+
+table_4a <- modelsummary(
+  list(
+    "(1)" = results_ethnic_cont$model6a_full,
+    "(2)" = results_ethnic_cont$model6a_opt,
+    "(3)" = results_ethnic_cont$model6a_opt_non_mil,
+    "(4)" = results_ethnic_cont$model6a_opt_russian
+  ),
+  vcov = vcov_t4a,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4A: Ethnic Russian Population Heterogeneity (Continuous Running Variable)",
+  add_rows = rows_t4a,
+  notes = str_wrap(note_t4a, 80)
+)
+
+table_4a
+
+save_table(table_4a, "table_04a_ethnic_continuous")
+```
+
+## Table 4B: Ethnic By Topic Optimal BW (Day)
+
+```{r table4b}
+n_cl_t4b <- sapply(list(results_ethnic$model6a_opt_pol, results_ethnic$model6a_opt_mil,
+                        results_ethnic$model6a_opt_econ, results_ethnic$model6a_opt_cult,
+                        results_ethnic$model6a_opt_oth), get_n_clusters)
+rows_t4b <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t4b[1], n_cl_t4b[2], n_cl_t4b[3], n_cl_t4b[4], n_cl_t4b[5]
+)
+attr(rows_t4b, 'position') <- c(5, 6, 7, 8)
+
+note_t4b <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t4b <- list(
+  "Political" = create_bootstrap_vcov(results_ethnic$model6a_opt_pol, results_ethnic$bootstrap_se$model6a_opt_pol, "treatment:high_russia"),
+  "Military" = create_bootstrap_vcov(results_ethnic$model6a_opt_mil, results_ethnic$bootstrap_se$model6a_opt_mil, "treatment:high_russia"),
+  "Economic" = create_bootstrap_vcov(results_ethnic$model6a_opt_econ, results_ethnic$bootstrap_se$model6a_opt_econ, "treatment:high_russia"),
+  "Cultural" = create_bootstrap_vcov(results_ethnic$model6a_opt_cult, results_ethnic$bootstrap_se$model6a_opt_cult, "treatment:high_russia"),
+  "Other" = create_bootstrap_vcov(results_ethnic$model6a_opt_oth, results_ethnic$bootstrap_se$model6a_opt_oth, "treatment:high_russia")
+)
+
+table_4b <- modelsummary(
+  list(
+    "Political" = results_ethnic$model6a_opt_pol,
+    "Military" = results_ethnic$model6a_opt_mil,
+    "Economic" = results_ethnic$model6a_opt_econ,
+    "Cultural" = results_ethnic$model6a_opt_cult,
+    "Other" = results_ethnic$model6a_opt_oth
+  ),
+  vcov = vcov_t4b,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4B: Ethnic Heterogeneity By Topic (Per-Topic Optimal BW, Day)",
+  add_rows = rows_t4b,
+  notes = str_wrap(note_t4b, 80)
+)
+
+table_4b
+
+save_table(table_4b, "table_04b_ethnic_by_topic_day")
+```
+
+## Table 4C: Ethnic By Topic Optimal BW (Continuous)
+
+```{r table4c}
+n_cl_t4c <- sapply(list(results_ethnic_cont$model6a_opt_pol, results_ethnic_cont$model6a_opt_mil,
+                        results_ethnic_cont$model6a_opt_econ, results_ethnic_cont$model6a_opt_cult,
+                        results_ethnic_cont$model6a_opt_oth), get_n_clusters)
+rows_t4c <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t4c[1], n_cl_t4c[2], n_cl_t4c[3], n_cl_t4c[4], n_cl_t4c[5]
+)
+attr(rows_t4c, 'position') <- c(5, 6, 7, 8)
+
+note_t4c <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t4c <- list(
+  "Political" = create_bootstrap_vcov(results_ethnic_cont$model6a_opt_pol, results_ethnic_cont$bootstrap_se$model6a_opt_pol, "treatment:high_russia"),
+  "Military" = create_bootstrap_vcov(results_ethnic_cont$model6a_opt_mil, results_ethnic_cont$bootstrap_se$model6a_opt_mil, "treatment:high_russia"),
+  "Economic" = create_bootstrap_vcov(results_ethnic_cont$model6a_opt_econ, results_ethnic_cont$bootstrap_se$model6a_opt_econ, "treatment:high_russia"),
+  "Cultural" = create_bootstrap_vcov(results_ethnic_cont$model6a_opt_cult, results_ethnic_cont$bootstrap_se$model6a_opt_cult, "treatment:high_russia"),
+  "Other" = create_bootstrap_vcov(results_ethnic_cont$model6a_opt_oth, results_ethnic_cont$bootstrap_se$model6a_opt_oth, "treatment:high_russia")
+)
+
+table_4c <- modelsummary(
+  list(
+    "Political" = results_ethnic_cont$model6a_opt_pol,
+    "Military" = results_ethnic_cont$model6a_opt_mil,
+    "Economic" = results_ethnic_cont$model6a_opt_econ,
+    "Cultural" = results_ethnic_cont$model6a_opt_cult,
+    "Other" = results_ethnic_cont$model6a_opt_oth
+  ),
+  vcov = vcov_t4c,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4C: Ethnic Heterogeneity By Topic (Per-Topic Optimal BW, Continuous)",
+  add_rows = rows_t4c,
+  notes = str_wrap(note_t4c, 80)
+)
+
+table_4c
+
+save_table(table_4c, "table_04c_ethnic_by_topic_continuous")
+```
+
+## Table 4D: Ethnic By Topic Full Data (Day)
+
+```{r table4d}
+n_cl_t4d <- sapply(list(results_ethnic$model6a_full_pol, results_ethnic$model6a_full_mil,
+                        results_ethnic$model6a_full_econ, results_ethnic$model6a_full_cult,
+                        results_ethnic$model6a_full_oth), get_n_clusters)
+rows_t4d <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t4d[1], n_cl_t4d[2], n_cl_t4d[3], n_cl_t4d[4], n_cl_t4d[5]
+)
+attr(rows_t4d, 'position') <- c(5, 6, 7, 8)
+
+note_t4d <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t4d <- list(
+  "Political" = create_bootstrap_vcov(results_ethnic$model6a_full_pol, results_ethnic$bootstrap_se$model6a_full_pol, "treatment:high_russia"),
+  "Military" = create_bootstrap_vcov(results_ethnic$model6a_full_mil, results_ethnic$bootstrap_se$model6a_full_mil, "treatment:high_russia"),
+  "Economic" = create_bootstrap_vcov(results_ethnic$model6a_full_econ, results_ethnic$bootstrap_se$model6a_full_econ, "treatment:high_russia"),
+  "Cultural" = create_bootstrap_vcov(results_ethnic$model6a_full_cult, results_ethnic$bootstrap_se$model6a_full_cult, "treatment:high_russia"),
+  "Other" = create_bootstrap_vcov(results_ethnic$model6a_full_oth, results_ethnic$bootstrap_se$model6a_full_oth, "treatment:high_russia")
+)
+
+table_4d <- modelsummary(
+  list(
+    "Political" = results_ethnic$model6a_full_pol,
+    "Military" = results_ethnic$model6a_full_mil,
+    "Economic" = results_ethnic$model6a_full_econ,
+    "Cultural" = results_ethnic$model6a_full_cult,
+    "Other" = results_ethnic$model6a_full_oth
+  ),
+  vcov = vcov_t4d,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4D: Ethnic Heterogeneity By Topic (Full Data, Day)",
+  add_rows = rows_t4d,
+  notes = str_wrap(note_t4d, 80)
+)
+
+table_4d
+
+save_table(table_4d, "table_04d_ethnic_by_topic_full_day")
+```
+
+## Table 4E: Ethnic By Topic Full Data (Continuous)
+
+```{r table4e}
+n_cl_t4e <- sapply(list(results_ethnic_cont$model6a_full_pol, results_ethnic_cont$model6a_full_mil,
+                        results_ethnic_cont$model6a_full_econ, results_ethnic_cont$model6a_full_cult,
+                        results_ethnic_cont$model6a_full_oth), get_n_clusters)
+rows_t4e <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t4e[1], n_cl_t4e[2], n_cl_t4e[3], n_cl_t4e[4], n_cl_t4e[5]
+)
+attr(rows_t4e, 'position') <- c(5, 6, 7, 8)
+
+note_t4e <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for topic models
+vcov_t4e <- list(
+  "Political" = create_bootstrap_vcov(results_ethnic_cont$model6a_full_pol, results_ethnic_cont$bootstrap_se$model6a_full_pol, "treatment:high_russia"),
+  "Military" = create_bootstrap_vcov(results_ethnic_cont$model6a_full_mil, results_ethnic_cont$bootstrap_se$model6a_full_mil, "treatment:high_russia"),
+  "Economic" = create_bootstrap_vcov(results_ethnic_cont$model6a_full_econ, results_ethnic_cont$bootstrap_se$model6a_full_econ, "treatment:high_russia"),
+  "Cultural" = create_bootstrap_vcov(results_ethnic_cont$model6a_full_cult, results_ethnic_cont$bootstrap_se$model6a_full_cult, "treatment:high_russia"),
+  "Other" = create_bootstrap_vcov(results_ethnic_cont$model6a_full_oth, results_ethnic_cont$bootstrap_se$model6a_full_oth, "treatment:high_russia")
+)
+
+table_4e <- modelsummary(
+  list(
+    "Political" = results_ethnic_cont$model6a_full_pol,
+    "Military" = results_ethnic_cont$model6a_full_mil,
+    "Economic" = results_ethnic_cont$model6a_full_econ,
+    "Cultural" = results_ethnic_cont$model6a_full_cult,
+    "Other" = results_ethnic_cont$model6a_full_oth
+  ),
+  vcov = vcov_t4e,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4E: Ethnic Heterogeneity By Topic (Full Data, Continuous)",
+  add_rows = rows_t4e,
+  notes = str_wrap(note_t4e, 80)
+)
+
+table_4e
+
+save_table(table_4e, "table_04e_ethnic_by_topic_full_continuous")
+```
+
+# Drop No-Time Articles Variant Tables
+
+## Table 1D: RDD Main (Drop No-Time)
+
+```{r table1d}
+n_cl_t1d <- sapply(list(results_h1_drop$model1_opt, results_h1_drop$model2_opt,
+                        results_h1_drop$model3_opt, results_h1_drop$model4_opt,
+                        results_h1_drop$model1_full_linear, results_h1_drop$model4_non_mil,
+                        results_h1_drop$model4_non_nato, results_h1_drop$model4_felm_saturated),
+                   get_n_clusters)
+rows_t1d <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t1d[1], n_cl_t1d[2], n_cl_t1d[3], n_cl_t1d[4], n_cl_t1d[5], n_cl_t1d[6], n_cl_t1d[7], n_cl_t1d[8]
+)
+attr(rows_t1d, 'position') <- c(3, 4, 5, 6)
+
+note_t1d <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies. Model 8 uses full saturation (country-source-topic FEs).", SE_NOTE)
+
+table_1d <- modelsummary(
+  list(
+    "(1)" = results_h1_drop$model1_opt,
+    "(2)" = results_h1_drop$model2_opt,
+    "(3)" = results_h1_drop$model3_opt,
+    "(4)" = results_h1_drop$model4_opt,
+    "(5)" = results_h1_drop$model1_full_linear,
+    "(6)" = results_h1_drop$model4_non_mil,
+    "(7)" = results_h1_drop$model4_non_nato,
+    "(8)" = results_h1_drop$model4_felm_saturated
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1D: RDD with Continuous Running Variable (Drop No-Time Articles)",
+  add_rows = rows_t1d,
+  notes = str_wrap(note_t1d, 80)
+)
+
+table_1d
+
+save_table(table_1d, "table_01d_rdd_drop_notime")
+```
+
+## Table 1E: RDD By Topic (Drop No-Time)
+
+```{r table1e}
+n_cl_t1e <- sapply(list(results_h1_drop$model4_opt_pol, results_h1_drop$model4_opt_mil,
+                        results_h1_drop$model4_opt_econ, results_h1_drop$model4_opt_cult,
+                        results_h1_drop$model4_opt_oth), get_n_clusters)
+rows_t1e <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t1e[1], n_cl_t1e[2], n_cl_t1e[3], n_cl_t1e[4], n_cl_t1e[5]
+)
+attr(rows_t1e, 'position') <- c(3, 4, 5, 6)
+
+note_t1e <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. All models use the optimal bandwidth with country and source fixed effects.", SE_NOTE)
+
+table_1e <- modelsummary(
+  list(
+    "Political" = results_h1_drop$model4_opt_pol,
+    "Military" = results_h1_drop$model4_opt_mil,
+    "Economic" = results_h1_drop$model4_opt_econ,
+    "Cultural" = results_h1_drop$model4_opt_cult,
+    "Other" = results_h1_drop$model4_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1E: RDD By Topic (Drop No-Time Articles)",
+  add_rows = rows_t1e,
+  notes = str_wrap(note_t1e, 80)
+)
+
+table_1e
+
+save_table(table_1e, "table_01e_rdd_by_topic_drop_notime")
+```
+
+## Table 2F: Diff-in-Disc Main (Drop No-Time)
+
+```{r table2f}
+n_cl_t2f <- sapply(list(results_h2_drop$model2a, results_h2_drop$model2a_opt,
+                        results_h2_drop$model2d, results_h2_drop$model2b,
+                        results_h2_drop$model3a, results_h2_drop$model3a_opt,
+                        results_h2_drop$model3a_opt_saturated), get_n_clusters)
+rows_t2f <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t2f[1], n_cl_t2f[2], n_cl_t2f[3], n_cl_t2f[4], n_cl_t2f[5], n_cl_t2f[6], n_cl_t2f[7]
+)
+attr(rows_t2f, 'position') <- c(5, 6, 7, 8)
+
+note_t2f <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs).", SE_NOTE)
+
+table_2f <- modelsummary(
+  list(
+    "(1)" = results_h2_drop$model2a,
+    "(2)" = results_h2_drop$model2a_opt,
+    "(3)" = results_h2_drop$model2d,
+    "(4)" = results_h2_drop$model2b,
+    "(5)" = results_h2_drop$model3a,
+    "(6)" = results_h2_drop$model3a_opt,
+    "(7)" = results_h2_drop$model3a_opt_saturated
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2F: Diff-in-Disc (Drop No-Time Articles)",
+  add_rows = rows_t2f,
+  notes = str_wrap(note_t2f, 80)
+)
+
+table_2f
+
+save_table(table_2f, "table_02f_diff_disc_drop_notime")
+```
+
+## Table 2G: Diff-in-Disc By Topic Optimal BW (Drop No-Time)
+
+```{r table2g}
+n_cl_t2g <- sapply(list(results_h2_drop$model2a_opt_pol, results_h2_drop$model2a_opt_mil,
+                        results_h2_drop$model2a_opt_econ, results_h2_drop$model2a_opt_cult,
+                        results_h2_drop$model2a_opt_oth), get_n_clusters)
+rows_t2g <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t2g[1], n_cl_t2g[2], n_cl_t2g[3], n_cl_t2g[4], n_cl_t2g[5]
+)
+attr(rows_t2g, 'position') <- c(5, 6, 7, 8)
+
+note_t2g <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. All models use a per-topic re-optimized bandwidth with country fixed effects only.", SE_NOTE)
+
+table_2g <- modelsummary(
+  list(
+    "Political" = results_h2_drop$model2a_opt_pol,
+    "Military" = results_h2_drop$model2a_opt_mil,
+    "Economic" = results_h2_drop$model2a_opt_econ,
+    "Cultural" = results_h2_drop$model2a_opt_cult,
+    "Other" = results_h2_drop$model2a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2G: Diff-in-Disc By Topic, Optimal BW (Drop No-Time Articles)",
+  add_rows = rows_t2g,
+  notes = str_wrap(note_t2g, 80)
+)
+
+table_2g
+
+save_table(table_2g, "table_02g_diff_disc_by_topic_opt_drop_notime")
+```
+
+## Table 2H: Diff-in-Disc By Topic Full Data (Drop No-Time)
+
+```{r table2h}
+n_cl_t2h <- sapply(list(results_h2_drop$model2a_full_pol, results_h2_drop$model2a_full_mil,
+                        results_h2_drop$model2a_full_econ, results_h2_drop$model2a_full_cult,
+                        results_h2_drop$model2a_full_oth), get_n_clusters)
+rows_t2h <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t2h[1], n_cl_t2h[2], n_cl_t2h[3], n_cl_t2h[4], n_cl_t2h[5]
+)
+attr(rows_t2h, 'position') <- c(5, 6, 7, 8)
+
+note_t2h <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. All models use the full dataset (no bandwidth restriction) with country fixed effects only.", SE_NOTE)
+
+table_2h <- modelsummary(
+  list(
+    "Political" = results_h2_drop$model2a_full_pol,
+    "Military" = results_h2_drop$model2a_full_mil,
+    "Economic" = results_h2_drop$model2a_full_econ,
+    "Cultural" = results_h2_drop$model2a_full_cult,
+    "Other" = results_h2_drop$model2a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2H: Diff-in-Disc By Topic, Full Data (Drop No-Time Articles)",
+  add_rows = rows_t2h,
+  notes = str_wrap(note_t2h, 80)
+)
+
+table_2h
+
+save_table(table_2h, "table_02h_diff_disc_by_topic_full_drop_notime")
+```
+
+## Table 3F: Alignment Main (Drop No-Time)
+
+```{r table3f}
+n_cl_t3f <- sapply(list(results_align_drop$model5a_csto, results_align_drop$model5a_neutral,
+                        results_align_drop$model5a_full, results_align_drop$model5a_opt,
+                        results_align_drop$model5a_opt_non_mil, results_align_drop$model5a_opt_russian),
+                   get_n_clusters)
+rows_t3f <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t3f[1], n_cl_t3f[2], n_cl_t3f[3], n_cl_t3f[4], n_cl_t3f[5], n_cl_t3f[6]
+)
+attr(rows_t3f, 'position') <- c(5, 6, 7, 8)
+
+note_t3f <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Articles without publication times are dropped. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for felm models
+vcov_t3f <- list(
+  "(3)" = create_bootstrap_vcov(results_align_drop$model5a_full, results_align_drop$bootstrap_se$model5a_full, "treatment:csto"),
+  "(4)" = create_bootstrap_vcov(results_align_drop$model5a_opt, results_align_drop$bootstrap_se$model5a_opt, "treatment:csto"),
+  "(5)" = create_bootstrap_vcov(results_align_drop$model5a_opt_non_mil, results_align_drop$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
+  "(6)" = create_bootstrap_vcov(results_align_drop$model5a_opt_russian, results_align_drop$bootstrap_se$model5a_opt_russian, "treatment:csto")
+)
+
+table_3f <- modelsummary(
+  list(
+    "(1)" = results_align_drop$model5a_csto,
+    "(2)" = results_align_drop$model5a_neutral,
+    "(3)" = results_align_drop$model5a_full,
+    "(4)" = results_align_drop$model5a_opt,
+    "(5)" = results_align_drop$model5a_opt_non_mil,
+    "(6)" = results_align_drop$model5a_opt_russian
+  ),
+  vcov = vcov_t3f,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3F: Russian Alignment Heterogeneity (Drop No-Time Articles)",
+  add_rows = rows_t3f,
+  notes = str_wrap(note_t3f, 80)
+)
+
+table_3f
+
+save_table(table_3f, "table_03f_alignment_drop_notime")
+```
+
+## Table 3G: Alignment By Topic Optimal BW (Drop No-Time)
+
+```{r table3g}
+n_cl_t3g <- sapply(list(results_align_drop$model5a_opt_pol, results_align_drop$model5a_opt_mil,
+                        results_align_drop$model5a_opt_econ, results_align_drop$model5a_opt_cult,
+                        results_align_drop$model5a_opt_oth), get_n_clusters)
+rows_t3g <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t3g[1], n_cl_t3g[2], n_cl_t3g[3], n_cl_t3g[4], n_cl_t3g[5]
+)
+attr(rows_t3g, 'position') <- c(5, 6, 7, 8)
+
+note_t3g <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only.", SE_NOTE)
+
+table_3g <- modelsummary(
+  list(
+    "Political" = results_align_drop$model5a_opt_pol,
+    "Military" = results_align_drop$model5a_opt_mil,
+    "Economic" = results_align_drop$model5a_opt_econ,
+    "Cultural" = results_align_drop$model5a_opt_cult,
+    "Other" = results_align_drop$model5a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3G: Alignment By Topic, Optimal BW (Drop No-Time Articles)",
+  add_rows = rows_t3g,
+  notes = str_wrap(note_t3g, 80)
+)
+
+table_3g
+
+save_table(table_3g, "table_03g_alignment_by_topic_opt_drop_notime")
+```
+
+## Table 3H: Alignment By Topic Full Data (Drop No-Time)
+
+```{r table3h}
+n_cl_t3h <- sapply(list(results_align_drop$model5a_full_pol, results_align_drop$model5a_full_mil,
+                        results_align_drop$model5a_full_econ, results_align_drop$model5a_full_cult,
+                        results_align_drop$model5a_full_oth), get_n_clusters)
+rows_t3h <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t3h[1], n_cl_t3h[2], n_cl_t3h[3], n_cl_t3h[4], n_cl_t3h[5]
+)
+attr(rows_t3h, 'position') <- c(5, 6, 7, 8)
+
+note_t3h <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only.", SE_NOTE)
+
+table_3h <- modelsummary(
+  list(
+    "Political" = results_align_drop$model5a_full_pol,
+    "Military" = results_align_drop$model5a_full_mil,
+    "Economic" = results_align_drop$model5a_full_econ,
+    "Cultural" = results_align_drop$model5a_full_cult,
+    "Other" = results_align_drop$model5a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3H: Alignment By Topic, Full Data (Drop No-Time Articles)",
+  add_rows = rows_t3h,
+  notes = str_wrap(note_t3h, 80)
+)
+
+table_3h
+
+save_table(table_3h, "table_03h_alignment_by_topic_full_drop_notime")
+```
+
+## Table 4F: Ethnic Main (Drop No-Time)
+
+```{r table4f}
+n_cl_t4f <- sapply(list(results_ethnic_drop$model6a_full, results_ethnic_drop$model6a_opt,
+                        results_ethnic_drop$model6a_opt_non_mil, results_ethnic_drop$model6a_opt_russian),
+                   get_n_clusters)
+rows_t4f <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4,
+  'State FEs', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t4f[1], n_cl_t4f[2], n_cl_t4f[3], n_cl_t4f[4]
+)
+attr(rows_t4f, 'position') <- c(5, 6, 7, 8)
+
+note_t4f <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Articles without publication times are dropped. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs
+vcov_t4f <- list(
+  "(1)" = create_bootstrap_vcov(results_ethnic_drop$model6a_full, results_ethnic_drop$bootstrap_se$model6a_full, "treatment:high_russia"),
+  "(2)" = create_bootstrap_vcov(results_ethnic_drop$model6a_opt, results_ethnic_drop$bootstrap_se$model6a_opt, "treatment:high_russia"),
+  "(3)" = create_bootstrap_vcov(results_ethnic_drop$model6a_opt_non_mil, results_ethnic_drop$bootstrap_se$model6a_opt_non_mil, "treatment:high_russia"),
+  "(4)" = create_bootstrap_vcov(results_ethnic_drop$model6a_opt_russian, results_ethnic_drop$bootstrap_se$model6a_opt_russian, "treatment:high_russia")
+)
+
+table_4f <- modelsummary(
+  list(
+    "(1)" = results_ethnic_drop$model6a_full,
+    "(2)" = results_ethnic_drop$model6a_opt,
+    "(3)" = results_ethnic_drop$model6a_opt_non_mil,
+    "(4)" = results_ethnic_drop$model6a_opt_russian
+  ),
+  vcov = vcov_t4f,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4F: Ethnic Heterogeneity (Drop No-Time Articles)",
+  add_rows = rows_t4f,
+  notes = str_wrap(note_t4f, 80)
+)
+
+table_4f
+
+save_table(table_4f, "table_04f_ethnic_drop_notime")
+```
+
+## Table 4G: Ethnic By Topic Optimal BW (Drop No-Time)
+
+```{r table4g}
+n_cl_t4g <- sapply(list(results_ethnic_drop$model6a_opt_pol, results_ethnic_drop$model6a_opt_mil,
+                        results_ethnic_drop$model6a_opt_econ, results_ethnic_drop$model6a_opt_cult,
+                        results_ethnic_drop$model6a_opt_oth), get_n_clusters)
+rows_t4g <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t4g[1], n_cl_t4g[2], n_cl_t4g[3], n_cl_t4g[4], n_cl_t4g[5]
+)
+attr(rows_t4g, 'position') <- c(5, 6, 7, 8)
+
+note_t4g <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only.", SE_NOTE)
+
+table_4g <- modelsummary(
+  list(
+    "Political" = results_ethnic_drop$model6a_opt_pol,
+    "Military" = results_ethnic_drop$model6a_opt_mil,
+    "Economic" = results_ethnic_drop$model6a_opt_econ,
+    "Cultural" = results_ethnic_drop$model6a_opt_cult,
+    "Other" = results_ethnic_drop$model6a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4G: Ethnic By Topic, Optimal BW (Drop No-Time Articles)",
+  add_rows = rows_t4g,
+  notes = str_wrap(note_t4g, 80)
+)
+
+table_4g
+
+save_table(table_4g, "table_04g_ethnic_by_topic_opt_drop_notime")
+```
+
+## Table 4H: Ethnic By Topic Full Data (Drop No-Time)
+
+```{r table4h}
+n_cl_t4h <- sapply(list(results_ethnic_drop$model6a_full_pol, results_ethnic_drop$model6a_full_mil,
+                        results_ethnic_drop$model6a_full_econ, results_ethnic_drop$model6a_full_cult,
+                        results_ethnic_drop$model6a_full_oth), get_n_clusters)
+rows_t4h <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t4h[1], n_cl_t4h[2], n_cl_t4h[3], n_cl_t4h[4], n_cl_t4h[5]
+)
+attr(rows_t4h, 'position') <- c(5, 6, 7, 8)
+
+note_t4h <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only.", SE_NOTE)
+
+table_4h <- modelsummary(
+  list(
+    "Political" = results_ethnic_drop$model6a_full_pol,
+    "Military" = results_ethnic_drop$model6a_full_mil,
+    "Economic" = results_ethnic_drop$model6a_full_econ,
+    "Cultural" = results_ethnic_drop$model6a_full_cult,
+    "Other" = results_ethnic_drop$model6a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4H: Ethnic By Topic, Full Data (Drop No-Time Articles)",
+  add_rows = rows_t4h,
+  notes = str_wrap(note_t4h, 80)
+)
+
+table_4h
+
+save_table(table_4h, "table_04h_ethnic_by_topic_full_drop_notime")
+```
+
+# Probabilistic Time Assignment Variant Tables
+
+## Table 1F: RDD Main (Probabilistic Time)
+
+```{r table1f}
+n_cl_t1f <- sapply(list(results_h1_prob$model1_opt, results_h1_prob$model2_opt,
+                        results_h1_prob$model3_opt, results_h1_prob$model4_opt,
+                        results_h1_prob$model1_full_linear, results_h1_prob$model4_non_mil,
+                        results_h1_prob$model4_non_nato, results_h1_prob$model4_felm_saturated),
+                   get_n_clusters)
+rows_t1f <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t1f[1], n_cl_t1f[2], n_cl_t1f[3], n_cl_t1f[4], n_cl_t1f[5], n_cl_t1f[6], n_cl_t1f[7], n_cl_t1f[8]
+)
+attr(rows_t1f, 'position') <- c(3, 4, 5, 6)
+
+note_t1f <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling from same-source distributions. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies. Model 8 uses full saturation (country-source-topic FEs).", SE_NOTE)
+
+table_1f <- modelsummary(
+  list(
+    "(1)" = results_h1_prob$model1_opt,
+    "(2)" = results_h1_prob$model2_opt,
+    "(3)" = results_h1_prob$model3_opt,
+    "(4)" = results_h1_prob$model4_opt,
+    "(5)" = results_h1_prob$model1_full_linear,
+    "(6)" = results_h1_prob$model4_non_mil,
+    "(7)" = results_h1_prob$model4_non_nato,
+    "(8)" = results_h1_prob$model4_felm_saturated
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1F: RDD with Probabilistic Time Assignment",
+  add_rows = rows_t1f,
+  notes = str_wrap(note_t1f, 80)
+)
+
+table_1f
+
+save_table(table_1f, "table_01f_rdd_probabilistic")
+```
+
+## Table 1G: RDD By Topic (Probabilistic Time)
+
+```{r table1g}
+n_cl_t1g <- sapply(list(results_h1_prob$model4_opt_pol, results_h1_prob$model4_opt_mil,
+                        results_h1_prob$model4_opt_econ, results_h1_prob$model4_opt_cult,
+                        results_h1_prob$model4_opt_oth), get_n_clusters)
+rows_t1g <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t1g[1], n_cl_t1g[2], n_cl_t1g[3], n_cl_t1g[4], n_cl_t1g[5]
+)
+attr(rows_t1g, 'position') <- c(3, 4, 5, 6)
+
+note_t1g <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. All models use the optimal bandwidth with country and source fixed effects.", SE_NOTE)
+
+table_1g <- modelsummary(
+  list(
+    "Political" = results_h1_prob$model4_opt_pol,
+    "Military" = results_h1_prob$model4_opt_mil,
+    "Economic" = results_h1_prob$model4_opt_econ,
+    "Cultural" = results_h1_prob$model4_opt_cult,
+    "Other" = results_h1_prob$model4_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 1G: RDD By Topic (Probabilistic Time Assignment)",
+  add_rows = rows_t1g,
+  notes = str_wrap(note_t1g, 80)
+)
+
+table_1g
+
+save_table(table_1g, "table_01g_rdd_by_topic_probabilistic")
+```
+
+## Table 2I: Diff-in-Disc Main (Probabilistic Time)
+
+```{r table2i}
+n_cl_t2i <- sapply(list(results_h2_prob$model2a, results_h2_prob$model2a_opt,
+                        results_h2_prob$model2d, results_h2_prob$model2b,
+                        results_h2_prob$model3a, results_h2_prob$model3a_opt,
+                        results_h2_prob$model3a_opt_saturated), get_n_clusters)
+rows_t2i <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t2i[1], n_cl_t2i[2], n_cl_t2i[3], n_cl_t2i[4], n_cl_t2i[5], n_cl_t2i[6], n_cl_t2i[7]
+)
+attr(rows_t2i, 'position') <- c(5, 6, 7, 8)
+
+note_t2i <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs).", SE_NOTE)
+
+table_2i <- modelsummary(
+  list(
+    "(1)" = results_h2_prob$model2a,
+    "(2)" = results_h2_prob$model2a_opt,
+    "(3)" = results_h2_prob$model2d,
+    "(4)" = results_h2_prob$model2b,
+    "(5)" = results_h2_prob$model3a,
+    "(6)" = results_h2_prob$model3a_opt,
+    "(7)" = results_h2_prob$model3a_opt_saturated
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2I: Diff-in-Disc (Probabilistic Time Assignment)",
+  add_rows = rows_t2i,
+  notes = str_wrap(note_t2i, 80)
+)
+
+table_2i
+
+save_table(table_2i, "table_02i_diff_disc_probabilistic")
+```
+
+## Table 2J: Diff-in-Disc By Topic Optimal BW (Probabilistic Time)
+
+```{r table2j}
+n_cl_t2j <- sapply(list(results_h2_prob$model2a_opt_pol, results_h2_prob$model2a_opt_mil,
+                        results_h2_prob$model2a_opt_econ, results_h2_prob$model2a_opt_cult,
+                        results_h2_prob$model2a_opt_oth), get_n_clusters)
+rows_t2j <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t2j[1], n_cl_t2j[2], n_cl_t2j[3], n_cl_t2j[4], n_cl_t2j[5]
+)
+attr(rows_t2j, 'position') <- c(5, 6, 7, 8)
+
+note_t2j <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. All models use a per-topic re-optimized bandwidth with country fixed effects only.", SE_NOTE)
+
+table_2j <- modelsummary(
+  list(
+    "Political" = results_h2_prob$model2a_opt_pol,
+    "Military" = results_h2_prob$model2a_opt_mil,
+    "Economic" = results_h2_prob$model2a_opt_econ,
+    "Cultural" = results_h2_prob$model2a_opt_cult,
+    "Other" = results_h2_prob$model2a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2J: Diff-in-Disc By Topic, Optimal BW (Probabilistic Time)",
+  add_rows = rows_t2j,
+  notes = str_wrap(note_t2j, 80)
+)
+
+table_2j
+
+save_table(table_2j, "table_02j_diff_disc_by_topic_opt_probabilistic")
+```
+
+## Table 2K: Diff-in-Disc By Topic Full Data (Probabilistic Time)
+
+```{r table2k}
+n_cl_t2k <- sapply(list(results_h2_prob$model2a_full_pol, results_h2_prob$model2a_full_mil,
+                        results_h2_prob$model2a_full_econ, results_h2_prob$model2a_full_cult,
+                        results_h2_prob$model2a_full_oth), get_n_clusters)
+rows_t2k <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t2k[1], n_cl_t2k[2], n_cl_t2k[3], n_cl_t2k[4], n_cl_t2k[5]
+)
+attr(rows_t2k, 'position') <- c(5, 6, 7, 8)
+
+note_t2k <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. All models use the full dataset (no bandwidth restriction) with country fixed effects only.", SE_NOTE)
+
+table_2k <- modelsummary(
+  list(
+    "Political" = results_h2_prob$model2a_full_pol,
+    "Military" = results_h2_prob$model2a_full_mil,
+    "Economic" = results_h2_prob$model2a_full_econ,
+    "Cultural" = results_h2_prob$model2a_full_cult,
+    "Other" = results_h2_prob$model2a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2K: Diff-in-Disc By Topic, Full Data (Probabilistic Time)",
+  add_rows = rows_t2k,
+  notes = str_wrap(note_t2k, 80)
+)
+
+table_2k
+
+save_table(table_2k, "table_02k_diff_disc_by_topic_full_probabilistic")
+```
+
+## Table 2L: State-Owned and Independent Media RDD (Day)
+
+```{r table2l}
+note_t2l <- paste("Separate RDD estimates for state-owned and independent media using the day running variable. Bandwidths selected by MSE-optimal bandwidth selector. Standard errors are cluster-robust (rdrobust).", SE_NOTE)
+
+table_2l <- modelsummary(
+  list(
+    "State Media" = results_h2$model2_state_rdd,
+    "Independent Media" = results_h2$model2_ind_rdd
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c("Conventional" = "Invasion (RDD)"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2L: RDD for State-Owned and Independent Media Separately (Day)",
+  notes = str_wrap(note_t2l, 80)
+)
+
+table_2l
+
+save_table(table_2l, "table_02l_state_ind_rdd")
+```
+
+## Table 3I: Alignment Main (Probabilistic Time)
+
+```{r table3i}
+n_cl_t3i <- sapply(list(results_align_prob$model5a_csto, results_align_prob$model5a_neutral,
+                        results_align_prob$model5a_full, results_align_prob$model5a_opt,
+                        results_align_prob$model5a_opt_non_mil, results_align_prob$model5a_opt_russian),
+                   get_n_clusters)
+rows_t3i <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'State FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t3i[1], n_cl_t3i[2], n_cl_t3i[3], n_cl_t3i[4], n_cl_t3i[5], n_cl_t3i[6]
+)
+attr(rows_t3i, 'position') <- c(5, 6, 7, 8)
+
+note_t3i <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Articles without publication times are assigned times via KDE sampling. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs for felm models
+vcov_t3i <- list(
+  "(3)" = create_bootstrap_vcov(results_align_prob$model5a_full, results_align_prob$bootstrap_se$model5a_full, "treatment:csto"),
+  "(4)" = create_bootstrap_vcov(results_align_prob$model5a_opt, results_align_prob$bootstrap_se$model5a_opt, "treatment:csto"),
+  "(5)" = create_bootstrap_vcov(results_align_prob$model5a_opt_non_mil, results_align_prob$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
+  "(6)" = create_bootstrap_vcov(results_align_prob$model5a_opt_russian, results_align_prob$bootstrap_se$model5a_opt_russian, "treatment:csto")
+)
+
+table_3i <- modelsummary(
+  list(
+    "(1)" = results_align_prob$model5a_csto,
+    "(2)" = results_align_prob$model5a_neutral,
+    "(3)" = results_align_prob$model5a_full,
+    "(4)" = results_align_prob$model5a_opt,
+    "(5)" = results_align_prob$model5a_opt_non_mil,
+    "(6)" = results_align_prob$model5a_opt_russian
+  ),
+  vcov = vcov_t3i,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3I: Russian Alignment Heterogeneity (Probabilistic Time)",
+  add_rows = rows_t3i,
+  notes = str_wrap(note_t3i, 80)
+)
+
+table_3i
+
+save_table(table_3i, "table_03i_alignment_probabilistic")
+```
+
+## Table 3J: Alignment By Topic Optimal BW (Probabilistic Time)
+
+```{r table3j}
+n_cl_t3j <- sapply(list(results_align_prob$model5a_opt_pol, results_align_prob$model5a_opt_mil,
+                        results_align_prob$model5a_opt_econ, results_align_prob$model5a_opt_cult,
+                        results_align_prob$model5a_opt_oth), get_n_clusters)
+rows_t3j <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t3j[1], n_cl_t3j[2], n_cl_t3j[3], n_cl_t3j[4], n_cl_t3j[5]
+)
+attr(rows_t3j, 'position') <- c(5, 6, 7, 8)
+
+note_t3j <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only.", SE_NOTE)
+
+table_3j <- modelsummary(
+  list(
+    "Political" = results_align_prob$model5a_opt_pol,
+    "Military" = results_align_prob$model5a_opt_mil,
+    "Economic" = results_align_prob$model5a_opt_econ,
+    "Cultural" = results_align_prob$model5a_opt_cult,
+    "Other" = results_align_prob$model5a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3J: Alignment By Topic, Optimal BW (Probabilistic Time)",
+  add_rows = rows_t3j,
+  notes = str_wrap(note_t3j, 80)
+)
+
+table_3j
+
+save_table(table_3j, "table_03j_alignment_by_topic_opt_probabilistic")
+```
+
+## Table 3K: Alignment By Topic Full Data (Probabilistic Time)
+
+```{r table3k}
+n_cl_t3k <- sapply(list(results_align_prob$model5a_full_pol, results_align_prob$model5a_full_mil,
+                        results_align_prob$model5a_full_econ, results_align_prob$model5a_full_cult,
+                        results_align_prob$model5a_full_oth), get_n_clusters)
+rows_t3k <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t3k[1], n_cl_t3k[2], n_cl_t3k[3], n_cl_t3k[4], n_cl_t3k[5]
+)
+attr(rows_t3k, 'position') <- c(5, 6, 7, 8)
+
+note_t3k <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only.", SE_NOTE)
+
+table_3k <- modelsummary(
+  list(
+    "Political" = results_align_prob$model5a_full_pol,
+    "Military" = results_align_prob$model5a_full_mil,
+    "Economic" = results_align_prob$model5a_full_econ,
+    "Cultural" = results_align_prob$model5a_full_cult,
+    "Other" = results_align_prob$model5a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3K: Alignment By Topic, Full Data (Probabilistic Time)",
+  add_rows = rows_t3k,
+  notes = str_wrap(note_t3k, 80)
+)
+
+table_3k
+
+save_table(table_3k, "table_03k_alignment_by_topic_full_probabilistic")
+```
+
+## Table 4I: Ethnic Main (Probabilistic Time)
+
+```{r table4i}
+n_cl_t4i <- sapply(list(results_ethnic_prob$model6a_full, results_ethnic_prob$model6a_opt,
+                        results_ethnic_prob$model6a_opt_non_mil, results_ethnic_prob$model6a_opt_russian),
+                   get_n_clusters)
+rows_t4i <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4,
+  'State FEs', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-',
+  'Topic FEs', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t4i[1], n_cl_t4i[2], n_cl_t4i[3], n_cl_t4i[4]
+)
+attr(rows_t4i, 'position') <- c(5, 6, 7, 8)
+
+note_t4i <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights), clustered at source level. Articles without publication times are assigned times via KDE sampling. Model 1 uses full data with topic fixed effects. Model 2 uses the optimal bandwidth with topic fixed effects. Model 3 omits military-related articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+
+# Create vcov list with bootstrap SEs
+vcov_t4i <- list(
+  "(1)" = create_bootstrap_vcov(results_ethnic_prob$model6a_full, results_ethnic_prob$bootstrap_se$model6a_full, "treatment:high_russia"),
+  "(2)" = create_bootstrap_vcov(results_ethnic_prob$model6a_opt, results_ethnic_prob$bootstrap_se$model6a_opt, "treatment:high_russia"),
+  "(3)" = create_bootstrap_vcov(results_ethnic_prob$model6a_opt_non_mil, results_ethnic_prob$bootstrap_se$model6a_opt_non_mil, "treatment:high_russia"),
+  "(4)" = create_bootstrap_vcov(results_ethnic_prob$model6a_opt_russian, results_ethnic_prob$bootstrap_se$model6a_opt_russian, "treatment:high_russia")
+)
+
+table_4i <- modelsummary(
+  list(
+    "(1)" = results_ethnic_prob$model6a_full,
+    "(2)" = results_ethnic_prob$model6a_opt,
+    "(3)" = results_ethnic_prob$model6a_opt_non_mil,
+    "(4)" = results_ethnic_prob$model6a_opt_russian
+  ),
+  vcov = vcov_t4i,
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4I: Ethnic Heterogeneity (Probabilistic Time)",
+  add_rows = rows_t4i,
+  notes = str_wrap(note_t4i, 80)
+)
+
+table_4i
+
+save_table(table_4i, "table_04i_ethnic_probabilistic")
+```
+
+## Table 4J: Ethnic By Topic Optimal BW (Probabilistic Time)
+
+```{r table4j}
+n_cl_t4j <- sapply(list(results_ethnic_prob$model6a_opt_pol, results_ethnic_prob$model6a_opt_mil,
+                        results_ethnic_prob$model6a_opt_econ, results_ethnic_prob$model6a_opt_cult,
+                        results_ethnic_prob$model6a_opt_oth), get_n_clusters)
+rows_t4j <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t4j[1], n_cl_t4j[2], n_cl_t4j[3], n_cl_t4j[4], n_cl_t4j[5]
+)
+attr(rows_t4j, 'position') <- c(5, 6, 7, 8)
+
+note_t4j <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only.", SE_NOTE)
+
+table_4j <- modelsummary(
+  list(
+    "Political" = results_ethnic_prob$model6a_opt_pol,
+    "Military" = results_ethnic_prob$model6a_opt_mil,
+    "Economic" = results_ethnic_prob$model6a_opt_econ,
+    "Cultural" = results_ethnic_prob$model6a_opt_cult,
+    "Other" = results_ethnic_prob$model6a_opt_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4J: Ethnic By Topic, Optimal BW (Probabilistic Time)",
+  add_rows = rows_t4j,
+  notes = str_wrap(note_t4j, 80)
+)
+
+table_4j
+
+save_table(table_4j, "table_04j_ethnic_by_topic_opt_probabilistic")
+```
+
+## Table 4K: Ethnic By Topic Full Data (Probabilistic Time)
+
+```{r table4k}
+n_cl_t4k <- sapply(list(results_ethnic_prob$model6a_full_pol, results_ethnic_prob$model6a_full_mil,
+                        results_ethnic_prob$model6a_full_econ, results_ethnic_prob$model6a_full_cult,
+                        results_ethnic_prob$model6a_full_oth), get_n_clusters)
+rows_t4k <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5,
+  'State FEs', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-',
+  'Topic FEs', '-', '-', '-', '-', '-',
+  'Clusters', n_cl_t4k[1], n_cl_t4k[2], n_cl_t4k[3], n_cl_t4k[4], n_cl_t4k[5]
+)
+attr(rows_t4k, 'position') <- c(5, 6, 7, 8)
+
+note_t4k <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only.", SE_NOTE)
+
+table_4k <- modelsummary(
+  list(
+    "Political" = results_ethnic_prob$model6a_full_pol,
+    "Military" = results_ethnic_prob$model6a_full_mil,
+    "Economic" = results_ethnic_prob$model6a_full_econ,
+    "Cultural" = results_ethnic_prob$model6a_full_cult,
+    "Other" = results_ethnic_prob$model6a_full_oth
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 4K: Ethnic By Topic, Full Data (Probabilistic Time)",
+  add_rows = rows_t4k,
+  notes = str_wrap(note_t4k, 80)
+)
+
+table_4k
+
+save_table(table_4k, "table_04k_ethnic_by_topic_full_probabilistic")
+```
+
+# Comparison Table: Countries by Alignment and Ethnic Population
+
+```{r comparison-table}
+get_group <- function(russian_group, security_group) {
+  paste(intersect(russian_group, security_group), collapse = ", ")
+}
+
+table_data <- data.frame(
+  `Ethnic Russian Population` = c("Low Ethnic", "High Ethnic"),
+  `Low Russia Aligned` = c(
+    get_group(LOW_RUSSIAN_POP, NEUTRAL_COUNTRIES),
+    get_group(HIGH_RUSSIAN_POP, NEUTRAL_COUNTRIES)
+  ),
+  `High Russia Aligned` = c(
+    get_group(LOW_RUSSIAN_POP, CSTO_COUNTRIES),
+    get_group(HIGH_RUSSIAN_POP, CSTO_COUNTRIES)
+  )
+)
+
+comparison_table <- table_data %>%
+  gt() %>%
+  tab_header(
+    title = "Ethnic Russian Population x Russia Security Alignment",
+    subtitle = "Country Classification"
+  ) %>%
+  cols_label(
+    Ethnic.Russian.Population = "",
+    Low.Russia.Aligned = "Low Alignment (Neutral)",
+    High.Russia.Aligned = "High Alignment (CSTO)"
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "all", color = "black", weight = px(1)),
+    locations = cells_body()
+  )
+
+comparison_table
+
+save_table(comparison_table, "table_05_country_classification")
+```
+
+# Alignment Table
+
+```{r alignment-table}
+alignment_table <- table_data %>%
+  gt() %>%
+  tab_header(
+    title = "Ethnic Russian Population x Russia Security Alignment",
+    subtitle = "Alignment Comparison"
+  ) %>%
+  cols_label(
+    Ethnic.Russian.Population = "",
+    Low.Russia.Aligned = "Low Alignment",
+    High.Russia.Aligned = "High Alignment"
+  ) %>%
+  fmt_markdown(everything()) %>%
+  tab_style(
+    style = cell_borders(sides = c("top", "bottom"), color = "black", weight = px(2)),
+    locations = cells_body(rows = 1:2, columns = 2:3)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = c("left", "right"), color = "black", weight = px(2)),
+    locations = cells_body(rows = 1:2, columns = 2:3)
+  )
+
+alignment_table
+
+save_table(alignment_table, "table_06_alignment_classification")
+```
+
+# Ethnic Table
+
+```{r ethnic-table}
+ethnic_table <- table_data %>%
+  gt() %>%
+  tab_header(
+    title = "Ethnic Russian Population x Russia Security Alignment",
+    subtitle = "Ethnic Comparison"
+  ) %>%
+  cols_label(
+    Ethnic.Russian.Population = "",
+    Low.Russia.Aligned = "Low Alignment",
+    High.Russia.Aligned = "High Alignment"
+  ) %>%
+  fmt_markdown(everything()) %>%
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "black", weight = px(2)),
+    locations = cells_body(rows = 1, columns = 2:3)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = c("top", "bottom", "left", "right"), color = "black", weight = px(2)),
+    locations = cells_body(rows = 1:2, columns = 2:3)
+  )
+
+ethnic_table
+
+save_table(ethnic_table, "table_07_ethnic_classification")
+```
+
+# Export Tables to LaTeX
+
+```{r latex-export}
+# Function to save modelsummary as tex
+save_tex <- function(models, filename, coef_map, title, rows = NULL, note = NULL) {
+  modelsummary(
+    models,
+    output = file.path(FIGURES_TABLES, filename),
+    fmt = 3,
+    stars = c('*' = .05, '**' = .01, '***' = .001),
+    coef_map = coef_map,
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = title,
+    add_rows = rows,
+    notes = note
+  )
+}
+
+# Note: These will generate .tex files for LaTeX inclusion
+cat("LaTeX tables can be generated by changing output format to 'latex'\n")
+```
+
+# Summary of All Tables
+
+```{r summary}
+cat("\n")
+cat("=============================================================\n")
+cat("PUBLICATION OUTPUTS SUMMARY\n")
+cat("=============================================================\n")
+cat("\nRDS inputs loaded:\n")
+cat("  - 04_h1_results*.rds      (H1: Main RDD, 4 variants)\n")
+cat("  - 05_h2_results*.rds      (H2: Diff-in-Disc, 4 variants)\n")
+cat("  - 06_alignment_results*.rds (Alignment heterogeneity, 4 variants)\n")
+cat("  - 07_ethnic_results*.rds   (Ethnic heterogeneity, 4 variants)\n")
+cat("\nTables generated (each saved as .tex AND .html):\n")
+cat("\n  ## Main Day-Running-Variable Tables ##\n")
+cat("  - table_01_rdd_main:                  RDD main results (H1, day)\n")
+cat("  - table_01a_rdd_continuous:           RDD main results (H1, continuous)\n")
+cat("  - table_01b_rdd_by_topic_day:         RDD by topic, opt BW (day)\n")
+cat("  - table_01c_rdd_by_topic_continuous:  RDD by topic, opt BW (continuous)\n")
+cat("  - table_02_diff_disc_main:            Diff-in-Disc main (H2, day)\n")
+cat("  - table_02a_diff_disc_continuous:     Diff-in-Disc main (H2, continuous)\n")
+cat("  - table_02b_diff_disc_by_topic_day:   Diff-in-Disc by topic, opt BW (day)\n")
+cat("  - table_02c_diff_disc_by_topic_continuous: Diff-in-Disc by topic, opt BW (cont)\n")
+cat("  - table_02d_diff_disc_by_topic_full_day:   Diff-in-Disc by topic, full (day)\n")
+cat("  - table_02e_diff_disc_by_topic_full_continuous: Diff-in-Disc by topic, full (cont)\n")
+cat("  - table_02l_state_ind_rdd:            RDD for state vs independent media\n")
+cat("  - table_03_alignment_main:            Alignment heterogeneity (day)\n")
+cat("  - table_03a_alignment_continuous:     Alignment heterogeneity (continuous)\n")
+cat("  - table_03b_alignment_by_topic_day:   Alignment by topic, opt BW (day)\n")
+cat("  - table_03c_alignment_by_topic_continuous: Alignment by topic, opt BW (cont)\n")
+cat("  - table_03d_alignment_by_topic_full_day:   Alignment by topic, full (day)\n")
+cat("  - table_03e_alignment_by_topic_full_continuous: Alignment by topic, full (cont)\n")
+cat("  - table_04_ethnic_main:               Ethnic heterogeneity (day)\n")
+cat("  - table_04a_ethnic_continuous:        Ethnic heterogeneity (continuous)\n")
+cat("  - table_04b_ethnic_by_topic_day:      Ethnic by topic, opt BW (day)\n")
+cat("  - table_04c_ethnic_by_topic_continuous: Ethnic by topic, opt BW (cont)\n")
+cat("  - table_04d_ethnic_by_topic_full_day:   Ethnic by topic, full (day)\n")
+cat("  - table_04e_ethnic_by_topic_full_continuous: Ethnic by topic, full (cont)\n")
+cat("\n  ## Drop No-Time Articles Robustness ##\n")
+cat("  - table_01d_rdd_drop_notime:          RDD main (drop no-time)\n")
+cat("  - table_01e_rdd_by_topic_drop_notime: RDD by topic (drop no-time)\n")
+cat("  - table_02f_diff_disc_drop_notime:    Diff-in-Disc main (drop no-time)\n")
+cat("  - table_02g_diff_disc_by_topic_opt_drop_notime: DiD by topic, opt (drop)\n")
+cat("  - table_02h_diff_disc_by_topic_full_drop_notime: DiD by topic, full (drop)\n")
+cat("  - table_03f_alignment_drop_notime:    Alignment main (drop no-time)\n")
+cat("  - table_03g_alignment_by_topic_opt_drop_notime: Alignment by topic (drop)\n")
+cat("  - table_03h_alignment_by_topic_full_drop_notime: Alignment full (drop)\n")
+cat("  - table_04f_ethnic_drop_notime:       Ethnic main (drop no-time)\n")
+cat("  - table_04g_ethnic_by_topic_opt_drop_notime: Ethnic by topic, opt (drop)\n")
+cat("  - table_04h_ethnic_by_topic_full_drop_notime: Ethnic by topic, full (drop)\n")
+cat("\n  ## Probabilistic Time Assignment Robustness ##\n")
+cat("  - table_01f_rdd_probabilistic:        RDD main (probabilistic time)\n")
+cat("  - table_01g_rdd_by_topic_probabilistic: RDD by topic (probabilistic time)\n")
+cat("  - table_02i_diff_disc_probabilistic:  Diff-in-Disc main (probabilistic)\n")
+cat("  - table_02j_diff_disc_by_topic_opt_probabilistic: DiD by topic, opt (prob)\n")
+cat("  - table_02k_diff_disc_by_topic_full_probabilistic: DiD by topic, full (prob)\n")
+cat("  - table_03i_alignment_probabilistic:  Alignment main (probabilistic)\n")
+cat("  - table_03j_alignment_by_topic_opt_probabilistic: Alignment by topic (prob)\n")
+cat("  - table_03k_alignment_by_topic_full_probabilistic: Alignment full (prob)\n")
+cat("  - table_04i_ethnic_probabilistic:     Ethnic main (probabilistic)\n")
+cat("  - table_04j_ethnic_by_topic_opt_probabilistic: Ethnic by topic, opt (prob)\n")
+cat("  - table_04k_ethnic_by_topic_full_probabilistic: Ethnic by topic, full (prob)\n")
+cat("\n  ## Classification / Descriptive Tables ##\n")
+cat("  - table_05_country_classification:    Country × alignment × ethnic\n")
+cat("  - table_06_alignment_classification:  Alignment comparison\n")
+cat("  - table_07_ethnic_classification:     Ethnic population comparison\n")
+cat("  - table_loo_alignment_robustness:     LOO country robustness (alignment)\n")
+cat("  - table_placebo_summary:              Placebo test summary\n")
+cat("\nFigures generated in previous scripts:\n")
+cat("  - invasion_on_sentiment.png\n")
+cat("  - invasion_on_sentiment_non_mil.png\n")
+cat("  - invasion_discs_graph.png\n")
+cat("  - invasion_discs_non_mil.png\n")
+cat("  - state_align_discs.png\n")
+cat("  - ethnic_discs.png\n")
+cat("  - articles_per_day.png\n")
+cat("  - topic_distribution.png\n")
+cat("  - topic_split.png\n")
+cat("=============================================================\n")
+```
+
+# Leave-One-Out Country Robustness Table
+
+```{r loo-table}
+loo_data <- results_align$loo_summary
+
+note_loo <- "Leave-one-out robustness analysis for the non-military topics model. Each row shows results when excluding the specified country from the sample. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:csto interaction term. Standard errors clustered at source domain level."
+note_loo_wrapped <- str_wrap(note_loo, width = 80)
+
+loo_table <- loo_data %>%
+  mutate(
+    estimate_fmt = sprintf("%.3f%s", estimate,
+                     case_when(p_value < 0.001 ~ "***",
+                               p_value < 0.01 ~ "**",
+                               p_value < 0.05 ~ "*",
+                               TRUE ~ "")),
+    std_error_fmt = sprintf("(%.3f)", std_error),
+    p_value_fmt = sprintf("%.3f", p_value),
+    n_obs_fmt = format(n_obs, big.mark = ","),
+    bandwidth_fmt = sprintf("%.1f", bandwidth)
+  ) %>%
+  select(country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
+  gt() %>%
+  cols_label(
+    country_dropped = "Country Dropped",
+    estimate_fmt = "Coefficient",
+    std_error_fmt = "Std. Error",
+    p_value_fmt = "p-value",
+    n_obs_fmt = "N",
+    bandwidth_fmt = "Bandwidth"
+  ) %>%
+  tab_header(title = "Table A: Leave-One-Out Country Robustness Analysis",
+             subtitle = "Non-Military Topics Model") %>%
+  tab_footnote(footnote = note_loo_wrapped)
+
+loo_table
+
+save_table(loo_table, "table_loo_alignment_robustness")
+```
+
+# Placebo Test Summary Table
+
+```{r placebo-summary}
+# Extract placebo results from all hypothesis results
+# Note: H1 uses rdrobust, H2 and H3 use felm
+
+# Extract rdrobust result for H1
+placebo_h1 <- results_h1$model_placebo
+h1_estimate <- placebo_h1$coef[1]  # Conventional RD estimate
+h1_se <- placebo_h1$se[1]
+h1_pval <- placebo_h1$pv[1]
+h1_bw <- placebo_h1$bws[1, 1]
+h1_n <- placebo_h1$N_h[1] + placebo_h1$N_h[2]
+
+# Extract felm results for H2 and H3
+placebo_h2 <- results_h2$model_placebo
+placebo_h3 <- results_align$model_placebo_nonmil
+
+h2_coef <- summary(placebo_h2)$coef["treatment", ]
+h3_coef <- summary(placebo_h3)$coef["treatment", ]
+
+# Create summary data frame
+placebo_summary <- tibble(
+  Model = c("(1) H1: Full Model (RDD)", "(2) H2: Diff-in-Disc", "(3) H3: Non-Military"),
+  Estimate = c(h1_estimate, h2_coef["Estimate"], h3_coef["Estimate"]),
+  Std_Error = c(h1_se, h2_coef["Cluster s.e."], h3_coef["Cluster s.e."]),
+  p_value = c(h1_pval, h2_coef["Pr(>|t|)"], h3_coef["Pr(>|t|)"]),
+  Bandwidth = c(h1_bw, results_h2$optimal_bw_placebo, results_align$optimal_bw_placebo_nonmil),
+  N = c(h1_n, nobs(placebo_h2), nobs(placebo_h3))
+)
+
+note_placebo <- "Placebo tests using December 7, 2021 (Putin's announcement) as a false treatment date. Data restricted to pre-invasion period (before Feb 19, 2022). Model 1 uses rdrobust; Models 2-3 use felm with optimal bandwidth. Non-significant treatment effects suggest parallel trends assumption holds."
+note_placebo_wrapped <- str_wrap(note_placebo, width = 80)
+
+table_placebo <- placebo_summary %>%
+  mutate(
+    Estimate_fmt = sprintf("%.3f%s", Estimate,
+                     case_when(p_value < 0.001 ~ "***",
+                               p_value < 0.01 ~ "**",
+                               p_value < 0.05 ~ "*",
+                               TRUE ~ "")),
+    Std_Error_fmt = sprintf("(%.3f)", Std_Error),
+    p_value_fmt = sprintf("%.3f", p_value),
+    Bandwidth_fmt = sprintf("%.1f", Bandwidth),
+    N_fmt = format(N, big.mark = ",")
+  ) %>%
+  select(Model, Estimate_fmt, Std_Error_fmt, p_value_fmt, Bandwidth_fmt, N_fmt) %>%
+  gt() %>%
+  cols_label(
+    Model = "Model",
+    Estimate_fmt = "Estimate",
+    Std_Error_fmt = "Std. Error",
+    p_value_fmt = "p-value",
+    Bandwidth_fmt = "Bandwidth",
+    N_fmt = "N"
+  ) %>%
+  tab_header(title = "Table B: Placebo Test Summary (December 7, 2021)") %>%
+  tab_footnote(footnote = note_placebo_wrapped)
+
+table_placebo
+
+save_table(table_placebo, "table_placebo_summary")
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```
