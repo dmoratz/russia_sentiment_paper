@@ -522,6 +522,56 @@ table_2f_topic_full <- modelsummary(
 table_2f_topic_full
 ```
 
+# State-Owned and Independent Media Separate RDDs
+
+These analyses mirror the CSTO-only / Neutral-only separate RDDs in the
+heterogeneity analysis (file 06), but applied to state vs independent media
+(drop no-time articles variant; data already filtered to has_time == TRUE).
+
+## State-Owned Media Only RDD
+
+```{r state-only-rdd-drop}
+data_state_only <- data_non_ukraine %>%
+  filter(state_owned == 1) %>%
+  filter(!topic_clean %in% "Military")
+
+covs_state <- model.matrix(~ source_domain + topic_clean - 1, data = data_state_only)
+
+model2_state_rdd <- rdrobust(
+  y = data_state_only$sentiment_clean,
+  x = data_state_only$running_continuous,
+  covs = covs_state,
+  cluster = data_state_only$source_domain
+)
+
+cat("State-Owned Media Only RDD (Drop No-Time)\n")
+summary(model2_state_rdd)
+cat("N (state-owned, non-military, has_time):", nrow(data_state_only), "\n")
+cat("Unique clusters:", length(unique(data_state_only$source_domain)), "\n")
+```
+
+## Independent Media Only RDD
+
+```{r ind-only-rdd-drop}
+data_ind_only <- data_non_ukraine %>%
+  filter(state_owned == 0) %>%
+  filter(!topic_clean %in% "Military")
+
+covs_ind <- model.matrix(~ source_domain + topic_clean - 1, data = data_ind_only)
+
+model2_ind_rdd <- rdrobust(
+  y = data_ind_only$sentiment_clean,
+  x = data_ind_only$running_continuous,
+  covs = covs_ind,
+  cluster = data_ind_only$source_domain
+)
+
+cat("Independent Media Only RDD (Drop No-Time)\n")
+summary(model2_ind_rdd)
+cat("N (independent, non-military, has_time):", nrow(data_ind_only), "\n")
+cat("Unique clusters:", length(unique(data_ind_only$source_domain)), "\n")
+```
+
 # Save Results
 
 ```{r save-drop}
@@ -545,6 +595,9 @@ results_h2_drop <- list(
   model2a_full_econ = model2a_full_econ,
   model2a_full_cult = model2a_full_cult,
   model2a_full_oth = model2a_full_oth,
+  # State-only and independent-only RDDs (cluster-robust SEs via rdrobust)
+  model2_state_rdd = model2_state_rdd,
+  model2_ind_rdd = model2_ind_rdd,
   optimal_bandwidth = optimal_bw,
   optimal_bandwidth_combined = optimal_bw_combined,
   optimal_bw_pol = optimal_bw_pol,

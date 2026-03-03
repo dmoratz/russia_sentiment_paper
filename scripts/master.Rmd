@@ -52,19 +52,28 @@ This master script runs the entire analysis pipeline for the Russia sentiment pa
      │           │     └─────┬─────┘ └────┬────┘ │         │
      │           │           │            │      │         │
      │           ▼           ▼            ▼      ▼         │
-     │      ┌─────────────┐ ┌──────────┐ ┌────────────┐   │
-     │      │     06      │ │   06A    │ │  06B  06C  │   │
-     │      │Heterogeneity│ │Het. Cont │ │Drop   Prob │   │
-     │      └──────┬──────┘ └────┬─────┘ └─────┬──────┘   │
-     │             │             │              │          │
-     └─────────────┴─────┬───────┴──────────────┘          │
-                         │                                 │
-                         ▼                                 │
-                ┌─────────────────┐                        │
-                │       07        │◄───────────────────────┘
-                │  Publication    │────► figures/
-                │    Outputs      │      (tables & plots)
-                └─────────────────┘
+     │      ┌──────────────────────────────────────────┐   │
+     │      │  06: Russian Alignment (CSTO vs Neutral) │   │
+     │      │  06A: Alignment Continuous               │   │
+     │      │  06B: Alignment Drop No-Time             │   │
+     │      │  06C: Alignment Probabilistic            │   │
+     │      └───────────────────┬──────────────────────┘   │
+     │                          │                          │
+     │      ┌───────────────────▼──────────────────────┐   │
+     │      │  07: Ethnic Russian Population           │   │
+     │      │  07A: Ethnic Continuous                  │   │
+     │      │  07B: Ethnic Drop No-Time                │   │
+     │      │  07C: Ethnic Probabilistic               │   │
+     │      └───────────────────┬──────────────────────┘   │
+     │                          │                          │
+     └──────────────────────────┼──────────────────────────┘
+                                │
+                                ▼
+                   ┌─────────────────────┐
+                   │         08          │
+                   │    Publication      │────► figures/
+                   │      Outputs        │      (tables & plots)
+                   └─────────────────────┘
 ```
 
 ## File Descriptions
@@ -77,17 +86,21 @@ This master script runs the entire analysis pipeline for the Russia sentiment pa
 | `03_descriptive_analysis.Rmd` | Summary statistics, EDA | Tables, time series plots |
 | `04_main_rdd_analysis.Rmd` | Hypothesis 1: RDD (day) | `04_h1_results.rds`, figures |
 | `04A_main_rdd_analysis_continuous.Rmd` | Hypothesis 1: RDD (continuous) | `04_h1_results_continuous.rds`, figures |
+| `04B_main_rdd_analysis_drop.Rmd` | H1: RDD (drop no-time articles) | `04_h1_results_drop.rds` |
+| `04C_main_rdd_analysis_prob.Rmd` | H1: RDD (probabilistic time) | `04_h1_results_prob.rds` |
 | `05_diff_in_disc_analysis.Rmd` | Hypothesis 2: Diff-in-disc (day) | `05_h2_results.rds`, figures |
 | `05A_diff_in_disc_analysis_continuous.Rmd` | Hypothesis 2: Diff-in-disc (continuous) | `05_h2_results_continuous.rds`, figures |
-| `06_heterogeneity_analysis.Rmd` | Alignment, ethnic effects (day) | `06_heterogeneity_results.rds` |
-| `06A_heterogeneity_analysis_continuous.Rmd` | Alignment, ethnic effects (continuous) | `06_heterogeneity_results_continuous.rds` |
-| `04B_main_rdd_analysis_drop.Rmd` | H1: RDD (drop no-time articles) | `04_h1_results_drop.rds` |
 | `05B_diff_in_disc_analysis_drop.Rmd` | H2: Diff-in-disc (drop no-time) | `05_h2_results_drop.rds` |
-| `06B_heterogeneity_analysis_drop.Rmd` | Heterogeneity (drop no-time) | `06_heterogeneity_results_drop.rds` |
-| `04C_main_rdd_analysis_prob.Rmd` | H1: RDD (probabilistic time) | `04_h1_results_prob.rds` |
 | `05C_diff_in_disc_analysis_prob.Rmd` | H2: Diff-in-disc (probabilistic time) | `05_h2_results_prob.rds` |
-| `06C_heterogeneity_analysis_prob.Rmd` | Heterogeneity (probabilistic time) | `06_heterogeneity_results_prob.rds` |
-| `07_publication_outputs.Rmd` | Final tables and figures | Publication-ready outputs |
+| `06_russian_alignment_analysis.Rmd` | CSTO vs Neutral alignment (day) | `06_alignment_results.rds` |
+| `06A_russian_alignment_analysis_continuous.Rmd` | Alignment analysis (continuous) | `06_alignment_results_continuous.rds` |
+| `06B_russian_alignment_analysis_drop.Rmd` | Alignment analysis (drop no-time) | `06_alignment_results_drop.rds` |
+| `06C_russian_alignment_analysis_prob.Rmd` | Alignment analysis (probabilistic) | `06_alignment_results_prob.rds` |
+| `07_ethnic_russian_analysis.Rmd` | Ethnic Russian population effects (day) | `07_ethnic_results.rds` |
+| `07A_ethnic_russian_analysis_continuous.Rmd` | Ethnic Russian analysis (continuous) | `07_ethnic_results_continuous.rds` |
+| `07B_ethnic_russian_analysis_drop.Rmd` | Ethnic Russian analysis (drop no-time) | `07_ethnic_results_drop.rds` |
+| `07C_ethnic_russian_analysis_prob.Rmd` | Ethnic Russian analysis (probabilistic) | `07_ethnic_results_prob.rds` |
+| `08_publication_outputs.Rmd` | Final tables and figures | Publication-ready outputs (.tex + .html) |
 
 # Run Pipeline
 
@@ -210,14 +223,14 @@ step5a_time <- difftime(Sys.time(), step5a_start, units = "secs")
 cat("Completed in", round(step5a_time, 1), "seconds\n")
 ```
 
-## Step 6: Heterogeneity Analysis
+## Step 6: Russian Alignment Analysis
 
 ```{r step6}
 step6_start <- Sys.time()
-cat("Running 06_heterogeneity_analysis.Rmd...\n")
+cat("Running 06_russian_alignment_analysis.Rmd...\n")
 
 rmarkdown::render(
-  "06_heterogeneity_analysis.Rmd",
+  "06_russian_alignment_analysis.Rmd",
   output_dir = "../output",
   quiet = TRUE
 )
@@ -226,14 +239,14 @@ step6_time <- difftime(Sys.time(), step6_start, units = "secs")
 cat("Completed in", round(step6_time, 1), "seconds\n")
 ```
 
-## Step 6A: Heterogeneity Analysis (Continuous Running Variable)
+## Step 6A: Russian Alignment Analysis (Continuous Running Variable)
 
 ```{r step6a}
 step6a_start <- Sys.time()
-cat("Running 06A_heterogeneity_analysis_continuous.Rmd...\n")
+cat("Running 06A_russian_alignment_analysis_continuous.Rmd...\n")
 
 rmarkdown::render(
-  "06A_heterogeneity_analysis_continuous.Rmd",
+  "06A_russian_alignment_analysis_continuous.Rmd",
   output_dir = "../output",
   quiet = TRUE
 )
@@ -274,14 +287,14 @@ step5b_time <- difftime(Sys.time(), step5b_start, units = "secs")
 cat("Completed in", round(step5b_time, 1), "seconds\n")
 ```
 
-## Step 6B: Heterogeneity Analysis (Drop No-Time Articles)
+## Step 6B: Russian Alignment Analysis (Drop No-Time Articles)
 
 ```{r step6b}
 step6b_start <- Sys.time()
-cat("Running 06B_heterogeneity_analysis_drop.Rmd...\n")
+cat("Running 06B_russian_alignment_analysis_drop.Rmd...\n")
 
 rmarkdown::render(
-  "06B_heterogeneity_analysis_drop.Rmd",
+  "06B_russian_alignment_analysis_drop.Rmd",
   output_dir = "../output",
   quiet = TRUE
 )
@@ -322,14 +335,14 @@ step5c_time <- difftime(Sys.time(), step5c_start, units = "secs")
 cat("Completed in", round(step5c_time, 1), "seconds\n")
 ```
 
-## Step 6C: Heterogeneity Analysis (Probabilistic Time)
+## Step 6C: Russian Alignment Analysis (Probabilistic Time)
 
 ```{r step6c}
 step6c_start <- Sys.time()
-cat("Running 06C_heterogeneity_analysis_prob.Rmd...\n")
+cat("Running 06C_russian_alignment_analysis_prob.Rmd...\n")
 
 rmarkdown::render(
-  "06C_heterogeneity_analysis_prob.Rmd",
+  "06C_russian_alignment_analysis_prob.Rmd",
   output_dir = "../output",
   quiet = TRUE
 )
@@ -338,20 +351,84 @@ step6c_time <- difftime(Sys.time(), step6c_start, units = "secs")
 cat("Completed in", round(step6c_time, 1), "seconds\n")
 ```
 
-## Step 7: Publication Outputs
+## Step 7: Ethnic Russian Population Analysis
 
 ```{r step7}
 step7_start <- Sys.time()
-cat("Running 07_publication_outputs.Rmd...\n")
+cat("Running 07_ethnic_russian_analysis.Rmd...\n")
 
 rmarkdown::render(
-  "07_publication_outputs.Rmd",
+  "07_ethnic_russian_analysis.Rmd",
   output_dir = "../output",
   quiet = TRUE
 )
 
 step7_time <- difftime(Sys.time(), step7_start, units = "secs")
 cat("Completed in", round(step7_time, 1), "seconds\n")
+```
+
+## Step 7A: Ethnic Russian Population Analysis (Continuous Running Variable)
+
+```{r step7a}
+step7a_start <- Sys.time()
+cat("Running 07A_ethnic_russian_analysis_continuous.Rmd...\n")
+
+rmarkdown::render(
+  "07A_ethnic_russian_analysis_continuous.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step7a_time <- difftime(Sys.time(), step7a_start, units = "secs")
+cat("Completed in", round(step7a_time, 1), "seconds\n")
+```
+
+## Step 7B: Ethnic Russian Population Analysis (Drop No-Time Articles)
+
+```{r step7b}
+step7b_start <- Sys.time()
+cat("Running 07B_ethnic_russian_analysis_drop.Rmd...\n")
+
+rmarkdown::render(
+  "07B_ethnic_russian_analysis_drop.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step7b_time <- difftime(Sys.time(), step7b_start, units = "secs")
+cat("Completed in", round(step7b_time, 1), "seconds\n")
+```
+
+## Step 7C: Ethnic Russian Population Analysis (Probabilistic Time)
+
+```{r step7c}
+step7c_start <- Sys.time()
+cat("Running 07C_ethnic_russian_analysis_prob.Rmd...\n")
+
+rmarkdown::render(
+  "07C_ethnic_russian_analysis_prob.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step7c_time <- difftime(Sys.time(), step7c_start, units = "secs")
+cat("Completed in", round(step7c_time, 1), "seconds\n")
+```
+
+## Step 8: Publication Outputs
+
+```{r step8}
+step8_start <- Sys.time()
+cat("Running 08_publication_outputs.Rmd...\n")
+
+rmarkdown::render(
+  "08_publication_outputs.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step8_time <- difftime(Sys.time(), step8_start, units = "secs")
+cat("Completed in", round(step8_time, 1), "seconds\n")
 ```
 
 # Cleanup
@@ -375,24 +452,28 @@ cat("=============================================================\n")
 cat("PIPELINE COMPLETE\n")
 cat("=============================================================\n")
 cat("\nStep Timings:\n")
-cat("  01_data_loading:        ", round(step1_time, 1), "s\n")
-cat("  02_data_cleaning:       ", round(step2_time, 1), "s\n")
-cat("  03_descriptive_analysis:", round(step3_time, 1), "s\n")
-cat("  04_main_rdd_analysis:   ", round(step4_time, 1), "s\n")
-cat("  04A_rdd_continuous:     ", round(step4a_time, 1), "s\n")
-cat("  04B_rdd_drop:           ", round(step4b_time, 1), "s\n")
-cat("  04C_rdd_prob:           ", round(step4c_time, 1), "s\n")
-cat("  05_diff_in_disc:        ", round(step5_time, 1), "s\n")
-cat("  05A_disc_continuous:    ", round(step5a_time, 1), "s\n")
-cat("  05B_disc_drop:          ", round(step5b_time, 1), "s\n")
-cat("  05C_disc_prob:          ", round(step5c_time, 1), "s\n")
-cat("  06_heterogeneity:       ", round(step6_time, 1), "s\n")
-cat("  06A_het_continuous:     ", round(step6a_time, 1), "s\n")
-cat("  06B_het_drop:           ", round(step6b_time, 1), "s\n")
-cat("  06C_het_prob:           ", round(step6c_time, 1), "s\n")
-cat("  07_publication_outputs: ", round(step7_time, 1), "s\n")
+cat("  01_data_loading:         ", round(step1_time, 1), "s\n")
+cat("  02_data_cleaning:        ", round(step2_time, 1), "s\n")
+cat("  03_descriptive_analysis: ", round(step3_time, 1), "s\n")
+cat("  04_main_rdd_analysis:    ", round(step4_time, 1), "s\n")
+cat("  04A_rdd_continuous:      ", round(step4a_time, 1), "s\n")
+cat("  04B_rdd_drop:            ", round(step4b_time, 1), "s\n")
+cat("  04C_rdd_prob:            ", round(step4c_time, 1), "s\n")
+cat("  05_diff_in_disc:         ", round(step5_time, 1), "s\n")
+cat("  05A_disc_continuous:     ", round(step5a_time, 1), "s\n")
+cat("  05B_disc_drop:           ", round(step5b_time, 1), "s\n")
+cat("  05C_disc_prob:           ", round(step5c_time, 1), "s\n")
+cat("  06_alignment:            ", round(step6_time, 1), "s\n")
+cat("  06A_alignment_continuous:", round(step6a_time, 1), "s\n")
+cat("  06B_alignment_drop:      ", round(step6b_time, 1), "s\n")
+cat("  06C_alignment_prob:      ", round(step6c_time, 1), "s\n")
+cat("  07_ethnic:               ", round(step7_time, 1), "s\n")
+cat("  07A_ethnic_continuous:   ", round(step7a_time, 1), "s\n")
+cat("  07B_ethnic_drop:         ", round(step7b_time, 1), "s\n")
+cat("  07C_ethnic_prob:         ", round(step7c_time, 1), "s\n")
+cat("  08_publication_outputs:  ", round(step8_time, 1), "s\n")
 cat("  ─────────────────────────────\n")
-cat("  Total:                  ", round(pipeline_total, 2), "min\n")
+cat("  Total:                   ", round(pipeline_total, 2), "min\n")
 cat("\n")
 cat("Outputs saved to:\n")
 cat("  - data/intermediate/  (RDS files)\n")
