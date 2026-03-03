@@ -345,7 +345,7 @@ summary(model3a_opt)
 
 # Robustness: Heavily Saturated Combined Filter with Re-Optimized Bandwidth
 
-```{r combined-robust-model}
+```{r combined-saturated-robust-model}
 
 model3a_opt_saturated <- felm(sentiment_clean ~ running * treatment * state_owned | 
                           source_domain:topic_clean + country:state_owned + country:topic_clean:treatment | 
