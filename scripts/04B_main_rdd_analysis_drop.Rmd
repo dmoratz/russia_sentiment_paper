@@ -229,7 +229,7 @@ optimal_bandwidth_data_filtered <- optimal_bandwidth_data %>%
 # Fully saturated felm RDD model
 model4_felm_saturated <- felm(
   sentiment_clean ~ post + running_continuous + running_continuous:post |
-    source_domain:topic_clean |
+    as.factor(source_domain):as.factor(topic_clean) |
     0 |
     source_domain,
   data = optimal_bandwidth_data_filtered
