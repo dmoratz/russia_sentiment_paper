@@ -575,6 +575,8 @@ note_t3 <- paste("Standard errors computed via wild cluster bootstrap (9999 iter
 
 # Create vcov list with bootstrap SEs for felm models (columns 3-7)
 vcov_t3 <- list(
+  NULL,
+  NULL,
   "(3)" = create_bootstrap_vcov(results_align$model5a_full, results_align$bootstrap_se$model5a_full, "treatment:csto"),
   "(4)" = create_bootstrap_vcov(results_align$model5a_opt, results_align$bootstrap_se$model5a_opt, "treatment:csto"),
   "(5)" = create_bootstrap_vcov(results_align$model5a_opt_non_mil, results_align$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
@@ -611,6 +613,7 @@ table_3
 save_table(table_3, "table_03_alignment_main")
 ```
 
+
 ## Table 3A: Heterogeneity (Continuous)
 
 ```{r table3a}
@@ -631,6 +634,8 @@ note_t3a <- paste("Standard errors computed via wild cluster bootstrap (9999 ite
 
 # Create vcov list with bootstrap SEs for felm models
 vcov_t3a <- list(
+  NULL,
+  NULL,
   "(3)" = create_bootstrap_vcov(results_align_cont$model5a_full, results_align_cont$bootstrap_se$model5a_full, "treatment:csto"),
   "(4)" = create_bootstrap_vcov(results_align_cont$model5a_opt, results_align_cont$bootstrap_se$model5a_opt, "treatment:csto"),
   "(5)" = create_bootstrap_vcov(results_align_cont$model5a_opt_non_mil, results_align_cont$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
@@ -1430,6 +1435,8 @@ note_t3f <- paste("Standard errors computed via wild cluster bootstrap (9999 ite
 
 # Create vcov list with bootstrap SEs for felm models
 vcov_t3f <- list(
+  NULL,
+  NULL,
   "(3)" = create_bootstrap_vcov(results_align_drop$model5a_full, results_align_drop$bootstrap_se$model5a_full, "treatment:csto"),
   "(4)" = create_bootstrap_vcov(results_align_drop$model5a_opt, results_align_drop$bootstrap_se$model5a_opt, "treatment:csto"),
   "(5)" = create_bootstrap_vcov(results_align_drop$model5a_opt_non_mil, results_align_drop$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
@@ -1950,6 +1957,8 @@ note_t3i <- paste("Standard errors computed via wild cluster bootstrap (9999 ite
 
 # Create vcov list with bootstrap SEs for felm models
 vcov_t3i <- list(
+  NULL,
+  NULL,
   "(3)" = create_bootstrap_vcov(results_align_prob$model5a_full, results_align_prob$bootstrap_se$model5a_full, "treatment:csto"),
   "(4)" = create_bootstrap_vcov(results_align_prob$model5a_opt, results_align_prob$bootstrap_se$model5a_opt, "treatment:csto"),
   "(5)" = create_bootstrap_vcov(results_align_prob$model5a_opt_non_mil, results_align_prob$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
