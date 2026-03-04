@@ -53,7 +53,7 @@ run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999
   )
 
   list(
-    se = boot_result$se,
+    se = boot_result$point_estimate / boot_result$t_stat,
     p_val = boot_result$p_val,
     ci_lower = boot_result$conf_int[1],
     ci_upper = boot_result$conf_int[2],
