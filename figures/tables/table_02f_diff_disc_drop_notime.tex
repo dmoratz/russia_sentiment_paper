@@ -1,0 +1,35 @@
+\begin{table}[t]
+\caption{\label{tab:table2f}Table 2F: Diff-in-Disc (Drop No-Time Articles)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) & (7) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.134*** & -0.099*** & -0.136*** & -0.121*** & -0.155*** & -0.179*** &  \\ 
+ & (0.010) & (0.017) & (0.013) & (0.010) & (0.011) & (0.013) &  \\ 
+State Owned x Treatment & 0.045 & 0.019 & 0.078** & 0.050 & 0.079* & 0.097** & 0.143*** \\ 
+{} & {(0.024)} & {(0.033)} & {(0.027)} & {(0.025)} & {(0.032)} & {(0.034)} & {(0.030)} \\ 
+State FEs & X & X & X & X & X & X & X \\ 
+Source FEs & - & - & - & - & - & - & X \\ 
+Topic FEs & X & X & X & X & X & X & X \\ 
+Clusters & 48 & 47 & 34 & 48 & 48 & 32 & 32 \\ 
+Num.Obs. & 140099 & 30599 & 94653 & 103791 & 81445 & 15806 & 15803 \\ 
+R2 & 0.071 & 0.067 & 0.083 & 0.046 & 0.063 & 0.067 & 0.111 \\ 
+R2 Adj. & 0.071 & 0.067 & 0.083 & 0.046 & 0.063 & 0.066 & 0.100 \\ 
+R2 Within & 0.015 & 0.027 & 0.021 & 0.013 & 0.017 & 0.034 & 0.007 \\ 
+R2 Within Adj. & 0.015 & 0.027 & 0.021 & 0.013 & 0.017 & 0.034 & 0.007 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are dropped. Model 2 uses the optimal bandwidth. Model
+3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses
+only Russian-related articles. Model 6 combines all robustness filters with
+a re-optimized bandwidth. Model 7 uses full saturation (source-topic and
+country-state-topic FEs). † Wild cluster bootstrap SEs (B=9999, Rademacher, null
+imposed), clustered by source domain. ‡ Cluster-robust SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

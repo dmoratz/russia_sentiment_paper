@@ -1,0 +1,37 @@
+\begin{table}[t]
+\caption{\label{tab:table4f}Table 4F: Ethnic Heterogeneity (Drop No-Time Articles)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccc}
+\toprule
+  & (1) & (2) & (3) & (4) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.036 & -0.056 & -0.050 & -0.067 \\ 
+ & (0.030) & (0.038) & (0.043) & (0.041) \\ 
+High Russian Pop x Treatment & -0.055 & -0.024 & 0.024 & -0.008 \\ 
+{} & {(0.040)} & {(0.054)} & {(0.062)} & {(0.062)} \\ 
+State FEs & X & X & X & X \\ 
+Source FEs & - & - & - & - \\ 
+Topic FEs & X & X & X & X \\ 
+Clusters & 11 & 11 & 11 & 11 \\ 
+Num.Obs. & 25494 & 7540 & 6346 & 5122 \\ 
+R2 & 0.046 & 0.041 & 0.031 & 0.038 \\ 
+R2 Adj. & 0.045 & 0.039 & 0.030 & 0.036 \\ 
+R2 Within & 0.009 & 0.011 & 0.010 & 0.016 \\ 
+R2 Within Adj. & 0.009 & 0.010 & 0.009 & 0.014 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher
+weights), clustered at source level. Articles without publication times are
+dropped. Model 1 uses full data with topic fixed effects. Model 2 uses the
+optimal bandwidth with topic fixed effects. Model 3 omits military-related
+articles and uses a re-optimized bandwidth. Model 4 uses only Russian-related
+(non-military) articles with a re-optimized bandwidth. Sample restricted to
+state-owned media in non-NATO countries. † Wild cluster bootstrap SEs (B=9999,
+Rademacher, null imposed), clustered by source domain. ‡ Cluster-robust SEs from
+rdrobust.\\
+\end{minipage}
+\end{table}
+

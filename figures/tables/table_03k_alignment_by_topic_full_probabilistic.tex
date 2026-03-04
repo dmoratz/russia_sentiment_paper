@@ -1,0 +1,31 @@
+\begin{table}[t]
+\caption{\label{tab:table3k}Table 3K: Alignment By Topic, Full Data (Probabilistic Time)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & 0.020 & -0.168 & 0.055 & -0.426* & 0.084 \\ 
+ & (0.057) & (0.081) & (0.063) & (0.192) & (0.210) \\ 
+CSTO x Treatment & -0.079 & 0.024 & -0.243** & 0.310 & -0.091 \\ 
+{} & {(0.063)} & {(0.088)} & {(0.069)} & {(0.198)} & {(0.210)} \\ 
+State FEs & X & X & X & X & X \\ 
+Source FEs & - & - & - & - & - \\ 
+Topic FEs & - & - & - & - & - \\ 
+Clusters & 13 & 13 & 13 & 13 & 13 \\ 
+Num.Obs. & 9049 & 4376 & 4884 & 2401 & 6201 \\ 
+R2 & 0.040 & 0.046 & 0.052 & 0.023 & 0.030 \\ 
+R2 Adj. & 0.039 & 0.044 & 0.051 & 0.020 & 0.029 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are assigned times via KDE sampling. Each model uses the full
+dataset (no bandwidth restriction). State media in non-NATO countries only.
+† Wild cluster bootstrap SEs (B=9999, Rademacher, null imposed), clustered by
+source domain. ‡ Cluster-robust SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

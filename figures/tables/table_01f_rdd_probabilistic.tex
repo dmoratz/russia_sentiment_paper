@@ -1,0 +1,37 @@
+\begin{table}[t]
+\caption{\label{tab:table1f}Table 1F: RDD with Probabilistic Time Assignment} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) & (7) & (8) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.130*** & -0.126*** & -0.119*** & -0.106*** & -0.140*** & -0.091*** & -0.129*** & -0.131*** \\ 
+{} & {(0.022)} & {(0.019)} & {(0.015)} & {(0.015)} & {(0.008)} & {(0.015)} & {(0.016)} & {(0.015)} \\ 
+State FEs & - & X & X & X & X & X & X & X \\ 
+Source FEs & - & - & X & X & X & X & X & X \\ 
+Topic FEs & - & - & - & X & X & X & X & X \\ 
+Clusters & — & — & — & — & 62 & — & — & 61 \\ 
+Num.Obs. & 174094 & 174094 & 174094 & 174094 & 174094 & 130525 & 121894 & 40906 \\ 
+R2 &  &  &  &  & 0.087 &  &  & 0.095 \\ 
+R2 Adj. &  &  &  &  & 0.086 &  &  & 0.088 \\ 
+R2 Within &  &  &  &  & 0.011 &  &  & 0.020 \\ 
+R2 Within Adj. &  &  &  &  & 0.011 &  &  & 0.020 \\ 
+bandwidth.right & 1830177.43094983 & 1853289.1820545 & 1518710.54816874 & 1500386.97390617 &  & 1466662.29745009 & 2196440.18249038 &  \\ 
+nobs.left & 51504 & 51504 & 51504 & 51504 &  & 42682 & 39608 &  \\ 
+nobs.right & 122590 & 122590 & 122590 & 122590 &  & 87843 & 82286 &  \\ 
+bandwidth.left & 1830177.43094983 & 1853289.1820545 & 1518710.54816874 & 1500386.97390617 &  & 1466662.29745009 & 2196440.18249038 &  \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are assigned times via KDE sampling from same-source
+distributions. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear
+specification with the full set of articles. Model 6 omits Military Topics.
+Model 7 omits NATO allies. Model 8 uses full saturation (country-source-topic
+FEs). † Wild cluster bootstrap SEs (B=9999, Rademacher, null imposed), clustered
+by source domain. ‡ Cluster-robust SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

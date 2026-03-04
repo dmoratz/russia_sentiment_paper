@@ -1,0 +1,30 @@
+\begin{table}[t]
+\caption{\label{tab:table1e}Table 1E: RDD By Topic (Drop No-Time Articles)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.077*** & -0.159*** & -0.144*** & -0.316*** & -0.133*** \\ 
+{} & {(0.019)} & {(0.027)} & {(0.025)} & {(0.047)} & {(0.020)} \\ 
+State FEs & X & X & X & X & X \\ 
+Source FEs & X & X & X & X & X \\ 
+Topic FEs & - & - & - & - & - \\ 
+Clusters & — & — & — & — & — \\ 
+Num.Obs. & 49792 & 36308 & 21086 & 8298 & 24615 \\ 
+nobs.left & 15872 & 6927 & 4258 & 3062 & 8975 \\ 
+nobs.right & 33920 & 29381 & 16828 & 5236 & 15640 \\ 
+bandwidth.left & 1497591.8524403 & 2177550.42542523 & 3185248.2169177 & 3337789.75006841 & 3000560.8342049 \\ 
+bandwidth.right & 1497591.8524403 & 2177550.42542523 & 3185248.2169177 & 3337789.75006841 & 3000560.8342049 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are dropped. All models use the optimal bandwidth with country
+and source fixed effects. † Wild cluster bootstrap SEs (B=9999, Rademacher, null
+imposed), clustered by source domain. ‡ Cluster-robust SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

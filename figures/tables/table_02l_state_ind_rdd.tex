@@ -1,0 +1,27 @@
+\begin{table}[t]
+\caption{\label{tab:table2l}Table 2L: RDD for State-Owned and Independent Media Separately (Day)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcc}
+\toprule
+  & State Media & Independent Media \\ 
+\midrule\addlinespace[2.5pt]
+Invasion (RDD) & -0.042 & -0.116*** \\ 
+{} & {(0.024)} & {(0.015)} \\ 
+Num.Obs. & 30978 & 99547 \\ 
+nobs.left & 11213 & 31469 \\ 
+nobs.right & 19765 & 68078 \\ 
+bandwidth.left & 37.1937803367753 & 26.1793484374677 \\ 
+bandwidth.right & 37.1937803367753 & 26.1793484374677 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+Separate RDD estimates for state-owned and independent media using the day
+running variable. Bandwidths selected by MSE-optimal bandwidth selector.
+Standard errors are cluster-robust (rdrobust). † Wild cluster bootstrap SEs
+(B=9999, Rademacher, null imposed), clustered by source domain. ‡ Cluster-robust
+SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

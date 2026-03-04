@@ -1,0 +1,33 @@
+\begin{table}[t]
+\caption{\label{tab:table2j}Table 2J: Diff-in-Disc By Topic, Optimal BW (Probabilistic Time)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.104*** & -0.258*** & -0.226*** & -0.320*** & -0.181*** \\ 
+ & (0.015) & (0.042) & (0.036) & (0.040) & (0.022) \\ 
+State Owned x Treatment & 0.099* & -0.027 & 0.136 & -0.041 & 0.153** \\ 
+{} & {(0.039)} & {(0.054)} & {(0.077)} & {(0.098)} & {(0.050)} \\ 
+State FEs & X & X & X & X & X \\ 
+Source FEs & - & - & - & - & - \\ 
+Topic FEs & - & - & - & - & - \\ 
+Clusters & 61 & 60 & 60 & 60 & 61 \\ 
+Num.Obs. & 16703 & 17373 & 9456 & 3675 & 13687 \\ 
+R2 & 0.033 & 0.045 & 0.053 & 0.075 & 0.047 \\ 
+R2 Adj. & 0.032 & 0.044 & 0.051 & 0.071 & 0.046 \\ 
+R2 Within & 0.025 & 0.029 & 0.034 & 0.054 & 0.021 \\ 
+R2 Within Adj. & 0.024 & 0.029 & 0.034 & 0.052 & 0.021 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are assigned times via KDE sampling. All models use a
+per-topic re-optimized bandwidth with country fixed effects only. † Wild cluster
+bootstrap SEs (B=9999, Rademacher, null imposed), clustered by source domain. ‡
+Cluster-robust SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

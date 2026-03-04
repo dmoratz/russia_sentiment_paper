@@ -1,0 +1,31 @@
+\begin{table}[t]
+\caption{\label{tab:table4g}Table 4G: Ethnic By Topic, Optimal BW (Drop No-Time Articles)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.108 & -0.046 & 0.029 & -0.246 & -0.054 \\ 
+ & (0.050) & (0.053) & (0.077) & (0.183) & (0.053) \\ 
+High Russian Pop x Treatment & 0.064 & -0.207 & -0.095 & -0.141 & 0.174 \\ 
+{} & {(0.082)} & {(0.161)} & {(0.143)} & {(0.233)} & {(0.156)} \\ 
+State FEs & X & X & X & X & X \\ 
+Source FEs & - & - & - & - & - \\ 
+Topic FEs & - & - & - & - & - \\ 
+Clusters & 11 & 11 & 11 & 11 & 11 \\ 
+Num.Obs. & 2605 & 1534 & 1330 & 487 & 2115 \\ 
+R2 & 0.008 & 0.045 & 0.051 & 0.119 & 0.010 \\ 
+R2 Adj. & 0.005 & 0.041 & 0.046 & 0.106 & 0.007 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are dropped. Each model uses a per-topic re-optimized
+bandwidth. State media in non-NATO countries only. † Wild cluster bootstrap SEs
+(B=9999, Rademacher, null imposed), clustered by source domain. ‡ Cluster-robust
+SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

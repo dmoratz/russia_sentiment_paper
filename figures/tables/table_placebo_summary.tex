@@ -1,0 +1,23 @@
+\begin{table}[t]
+\caption*{
+{\fontsize{20}{25}\selectfont  Table B: Placebo Test Summary (December 7, 2021)\fontsize{12}{15}\selectfont }
+} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrrrr}
+\toprule
+Model & Estimate & Std. Error & p-value & Bandwidth & N \\ 
+\midrule\addlinespace[2.5pt]
+(1) H1: Full Model (RDD) & -0.023 & (0.035) & 0.514 & 9.1 &  4,449 \\ 
+(2) H2: Diff-in-Disc & -0.023 & (0.035) & 0.514 & 15.6 & 10,052 \\ 
+(3) H3: Non-Military & -0.023 & (0.035) & 0.514 & 35.3 &  3,067 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+Placebo tests using December 7, 2021 (Putin's announcement) as a false treatment
+date. Data restricted to pre-invasion period (before Feb 19, 2022). Model 1 uses
+rdrobust; Models 2-3 use felm with optimal bandwidth. Non-significant treatment
+effects suggest parallel trends assumption holds.\\
+\end{minipage}
+\end{table}
+

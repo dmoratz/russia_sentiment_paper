@@ -1,0 +1,36 @@
+\begin{table}[t]
+\caption{\label{tab:table1a}Table 1A: Effect of Russian Invasion on Media Sentiment (RDD) with Continuous Running Variable} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) & (7) & (8) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.138*** & -0.132*** & -0.121*** & -0.108*** & -0.140*** & -0.090*** & -0.132*** & -0.141*** \\ 
+{} & {(0.020)} & {(0.017)} & {(0.013)} & {(0.013)} & {(0.008)} & {(0.015)} & {(0.014)} & {(0.013)} \\ 
+State FEs & - & X & X & X & X & X & X & X \\ 
+Source FEs & - & - & X & X & X & X & X & X \\ 
+Topic FEs & - & - & - & X & X & X & X & X \\ 
+Clusters & — & — & — & — & 62 & — & — & 61 \\ 
+Num.Obs. & 174094 & 174094 & 174094 & 174094 & 174094 & 130525 & 121894 & 44871 \\ 
+R2 &  &  &  &  & 0.087 &  &  & 0.097 \\ 
+R2 Adj. &  &  &  &  & 0.086 &  &  & 0.091 \\ 
+R2 Within &  &  &  &  & 0.011 &  &  & 0.020 \\ 
+R2 Within Adj. &  &  &  &  & 0.011 &  &  & 0.019 \\ 
+bandwidth.right & 2088493.1933757 & 2068010.76204664 & 1713361.57608698 & 1668483.07416178 &  & 1398968.31293437 & 2354659.53938999 &  \\ 
+nobs.left & 51504 & 51504 & 51504 & 51504 &  & 42682 & 39608 &  \\ 
+nobs.right & 122590 & 122590 & 122590 & 122590 &  & 87843 & 82286 &  \\ 
+bandwidth.left & 2088493.1933757 & 2068010.76204664 & 1713361.57608698 & 1668483.07416178 &  & 1398968.31293437 & 2354659.53938999 &  \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Models 1-4 uses the
+optimal bandwidth. Model 5 uses a linear specification with the full set of
+articles. Model 6 omits Military Topics. Model 7 omits NATO allies. Model 8
+uses full saturation (country-source-topic FEs). † Wild cluster bootstrap SEs
+(B=9999, Rademacher, null imposed), clustered by source domain. ‡ Cluster-robust
+SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

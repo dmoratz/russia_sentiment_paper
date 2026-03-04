@@ -1,0 +1,31 @@
+\begin{table}[t]
+\caption{\label{tab:table4b}Table 4B: Ethnic Heterogeneity By Topic (Per-Topic Optimal BW, Day)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.036 & -0.087* & -0.035 & -0.195 & -0.049 \\ 
+ & (0.028) & (0.037) & (0.085) & (0.150) & (0.047) \\ 
+High Russian Pop x Treatment & 0.035 & -0.235 & 0.027 & -0.110 & 0.150 \\ 
+{} & {(0.065)} & {(0.128)} & {(0.156)} & {(0.182)} & {(0.129)} \\ 
+State FEs & X & X & X & X & X \\ 
+Source FEs & - & - & - & - & - \\ 
+Topic FEs & - & - & - & - & - \\ 
+Clusters & 13 & 13 & 13 & 13 & 13 \\ 
+Num.Obs. & 3456 & 2212 & 1613 & 595 & 2390 \\ 
+R2 & 0.004 & 0.024 & 0.043 & 0.100 & 0.010 \\ 
+R2 Adj. & 0.002 & 0.020 & 0.039 & 0.089 & 0.007 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher
+weights), clustered at source level. Each model uses a per-topic re-optimized
+bandwidth. State media in non-NATO countries only. † Wild cluster bootstrap SEs
+(B=9999, Rademacher, null imposed), clustered by source domain. ‡ Cluster-robust
+SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

@@ -1,0 +1,43 @@
+\begin{table}[t]
+\caption{\label{tab:table3f}Table 3F: Russian Alignment Heterogeneity (Drop No-Time Articles)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.105*** & 0.035 & 0.004 & 0.019 & 0.130* & 0.108 \\ 
+ & (0.028) & (0.031) & (0.087) & (0.047) & (0.058) & (0.080) \\ 
+CSTO x Treatment &  &  & -0.097 & -0.112 & -0.207* & -0.217* \\ 
+{} & {} & {} & {(0.088)} & {(0.058)} & {(0.066)} & {(0.087)} \\ 
+State FEs & - & - & X & X & X & X \\ 
+Source FEs & - & - & - & - & - & - \\ 
+Topic FEs & - & - & X & X & X & X \\ 
+Clusters & — & — & 11 & 11 & 11 & 11 \\ 
+Num.Obs. & 17535 & 3906 & 25494 & 7540 & 6346 & 5122 \\ 
+R2 &  &  & 0.070 & 0.061 & 0.049 & 0.081 \\ 
+R2 Adj. &  &  & 0.069 & 0.059 & 0.048 & 0.079 \\ 
+R2 Within &  &  & 0.034 & 0.031 & 0.029 & 0.059 \\ 
+R2 Within Adj. &  &  & 0.033 & 0.031 & 0.028 & 0.058 \\ 
+bandwidth.left & 29.7724182600439 & 39.8499994944398 &  &  &  &  \\ 
+bandwidth.right & 29.7724182600439 & 39.8499994944398 &  &  &  &  \\ 
+nobs.left & 7151 & 1487 &  &  &  &  \\ 
+nobs.right & 10384 & 2419 &  &  &  &  \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher
+weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust
+standard errors. Articles without publication times are dropped. Model 1 shows
+RDD results for CSTO countries only. Model 2 shows RDD results for Neutral
+countries only. Model 3 uses full data with topic fixed effects. Model 4 uses
+the optimal bandwidth with topic fixed effects. Model 5 omits military-related
+articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related
+(non-military) articles with a re-optimized bandwidth. Sample restricted to
+state-owned media in non-NATO countries. † Wild cluster bootstrap SEs (B=9999,
+Rademacher, null imposed), clustered by source domain. ‡ Cluster-robust SEs from
+rdrobust.\\
+\end{minipage}
+\end{table}
+

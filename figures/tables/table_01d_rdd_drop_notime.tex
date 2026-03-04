@@ -1,0 +1,36 @@
+\begin{table}[t]
+\caption{\label{tab:table1d}Table 1D: RDD with Continuous Running Variable (Drop No-Time Articles)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) & (7) & (8) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.104*** & -0.098*** & -0.094*** & -0.085*** & -0.127*** & -0.076*** & -0.095*** & -0.095*** \\ 
+{} & {(0.025)} & {(0.022)} & {(0.016)} & {(0.016)} & {(0.008)} & {(0.017)} & {(0.018)} & {(0.015)} \\ 
+State FEs & - & X & X & X & X & X & X & X \\ 
+Source FEs & - & - & X & X & X & X & X & X \\ 
+Topic FEs & - & - & - & X & X & X & X & X \\ 
+Clusters & — & — & — & — & 48 & — & — & 47 \\ 
+Num.Obs. & 140099 & 140099 & 140099 & 140099 & 140099 & 103791 & 94653 & 30596 \\ 
+R2 &  &  &  &  & 0.083 &  &  & 0.094 \\ 
+R2 Adj. &  &  &  &  & 0.083 &  &  & 0.087 \\ 
+R2 Within &  &  &  &  & 0.009 &  &  & 0.022 \\ 
+R2 Within Adj. &  &  &  &  & 0.009 &  &  & 0.022 \\ 
+bandwidth.right & 1616985.94444007 & 1632305.85693643 & 1274921.31078541 & 1235537.49324429 &  & 1328826.51078999 & 1890953.34064843 &  \\ 
+nobs.left & 39094 & 39094 & 39094 & 39094 &  & 32167 & 28472 &  \\ 
+nobs.right & 101005 & 101005 & 101005 & 101005 &  & 71624 & 66181 &  \\ 
+bandwidth.left & 1616985.94444007 & 1632305.85693643 & 1274921.31078541 & 1235537.49324429 &  & 1328826.51078999 & 1890953.34064843 &  \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Articles without
+publication times are dropped. Models 1-4 uses the optimal bandwidth. Model
+5 uses a linear specification with the full set of articles. Model 6 omits
+Military Topics. Model 7 omits NATO allies. Model 8 uses full saturation
+(country-source-topic FEs). † Wild cluster bootstrap SEs (B=9999, Rademacher,
+null imposed), clustered by source domain. ‡ Cluster-robust SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+
