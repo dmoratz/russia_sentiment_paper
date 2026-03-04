@@ -50,7 +50,7 @@ data <- data %>% mutate(across(c(topic_clean, country, source_domain), as.factor
 data_non_ukraine <- data_non_ukraine %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
 
 # Helper function for wild cluster bootstrap
-run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 9999) {
+run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999) {
   boot_result <- boottest(
     object = model,
     param = param,
@@ -135,7 +135,8 @@ ggsave(plot = ethnic_discs_graph,
 
 ```{r ethnic-reg}
 data_ethnic_state <- data_ethnic %>%
-  filter(state_owned == 1)
+  filter(state_owned == 1) %>%
+  mutate(source_domain = droplevels(source_domain))
 
 model6a <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
                  cluster = ~source_domain,
