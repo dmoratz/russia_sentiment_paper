@@ -107,8 +107,13 @@ get_boot_stars <- function(p_val) {
 
 # Helper to count unique clusters from a felm model
 get_n_clusters <- function(model) {
-  tryCatch(as.character(length(unique(model$clustervar[[1]]))),
-           error = function(e) "—")
+  tryCatch({
+    if ("fixest" %in% class(model)) {
+      n_cl <- attr(model$cov.scaled, "G")
+      if (!is.null(n_cl)) return(as.character(n_cl))
+    }
+    return("—")
+  }, error = function(e) "—")
 }
 ```
 
@@ -1926,7 +1931,7 @@ table_2l <- modelsummary(
   output = "gt",
   fmt = 3,
   stars = c('*' = .05, '**' = .01, '***' = .001),
-  coef_map = c("Conventional" = "Invasion (RDD)"),
+  coef_map = c("treatment" = "Invasion (RDD)"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   title = "Table 2L: RDD for State-Owned and Independent Media Separately (Day)",
   notes = str_wrap(note_t2l, 80)
