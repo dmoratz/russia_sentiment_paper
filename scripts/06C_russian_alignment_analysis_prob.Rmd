@@ -159,7 +159,7 @@ ggsave(plot = state_align_discs_graph,
 data_align_state_csto <- data_align %>%
   filter(state_owned == 1, csto == 1) %>%
   filter(!topic_clean %in% "Military") %>%
-  mutate(running_continuous = running_continuous / 86400)
+  mutate(running_probabilistic = running_probabilistic / 86400)
 
 covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_csto)
 
@@ -179,7 +179,7 @@ summary(model5a_csto)
 data_align_state_neutral <- data_align %>%
   filter(state_owned == 1, csto == 0) %>%
   filter(!topic_clean %in% "Military") %>%
-  mutate(running_continuous = running_continuous / 86400)
+  mutate(running_probabilistic = running_probabilistic / 86400)
 
 covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_neutral)
 
@@ -199,7 +199,7 @@ summary(model5a_neutral)
 data_align_state <- data_align %>%
   filter(state_owned == 1) %>%
   mutate(source_domain = droplevels(source_domain)) %>%
-  mutate(running_continuous = running_continuous / 86400)
+  mutate(running_probabilistic = running_probabilistic / 86400)
 
 model5a <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
                  cluster = ~source_domain,
@@ -212,6 +212,7 @@ boot_model5a <- run_wild_bootstrap(model5a, "treatment:csto")
 cat("Bootstrap SE for treatment:csto:", boot_model5a$se, "\n")
 cat("Bootstrap p-value:", boot_model5a$p_val, "\n")
 ```
+
 
 ## Full Data with Topic FEs
 

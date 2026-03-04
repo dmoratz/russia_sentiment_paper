@@ -137,7 +137,7 @@ ggsave(plot = ethnic_discs_graph,
 data_ethnic_state <- data_ethnic %>%
   filter(state_owned == 1) %>%
   mutate(source_domain = droplevels(source_domain)) %>%
-  mutate(running_continuous = running_continuous / 86400)
+  mutate(running_probabilistic = running_probabilistic / 86400)
 
 model6a <- feols(sentiment_clean ~ running_probabilistic * treatment * high_russia,
                  cluster = ~source_domain,
