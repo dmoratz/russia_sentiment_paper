@@ -476,7 +476,9 @@ cat("Bootstrap completed for all model6a topic-specific variants\n")
 data_ethnic_state_non_mil_full <- data %>%
   filter(nato == 0) %>%
   filter(state_owned == 1) %>%
-  filter(!topic_clean %in% "Military")
+  filter(!topic_clean %in% "Military") %>%
+  mutate(source_domain = droplevels(source_domain)) %>%
+  mutate(running_continuous = running_continuous / 86400)
 
 data_dec_ethnic <- data_ethnic_state_non_mil_full %>%
   filter(date_publish < "2022-02-19") %>%
