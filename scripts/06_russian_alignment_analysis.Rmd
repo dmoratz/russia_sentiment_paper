@@ -264,7 +264,7 @@ cat("Bootstrap p-value:", boot_model5a_opt$p_val, "\n")
 sd_state_owned <- sd(data_align_state$sentiment_clean)
 cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
 
-coef_csto_int <- summary(model5a_opt)$coef["treatment:csto", "Estimate"]
+coef_csto_int <- model5a_opt$coeftable["treatment:csto", "Estimate"]
 cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
 ```
 

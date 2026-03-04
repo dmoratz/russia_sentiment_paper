@@ -63,11 +63,11 @@ sd_sentiment_non_ukraine <- sd(data_non_ukraine$sentiment_clean)
 cat("Standard deviation:", round(sd_sentiment_non_ukraine, 3), "\n\n")
 
 # Effect on all media
-coef_all <- summary(model2a)$coef["treatment", "Estimate"]
+coef_all <- model2a$coeftable["treatment", "Estimate"]
 cat("Effect on all media (in SD):", round(coef_all / sd_sentiment_non_ukraine, 3), "\n")
 
 # Effect on state media specifically
-coef_state <- summary(model2a)$coef["treatment:state_owned", "Estimate"]
+coef_state <- model2a$coeftable["treatment:state_owned", "Estimate"]
 cat("Additional effect on state media (in SD):", round(coef_state / sd_sentiment_non_ukraine, 3), "\n")
 ```
 

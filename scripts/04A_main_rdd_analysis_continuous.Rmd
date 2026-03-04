@@ -94,7 +94,7 @@ cat("Mean sentiment (pre-invasion):", round(mean_pre, 3), "\n")
 cat("Mean sentiment (post-invasion):", round(mean_post, 3), "\n\n")
 
 # Effect size in SD units
-coef_treatment <- summary(model1_full_linear)$coef["treatment", "Estimate"]
+coef_treatment <- model1_full_linear$coeftable["treatment","Estimate"]
 effect_size <- coef_treatment / sd_sentiment
 
 cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
