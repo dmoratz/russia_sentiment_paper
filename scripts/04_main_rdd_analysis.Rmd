@@ -42,8 +42,9 @@ cat("Date range:", as.character(min(data_non_ukraine$date_publish)), "to",
 ## Model 1: Basic RDD (Different Slopes)
 
 ```{r model1-basic}
-model1_basic <- felm(sentiment_clean ~ running * treatment | 0 | 0 | source_domain,
-                     data = data_non_ukraine)
+model1_basic <- feols(sentiment_clean ~ running * treatment,
+                      cluster = ~source_domain,
+                      data = data_non_ukraine)
 
 summary(model1_basic)
 ```
@@ -51,8 +52,9 @@ summary(model1_basic)
 ## Model 2: With Country Fixed Effects
 
 ```{r model1-country}
-model1_country_fe <- felm(sentiment_clean ~ running * treatment | country | 0 | source_domain,
-                          data = data_non_ukraine)
+model1_country_fe <- feols(sentiment_clean ~ running * treatment | country,
+                           cluster = ~source_domain,
+                           data = data_non_ukraine)
 
 summary(model1_country_fe)
 ```
@@ -60,8 +62,9 @@ summary(model1_country_fe)
 ## Model 3: With Country and Source Fixed Effects
 
 ```{r model1-source}
-model1_country_source_fe <- felm(sentiment_clean ~ running * treatment | country + source_domain | 0 | source_domain,
-                                  data = data_non_ukraine)
+model1_country_source_fe <- feols(sentiment_clean ~ running * treatment | country + source_domain,
+                                   cluster = ~source_domain,
+                                   data = data_non_ukraine)
 
 summary(model1_country_source_fe)
 ```
@@ -69,7 +72,8 @@ summary(model1_country_source_fe)
 ## Model 4: Full Model (Country + Source + Topic FE)
 
 ```{r model1-full}
-model1_full_linear <- felm(sentiment_clean ~ running * treatment | country + source_domain + topic_clean | 0 | source_domain,
+model1_full_linear <- feols(sentiment_clean ~ running * treatment | country + source_domain + topic_clean,
+                    cluster = ~source_domain,
                     data = data_non_ukraine)
 
 summary(model1_full_linear)
@@ -248,12 +252,11 @@ optimal_bandwidth_data_filtered <- optimal_bandwidth_data %>%
   filter(abs(running) <= optimal_bw) %>%
   mutate(post = ifelse(running >= 0, 1, 0))
 
-# Fully saturated felm RDD model
-model4_felm_saturated <- felm(
-  sentiment_clean ~ post + running + running:post | 
-    as.factor(source_domain):as.factor(topic_clean) | 
-    0 | 
-    source_domain,
+# Fully saturated feols RDD model
+model4_felm_saturated <- feols(
+  sentiment_clean ~ post + running + running:post |
+    source_domain^topic_clean,
+  cluster = ~source_domain,
   data = optimal_bandwidth_data_filtered
 )
 

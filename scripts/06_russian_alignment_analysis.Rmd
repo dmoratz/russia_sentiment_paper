@@ -38,6 +38,9 @@ data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rd
 cat("Full data:", nrow(data), "articles\n")
 cat("Non-Ukraine data:", nrow(data_non_ukraine), "articles\n")
 
+data <- data %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
+data_non_ukraine <- data_non_ukraine %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
+
 # Helper function for wild cluster bootstrap
 run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 9999) {
   boot_result <- boottest(
@@ -198,8 +201,9 @@ data_align_state <- data_align %>%
   filter(state_owned == 1) #%>%
   #filter(!country == "Belarus")
 
-model5a <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                data = data_align_state)
+model5a <- feols(sentiment_clean ~ running * treatment * csto,
+                 cluster = ~source_domain,
+                 data = data_align_state)
 
 summary(model5a)
 
@@ -213,8 +217,9 @@ cat("Bootstrap p-value:", boot_model5a$p_val, "\n")
 ## Full Data with Topic FEs
 
 ```{r align-full}
-model5a_full <- felm(sentiment_clean ~ running * treatment * csto | topic_clean | 0 | source_domain,
-                     data = data_align_state)
+model5a_full <- feols(sentiment_clean ~ running * treatment * csto | topic_clean,
+                      cluster = ~source_domain,
+                      data = data_align_state)
 
 summary(model5a_full)
 
@@ -242,14 +247,13 @@ optimal_bandwidth_data_state <- data_align_state %>%
   mutate(topic_clean = as.factor(topic_clean))
 
 
-model5a_opt <- feols(sentiment_clean ~ running*treatment*csto,
-                         fixef = "topic_clean",
-                         cluster = ~source_domain,
-                         data = optimal_bandwidth_data_state)
+model5a_opt <- feols(sentiment_clean ~ running * treatment * csto | topic_clean,
+                     cluster = ~source_domain,
+                     data = optimal_bandwidth_data_state)
 summary(model5a_opt)
 
 # Wild cluster bootstrap for model5a_opt
-boot_model5a_opt <- run_wild_bootstrap(model5a_opt_alt, "treatment:csto")
+boot_model5a_opt <- run_wild_bootstrap(model5a_opt, "treatment:csto")
 cat("Bootstrap SE for treatment:csto:", boot_model5a_opt$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt$p_val, "\n")
 ```
@@ -283,8 +287,9 @@ cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
 optimal_bandwidth_data_state_non_mil <- data_align_state_non_mil %>%
   filter(running < optimal_bw_align, running > -optimal_bw_align)
 
-model5a_opt_non_mil <- felm(sentiment_clean ~ running * treatment * csto | topic_clean | 0 | source_domain,
-                        data = optimal_bandwidth_data_state_non_mil)
+model5a_opt_non_mil <- feols(sentiment_clean ~ running * treatment * csto | topic_clean,
+                             cluster = ~source_domain,
+                             data = optimal_bandwidth_data_state_non_mil)
 
 summary(model5a_opt_non_mil)
 ```
@@ -322,8 +327,9 @@ for (cntry in countries) {
   data_loo_bw <- data_loo %>%
     filter(running < optimal_bw_loo, running > -optimal_bw_loo)
 
-  model_loo <- felm(sentiment_clean ~ running * treatment * csto | topic_clean | 0 | source_domain,
-                    data = data_loo_bw)
+  model_loo <- feols(sentiment_clean ~ running * treatment * csto | topic_clean,
+                     cluster = ~source_domain,
+                     data = data_loo_bw)
 
   boot_loo <- tryCatch(
     run_wild_bootstrap(model_loo, "treatment:csto", B = 999),
@@ -342,12 +348,11 @@ for (cntry in countries) {
 # Extract key coefficient (treatment:csto interaction)
 loo_summary <- map_df(names(loo_results), function(cntry) {
   mod <- loo_results[[cntry]]$model
-  coef_row <- summary(mod)$coef["treatment:csto", ]
   tibble(
     country_dropped = cntry,
-    estimate = coef_row["Estimate"],
-    std_error = coef_row["Cluster s.e."],
-    p_value = coef_row["Pr(>|t|)"],
+    estimate = coef(mod)["treatment:csto"],
+    std_error = se(mod)["treatment:csto"],
+    p_value = pvalue(mod)["treatment:csto"],
     n_obs = loo_results[[cntry]]$n,
     bandwidth = loo_results[[cntry]]$bandwidth
   )
@@ -380,8 +385,9 @@ cat("Placebo optimal bandwidth (non-mil):", round(optimal_bw_placebo_nonmil, 1),
 data_dec_align_bw <- data_dec_align %>%
   filter(running < optimal_bw_placebo_nonmil, running > -optimal_bw_placebo_nonmil)
 
-model_placebo_nonmil <- felm(sentiment_clean ~ running * treatment * csto | topic_clean | 0 | source_domain,
-                              data = data_dec_align_bw)
+model_placebo_nonmil <- feols(sentiment_clean ~ running * treatment * csto | topic_clean,
+                               cluster = ~source_domain,
+                               data = data_dec_align_bw)
 
 summary(model_placebo_nonmil)
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
@@ -403,11 +409,10 @@ optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
   )
 
 # Heavily saturated model
-model5a_fully_saturated <- felm(
-  sentiment_clean ~ running * treatment * csto | 
-    source_domain:topic_clean + topic_clean:treatment | 
-    0 | 
-    source_domain,
+model5a_fully_saturated <- feols(
+  sentiment_clean ~ running * treatment * csto |
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
   data = optimal_bandwidth_data_state_non_mil
 )
 
@@ -417,27 +422,24 @@ summary(model5a_fully_saturated)
 ### Manual Wild Bootstrap Standard Errors
 
 ```{r}
-library(lfe)
-
 set.seed(3184)
 B <- 99
 
 # Original model
 model_original <- model5a_fully_saturated
 original_coef <- coef(model_original)["treatment:csto"]
-original_se <- summary(model_original)$coefficients["treatment:csto", "Cluster s.e."]
+original_se <- se(model_original)["treatment:csto"]
 original_t <- original_coef / original_se
 
 cat("Original t-stat:", original_t, "\n")
 
 # CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
 # Remove treatment:csto from the formula
-model_restricted <- felm(
-  sentiment_clean ~ running + treatment + csto + running:treatment + running:csto + 
+model_restricted <- feols(
+  sentiment_clean ~ running + treatment + csto + running:treatment + running:csto +
     running:treatment:csto |  # Keep triple interaction but not treatment:csto
-    source_domain:topic_clean + topic_clean:treatment | 
-    0 | 
-    source_domain,
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
   data = optimal_bandwidth_data_state_non_mil
 )
 
@@ -468,16 +470,15 @@ for(b in 1:B) {
   data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
   
   # Re-estimate FULL model on bootstrap data
-  model_boot <- felm(
-    sentiment_boot ~ running * treatment * csto | 
-      source_domain:topic_clean + topic_clean:treatment | 
-      0 | 
-      source_domain,
+  model_boot <- feols(
+    sentiment_boot ~ running * treatment * csto |
+      source_domain^topic_clean + topic_clean^treatment,
+    cluster = ~source_domain,
     data = data_boot
   )
-  
+
   boot_coef <- coef(model_boot)["treatment:csto"]
-  boot_se <- summary(model_boot)$coefficients["treatment:csto", "Cluster s.e."]
+  boot_se <- se(model_boot)["treatment:csto"]
   boot_t_stats[b] <- boot_coef / boot_se
   
   if(b %% 100 == 0) cat("Iteration:", b, "\n")
@@ -576,11 +577,10 @@ print(paste("Non-parametric treatment effect of CSTO:", treatment_effect_csto))
 
 ```{r}
 # Now run the regression on just these two countries
-model_two_countries <- felm(
-  sentiment_clean ~ treatment * csto | 
-    source_domain:topic_clean + topic_clean:treatment | 
-    0 | 
-    source_domain,
+model_two_countries <- feols(
+  sentiment_clean ~ treatment * csto |
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
   data = two_country_data
 )
 
@@ -618,8 +618,9 @@ optimal_bandwidth_data_state_russian <- data_align_state_russian %>%
   filter(running < optimal_bw_align, running > -optimal_bw_align)
 
 
-model5a_opt_russian <- felm(sentiment_clean ~ running * treatment * csto | topic_clean | 0 | source_domain,
-                        data = optimal_bandwidth_data_state_russian)
+model5a_opt_russian <- feols(sentiment_clean ~ running * treatment * csto | topic_clean,
+                             cluster = ~source_domain,
+                             data = optimal_bandwidth_data_state_russian)
 
 summary(model5a_opt_russian)
 
@@ -638,16 +639,21 @@ data_align_state_econ <- data_align_state %>% filter(topic_clean == "Economic")
 data_align_state_cult <- data_align_state %>% filter(topic_clean == "Culture")
 data_align_state_oth <- data_align_state %>% filter(topic_clean == "Other")
 
-model5a_full_pol <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                         data = data_align_state_pol)
-model5a_full_mil <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                         data = data_align_state_mil)
-model5a_full_econ <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                          data = data_align_state_econ)
-model5a_full_cult <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                          data = data_align_state_cult)
-model5a_full_oth <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                         data = data_align_state_oth)
+model5a_full_pol <- feols(sentiment_clean ~ running * treatment * csto,
+                          cluster = ~source_domain,
+                          data = data_align_state_pol)
+model5a_full_mil <- feols(sentiment_clean ~ running * treatment * csto,
+                          cluster = ~source_domain,
+                          data = data_align_state_mil)
+model5a_full_econ <- feols(sentiment_clean ~ running * treatment * csto,
+                           cluster = ~source_domain,
+                           data = data_align_state_econ)
+model5a_full_cult <- feols(sentiment_clean ~ running * treatment * csto,
+                           cluster = ~source_domain,
+                           data = data_align_state_cult)
+model5a_full_oth <- feols(sentiment_clean ~ running * treatment * csto,
+                          cluster = ~source_domain,
+                          data = data_align_state_oth)
 ```
 
 ## By-Topic Models: Per-Topic Optimal Bandwidth
@@ -688,16 +694,21 @@ optimal_bw_align_oth <- bw_align_oth$bws[1, 1]
 cat("Other optimal bandwidth:", round(optimal_bw_align_oth, 1), "days\n")
 opt_align_oth <- data_align_state_oth %>% filter(running < optimal_bw_align_oth, running > -optimal_bw_align_oth)
 
-model5a_opt_pol <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                        data = opt_align_pol)
-model5a_opt_mil <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                        data = opt_align_mil)
-model5a_opt_econ <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                         data = opt_align_econ)
-model5a_opt_cult <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                         data = opt_align_cult)
-model5a_opt_oth <- felm(sentiment_clean ~ running * treatment * csto | 0 | 0 | source_domain,
-                        data = opt_align_oth)
+model5a_opt_pol <- feols(sentiment_clean ~ running * treatment * csto,
+                         cluster = ~source_domain,
+                         data = opt_align_pol)
+model5a_opt_mil <- feols(sentiment_clean ~ running * treatment * csto,
+                         cluster = ~source_domain,
+                         data = opt_align_mil)
+model5a_opt_econ <- feols(sentiment_clean ~ running * treatment * csto,
+                          cluster = ~source_domain,
+                          data = opt_align_econ)
+model5a_opt_cult <- feols(sentiment_clean ~ running * treatment * csto,
+                          cluster = ~source_domain,
+                          data = opt_align_cult)
+model5a_opt_oth <- feols(sentiment_clean ~ running * treatment * csto,
+                         cluster = ~source_domain,
+                         data = opt_align_oth)
 
 # Wild cluster bootstrap for topic-specific models (optimal BW)
 boot_model5a_opt_pol <- run_wild_bootstrap(model5a_opt_pol, "treatment:csto")

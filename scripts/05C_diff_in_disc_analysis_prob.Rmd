@@ -43,8 +43,9 @@ cat("Independent:", sum(data_non_ukraine$state_owned == 0), "\n")
 ## Model 2a: Full Triple Interaction
 
 ```{r model2a-prob}
-model2a <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean | 0 | source_domain,
-                data = data_non_ukraine)
+model2a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                 cluster = ~source_domain,
+                 data = data_non_ukraine)
 
 summary(model2a)
 ```
@@ -139,8 +140,9 @@ cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ## Model with Optimal Bandwidth
 
 ```{r model2a-opt-prob}
-model2a_opt <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean | 0 | source_domain,
-                    data = optimal_bandwidth_data)
+model2a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                     cluster = ~source_domain,
+                     data = optimal_bandwidth_data)
 
 summary(model2a_opt)
 ```
@@ -156,16 +158,21 @@ data_econ <- data_non_ukraine %>% filter(topic_clean == "Economic")
 data_cult <- data_non_ukraine %>% filter(topic_clean == "Culture")
 data_oth <- data_non_ukraine %>% filter(topic_clean == "Other")
 
-model2a_full_pol <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                         data = data_pol)
-model2a_full_mil <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                         data = data_mil)
-model2a_full_econ <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                          data = data_econ)
-model2a_full_cult <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                          data = data_cult)
-model2a_full_oth <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                         data = data_oth)
+model2a_full_pol <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                          cluster = ~source_domain,
+                          data = data_pol)
+model2a_full_mil <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                          cluster = ~source_domain,
+                          data = data_mil)
+model2a_full_econ <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                           cluster = ~source_domain,
+                           data = data_econ)
+model2a_full_cult <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                           cluster = ~source_domain,
+                           data = data_cult)
+model2a_full_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                          cluster = ~source_domain,
+                          data = data_oth)
 ```
 
 ## Per-Topic Optimal Bandwidth
@@ -210,24 +217,29 @@ opt_data_oth <- data_oth %>% filter(running_probabilistic < optimal_bw_oth, runn
 ## Topic Models with Per-Topic Optimal Bandwidth
 
 ```{r topic-opt-models-prob}
-model2a_opt_pol <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                        data = opt_data_pol)
+model2a_opt_pol <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                         cluster = ~source_domain,
+                         data = opt_data_pol)
 summary(model2a_opt_pol)
 
-model2a_opt_mil <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                        data = opt_data_mil)
+model2a_opt_mil <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                         cluster = ~source_domain,
+                         data = opt_data_mil)
 summary(model2a_opt_mil)
 
-model2a_opt_econ <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                         data = opt_data_econ)
+model2a_opt_econ <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                          cluster = ~source_domain,
+                          data = opt_data_econ)
 summary(model2a_opt_econ)
 
-model2a_opt_cult <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                         data = opt_data_cult)
+model2a_opt_cult <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                          cluster = ~source_domain,
+                          data = opt_data_cult)
 summary(model2a_opt_cult)
 
-model2a_opt_oth <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country | 0 | source_domain,
-                        data = opt_data_oth)
+model2a_opt_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+                         cluster = ~source_domain,
+                         data = opt_data_oth)
 summary(model2a_opt_oth)
 ```
 
@@ -237,8 +249,9 @@ summary(model2a_opt_oth)
 data_non_mil <- data_non_ukraine %>%
   filter(!topic_clean %in% c("Military"))
 
-model2b <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean | 0 | source_domain,
-                data = data_non_mil)
+model2b <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                 cluster = ~source_domain,
+                 data = data_non_mil)
 
 summary(model2b)
 ```
@@ -287,8 +300,9 @@ ggsave(plot = invasion_discs_non_mil_graph,
 data_non_nato <- data_non_ukraine %>%
   filter(!country %in% NATO_COUNTRIES)
 
-model2d <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean | 0 | source_domain,
-                data = data_non_nato)
+model2d <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                 cluster = ~source_domain,
+                 data = data_non_nato)
 
 summary(model2d)
 ```
@@ -301,8 +315,9 @@ data_russian_related <- data %>%
   filter(!country %in% c("Ukraine")) %>%
   filter(!topic_clean %in% c("Military"))
 
-model3a <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean | 0 | source_domain,
-                data = data_russian_related)
+model3a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                 cluster = ~source_domain,
+                 data = data_russian_related)
 
 summary(model3a)
 ```
@@ -341,15 +356,16 @@ optimal_bw_combined_data <- data_combined_filtered %>%
 
 cat("Observations within bandwidth:", nrow(optimal_bw_combined_data), "\n")
 
-model3a_opt <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean | 0 | source_domain,
-                    data = optimal_bw_combined_data)
+model3a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                     cluster = ~source_domain,
+                     data = optimal_bw_combined_data)
 
 summary(model3a_opt)
 
 # Saturated Model
-model3a_opt_saturated <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned |
-                          source_domain:topic_clean + country:state_owned + country:topic_clean:treatment |
-                          0 | source_domain,
+model3a_opt_saturated <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
+                          source_domain^topic_clean + country^state_owned + country^topic_clean^treatment,
+                          cluster = ~source_domain,
                           data = optimal_bw_combined_data)
 
 summary(model3a_opt_saturated)
@@ -358,8 +374,9 @@ summary(model3a_opt_saturated)
 # Diff-in-Diff (Within Bandwidth)
 
 ```{r did-prob}
-model_did <- felm(sentiment_clean ~ treatment * state_owned | country + topic_clean | 0 | source_domain,
-                  data = optimal_bandwidth_data)
+model_did <- feols(sentiment_clean ~ treatment * state_owned | country + topic_clean,
+                   cluster = ~source_domain,
+                   data = optimal_bandwidth_data)
 
 summary(model_did)
 ```
@@ -388,8 +405,9 @@ cat("Placebo optimal bandwidth:", round(optimal_bw_placebo, 1), "seconds\n")
 data_dec_bw <- data_dec %>%
   filter(running_probabilistic < optimal_bw_placebo, running_probabilistic > -optimal_bw_placebo)
 
-model4a <- felm(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + Topic | 0 | source_domain,
-                data = data_dec_bw)
+model4a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + Topic,
+                 cluster = ~source_domain,
+                 data = data_dec_bw)
 
 summary(model4a)
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
