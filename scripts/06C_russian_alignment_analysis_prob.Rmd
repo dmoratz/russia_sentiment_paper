@@ -25,6 +25,7 @@ source("00_setup.R")
 knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_PROB, "/"))
 
 # Load fwildclusterboot for wild cluster bootstrap
+p_load(fwildclusterboot, MatchIt, cobalt, rbounds, sensemakr)
 library(fwildclusterboot)
 
 set.seed(3184)
@@ -705,6 +706,200 @@ cat("Bootstrap SE for treatment:csto (placebo):", boot_model_placebo_nonmil$se, 
 cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
 ```
+
+## Matching
+
+### Initial Match
+
+```{r}
+# Subset to data of interest
+
+matching_data <- optimal_bandwidth_data_state_non_mil %>%
+  select(sentiment_clean, running, running_probabilistic, treatment, csto, 
+         topic_clean, source_domain, country, country_dummy)
+
+# Match on topic and publication day
+
+ps_model <- matchit(
+  csto ~ running + topic_clean,
+  data = matching_data,
+  method = "exact",
+  ratio = 1,
+)
+
+summary(ps_model)
+```
+
+### Assess Balance
+
+```{r}
+# Visual balance check
+plot(ps_model, type = "jitter", interactive = FALSE)
+plot(ps_model, type = "density", interactive = FALSE)
+
+# Numerical balance check (better)
+bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
+# Want: all standardized mean differences < 0.1 after matching
+
+# Love plot (publication quality)
+love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
+```
+
+### Matching analysis
+
+```{r}
+# Extract matched data and calculate treatment effects
+matched_data <-match.data(ps_model)
+
+matched_model <- feols(sentiment_clean ~ running_probabilistic
+                                     * treatment * csto +
+                                       i(country_dummy, ref = "single_source") |
+                                       topic_clean + source_domain,
+                                     cluster = ~source_domain,
+                                     data = matched_data
+                                     )
+
+summary(matched_model)
+
+
+# Wild cluster bootstrap for model5a_opt_non_mil
+boot_matched_model <- run_wild_bootstrap(matched_model, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_matched_model$se, "\n")
+cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
+```
+
+
+
+### Sensitivity of OVB
+
+```{r}
+# Save the bootstrapped p-val
+bootstrapped_se <- boot_matched_model$p_val
+
+# Respecify the model using lm
+lm_model <- lm(sentiment_clean ~ running_probabilistic * treatment * csto +
+                 i(country_dummy, ref = "single_source") +
+                 factor(topic_clean) + factor(source_domain),
+               data = matched_data)
+
+
+# Sensitivity analysis
+sensitivity <- sensemakr(
+  model = lm_model,
+  treatment = "treatment:csto",
+  benchmark_covariates = c("running_probabilistic:treatment"),
+  kd = 1,
+  ky = 1,
+  reduce = TRUE
+)
+
+summary(sensitivity)
+
+partial_r2(lm_model, covariates = c("running_probabilistic:treatment",
+                                     "running_probabilistic:csto",
+                                     "treatment",
+                                     "csto"))
+
+
+# Then manually recompute the CI bound using your bootstrapped SE
+coef_interest <- coef(lm_model)["treatment:csto"]
+rv_ci <- coef_interest / bootstrapped_se  # your corrected t-stat for reference
+
+plot(sensitivity,
+     xlab = "Partial R² of confounder with CSTO membership",
+     ylab = "Partial R² of confounder with sentiment",
+     main = "Sensitivity to Unobserved Confounding",
+     lim.x = .1,  
+     lim.y = .1,
+     col.contour = "grey60",
+     label.text = FALSE)   # turn off the ugly overlapping label first
+text(x = 0.01, y = 0.00005, 
+     labels = "running:treatment", 
+     cex = 0.8, pos = 4)
+```
+
+
+```{r}
+# Sensitivity Plot
+
+# Extract the data sensemakr uses for the plot
+ovb_contour_data <- function(sensitivity, lim = 0.005) {
+  
+  # Grid of r2dz.x and r2yz.dx values
+  r2dz <- seq(0, lim, length.out = 400)
+  r2yz <- seq(0, lim, length.out = 400)
+  grid <- expand.grid(r2dz.x = r2dz, r2yz.dx = r2yz)
+  
+  # Extract key stats
+  estimate <- sensitivity$sensitivity_stats$estimate
+  se <- sensitivity$sensitivity_stats$se
+  df <- sensitivity$sensitivity_stats$dof
+  
+  # Compute adjusted estimate across grid
+  grid$adjusted <- mapply(function(r2dz, r2yz) {
+    sensemakr::adjusted_estimate(
+      estimate = estimate,
+      se = se,
+      dof = df,
+      r2dz.x = r2dz,
+      r2yz.dx = r2yz
+    )
+  }, grid$r2dz.x, grid$r2yz.dx)
+  
+  return(grid)
+}
+
+# Extract benchmark points
+benchmark_df <- data.frame(
+  r2dz.x = sensitivity$bounds$r2dz.x,
+  r2yz.dx = sensitivity$bounds$r2yz.dx,
+  label = sensitivity$bounds$bound_label
+)
+
+# Build contour data
+# Rebuild with wider x limit
+contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
+
+ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
+  geom_contour(colour = "grey60",
+               breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
+  geom_contour(breaks = 0,
+               colour = "red",
+               linetype = "dashed",
+               linewidth = 0.8) +
+  geom_point(data = benchmark_df,
+             aes(x = r2dz.x, y = r2yz.dx),
+             shape = 18, colour = "red", size = 3,
+             inherit.aes = FALSE) +
+  annotate("point", x = 0, y = 0, shape = 17, size = 3) +
+  annotate("text", x = 0.002, y = 0.003,
+           label = "Unadjusted\n(-0.146)",
+           size = 5, hjust = 0) +
+  annotate("text", x = 0.047, y = 0.003,
+           label = "running:treatment",
+           size = 5, hjust = 0) +
+  coord_cartesian(xlim = c(0, 0.1), ylim = c(0, 0.1)) +
+  scale_x_continuous(breaks = seq(0, 0.1, by = 0.02),
+                     labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
+                     labels = scales::number_format(accuracy = 0.01)) +
+  labs(
+    x = "Partial R² of confounder with CSTO membership",
+    y = "Partial R² of confounder with sentiment",
+    title = "Sensitivity to Unobserved Confounding",
+    subtitle = "Red dashed line indicates where estimate = 0"
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold"),
+    legend.position = "none"
+  )
+```
+
+The robustness value of 3.2% indicates that an unobserved confounder would need to simultaneously explain 3.2% of residual variance in both CSTO membership and sentiment to explain away our result. To contextualize this threshold, our observed covariates — including treatment assignment (partial R² = 0.021%) and CSTO membership itself (partial R² = 0.001%) — explain a fraction of this amount. We additionally benchmark against temporal proximity to the date of the invasion (partial R² = 4.5% for CSTO membership, 0.001% for sentiment), which represents the strongest observed predictor of group assignment in our model. Despite exceeding the robustness value threshold on the treatment dimension, this benchmark explains essentially no variance in sentiment outcomes — as visible in Figure X, where the benchmark point sits far to the right of the zero contour but hugging the x-axis. An unobserved confounder would therefore need to be approximately 150 times more influential than treatment assignment itself, and simultaneously predict sentiment far more strongly than the timing of the invasion, to overturn our finding. This suggests the result is highly robust to potential confounding.
+
+We caution that robustness values should never be interpreted in isolation. The partial R² scale is model and data specific, and a robustness value that appears small in absolute terms may represent an implausibly large confounding requirement relative to the explanatory power of observed covariates. We recommend always reporting benchmark partial R² values alongside the robustness value to allow readers to calibrate the practical significance of the sensitivity result.
 
 # Country-Level Analysis
 
