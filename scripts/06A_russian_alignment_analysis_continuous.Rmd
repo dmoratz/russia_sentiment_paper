@@ -32,6 +32,8 @@ knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_CONT, "/"))
 ```{r load}
 library(fwildclusterboot)
 
+set.seed(3184)
+
 data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
 
@@ -49,7 +51,8 @@ run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999
     clustid = clustid,
     B = B,
     impose_null = TRUE,
-    type = "rademacher"
+    bootstrap_type = "fnw11",
+    type = "webb"
   )
 
   list(
@@ -194,7 +197,7 @@ model5a_neutral <- rdrobust(
 summary(model5a_neutral)
 ```
 
-### Diff-in-Disc: CSTO vs Neutral (State Media)
+## Diff-in-Disc: CSTO vs Neutral (State Media)
 
 ```{r align-diff}
 data_align_state <- data_align %>%
@@ -257,7 +260,7 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_opt$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt$p_val, "\n")
 ```
 
-## Effect Size
+### Effect Size
 
 ```{r align-effect}
 sd_state_owned <- sd(data_align_state$sentiment_clean)
@@ -266,6 +269,41 @@ cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
 coef_csto_int <- model5a_opt$coeftable["treatment:csto", "Estimate"]
 cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
 ```
+
+## Optimal Bandwidth Full FE
+
+```{r align-optimal-prob}
+# Create manual country dummies for countries with 2+ sources
+source_counts <- optimal_bandwidth_data_state %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
+
+# Create dummies
+optimal_bandwidth_data_state <- optimal_bandwidth_data_state %>%
+  mutate(
+    has_multi_sources = country %in% source_counts$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
+  )
+
+
+model5a_opt_full_fe <- feols(sentiment_clean ~ running_continuous
+                                     * treatment * csto + 
+                                       i(country_dummy, ref = "single_source") |
+                                       topic_clean + source_domain,
+                                     cluster = ~source_domain,
+                                     data = optimal_bandwidth_data_state
+                                     )
+
+summary(model5a_opt_full_fe)
+
+# Wild cluster bootstrap for model5a_opt
+boot_model5a_opt_full_fe <- run_wild_bootstrap(model5a_opt_full_fe, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_full_fe$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt$p_val_full_fe, "\n")
+```
+
 
 ## Non-Military Topics
 
@@ -298,96 +336,37 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt_non_mil$p_val, "\n")
 ```
 
-## Leave-One-Out Country Robustness
+## Non-Military Topics, Full FE
 
-```{r loo-country}
-countries <- unique(data_align_state_non_mil$country)
-loo_results <- list()
+```{r align-non-mil-prob-full-fe}
+# Create manual country dummies for countries with 2+ sources
+source_counts <- optimal_bandwidth_data_state_non_mil %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
 
-for (cntry in countries) {
-  data_loo <- data_align_state_non_mil %>%
-    filter(country != cntry)
-
-  # Re-calculate optimal bandwidth for LOO data
-  bw_loo <- rdbwselect(y = data_loo$sentiment_clean,
-                       x = data_loo$running_continuous,
-                       kernel = "triangular",
-                       cluster = data_loo$source_domain,
-                       p = 1,
-                       bwselect = "mserd")
-
-  optimal_bw_loo <- bw_loo$bws[1, 1]
-
-  data_loo_bw <- data_loo %>%
-    filter(running_continuous < optimal_bw_loo, running_continuous > -optimal_bw_loo)
-
-  model_loo <- feols(sentiment_clean ~ running_continuous * treatment * csto | topic_clean,
-                     cluster = ~source_domain,
-                     data = data_loo_bw)
-
-  boot_loo <- tryCatch(
-    run_wild_bootstrap(model_loo, "treatment:csto", B = 999),
-    error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
-  )
-  loo_results[[cntry]] <- list(
-    model = model_loo,
-    bandwidth = optimal_bw_loo,
-    n = nrow(data_loo_bw),
-    country_dropped = cntry,
-    boot_p_val = boot_loo$p_val,
-    boot_se = boot_loo$se
-  )
-}
-
-# Extract key coefficient (treatment:csto interaction)
-loo_summary <- map_df(names(loo_results), function(cntry) {
-  mod <- loo_results[[cntry]]$model
-  tibble(
-    country_dropped = cntry,
-    estimate = coef(mod)["treatment:csto"],
-    std_error = se(mod)["treatment:csto"],
-    p_value = pvalue(mod)["treatment:csto"],
-    n_obs = loo_results[[cntry]]$n,
-    bandwidth = loo_results[[cntry]]$bandwidth
-  )
-})
-
-print(loo_summary)
-```
-
-## Placebo Test: December 7th Announcement (Non-Military Topics)
-
-```{r placebo-dec-nonmil}
-data_dec_align <- data_align_state_non_mil %>%
-  filter(date_publish < "2022-02-19") %>%
+# Create dummies
+optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
   mutate(
-    running_continuous = as.numeric(difftime(date_publish_continuous, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
-    treatment = ifelse(date_publish_continuous < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+    has_multi_sources = country %in% source_counts$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
   )
 
-# Find optimal bandwidth for placebo
-bw_placebo_nonmil <- rdbwselect(y = data_dec_align$sentiment_clean,
-                                x = data_dec_align$running_continuous,
-                                kernel = "triangular",
-                                cluster = data_dec_align$source_domain,
-                                p = 1,
-                                bwselect = "mserd")
+model5a_opt_non_mil_full_fe <- feols(sentiment_clean ~ running_probabilistic 
+                                     * treatment * csto + 
+                                       i(country_dummy, ref = "single_source") |
+                                       topic_clean + source_domain,
+                                     cluster = ~source_domain,
+                                     data = optimal_bandwidth_data_state_non_mil
+                                     )
 
-optimal_bw_placebo_nonmil <- bw_placebo_nonmil$bws[1, 1]
-cat("Placebo optimal bandwidth (non-mil):", round(optimal_bw_placebo_nonmil, 1), "seconds\n")
+summary(model5a_opt_non_mil_full_fe)
 
-data_dec_align_bw <- data_dec_align %>%
-  filter(running_continuous < optimal_bw_placebo_nonmil, running_continuous > -optimal_bw_placebo_nonmil)
-
-model_placebo_nonmil <- feols(sentiment_clean ~ running_continuous * treatment * csto | topic_clean,
-                               cluster = ~source_domain,
-                               data = data_dec_align_bw)
-
-summary(model_placebo_nonmil)
-boot_model_placebo_nonmil <- run_wild_bootstrap(model_placebo_nonmil, "treatment:csto")
-cat("Bootstrap SE for treatment:csto (placebo):", boot_model_placebo_nonmil$se, "\n")
-cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
-cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+# Wild cluster bootstrap for model5a_opt_non_mil
+boot_model5a_opt_non_mil_full_fe <- run_wild_bootstrap(model5a_opt_non_mil_full_fe, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil_full_fe$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt_non_mil_full_fe$p_val, "\n")
 ```
 
 ## Russian-Related Articles Only
@@ -421,6 +400,8 @@ boot_model5a_opt_russian <- run_wild_bootstrap(model5a_opt_russian, "treatment:c
 cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_russian$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt_russian$p_val, "\n")
 ```
+
+# By Topic
 
 ## By-Topic Models: Full Data
 
@@ -519,6 +500,101 @@ boot_model5a_full_oth <- run_wild_bootstrap(model5a_full_oth, "treatment:csto")
 cat("Bootstrap completed for all model5a topic-specific variants\n")
 ```
 
+# Robustness
+
+## Leave-One-Out Country Robustness
+
+```{r loo-country}
+countries <- unique(data_align_state_non_mil$country)
+loo_results <- list()
+
+for (cntry in countries) {
+  data_loo <- data_align_state_non_mil %>%
+    filter(country != cntry)
+
+  # Re-calculate optimal bandwidth for LOO data
+  bw_loo <- rdbwselect(y = data_loo$sentiment_clean,
+                       x = data_loo$running_continuous,
+                       kernel = "triangular",
+                       cluster = data_loo$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
+
+  optimal_bw_loo <- bw_loo$bws[1, 1]
+
+  data_loo_bw <- data_loo %>%
+    filter(running_continuous < optimal_bw_loo, running_continuous > -optimal_bw_loo)
+
+  model_loo <- feols(sentiment_clean ~ running_continuous * treatment * csto | topic_clean,
+                     cluster = ~source_domain,
+                     data = data_loo_bw)
+
+  boot_loo <- tryCatch(
+    run_wild_bootstrap(model_loo, "treatment:csto", B = 999),
+    error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
+  )
+  loo_results[[cntry]] <- list(
+    model = model_loo,
+    bandwidth = optimal_bw_loo,
+    n = nrow(data_loo_bw),
+    country_dropped = cntry,
+    boot_p_val = boot_loo$p_val,
+    boot_se = boot_loo$se
+  )
+}
+
+# Extract key coefficient (treatment:csto interaction)
+loo_summary <- map_df(names(loo_results), function(cntry) {
+  mod <- loo_results[[cntry]]$model
+  tibble(
+    country_dropped = cntry,
+    estimate = coef(mod)["treatment:csto"],
+    std_error = se(mod)["treatment:csto"],
+    p_value = pvalue(mod)["treatment:csto"],
+    n_obs = loo_results[[cntry]]$n,
+    bandwidth = loo_results[[cntry]]$bandwidth
+  )
+})
+
+print(loo_summary)
+```
+
+## Placebo Test: December 7th Announcement (Non-Military Topics)
+
+```{r placebo-dec-nonmil}
+data_dec_align <- data_align_state_non_mil %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running_continuous = as.numeric(difftime(date_publish_continuous, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    treatment = ifelse(date_publish_continuous < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+  )
+
+# Find optimal bandwidth for placebo
+bw_placebo_nonmil <- rdbwselect(y = data_dec_align$sentiment_clean,
+                                x = data_dec_align$running_continuous,
+                                kernel = "triangular",
+                                cluster = data_dec_align$source_domain,
+                                p = 1,
+                                bwselect = "mserd")
+
+optimal_bw_placebo_nonmil <- bw_placebo_nonmil$bws[1, 1]
+cat("Placebo optimal bandwidth (non-mil):", round(optimal_bw_placebo_nonmil, 1), "seconds\n")
+
+data_dec_align_bw <- data_dec_align %>%
+  filter(running_continuous < optimal_bw_placebo_nonmil, running_continuous > -optimal_bw_placebo_nonmil)
+
+model_placebo_nonmil <- feols(sentiment_clean ~ running_continuous * 
+                                treatment * csto | topic_clean,
+                               cluster = ~source_domain,
+                               data = data_dec_align_bw)
+
+summary(model_placebo_nonmil)
+boot_model_placebo_nonmil <- run_wild_bootstrap(model_placebo_nonmil, "treatment:csto")
+cat("Bootstrap SE for treatment:csto (placebo):", boot_model_placebo_nonmil$se, "\n")
+cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
 # Country-Level Analysis
 
 ## State Media by Country and Alliance
@@ -550,7 +626,9 @@ data_long %>%
   )
 ```
 
-# Summary Table (Table 3A)
+# Summary Tables
+
+## Summary Table (Table 3A)
 
 ```{r table3a}
 note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth."
