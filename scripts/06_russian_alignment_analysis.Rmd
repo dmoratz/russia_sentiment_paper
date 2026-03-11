@@ -356,8 +356,8 @@ optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
     country_dummy = factor(country_multi)
   )
 
-model5a_opt_non_mil_full_fe <- feols(sentiment_clean ~ running_probabilistic 
-                                     * treatment * csto + 
+model5a_opt_non_mil_full_fe <- feols(sentiment_clean ~ running
+                                     * treatment * csto +
                                        i(country_dummy, ref = "single_source") |
                                        topic_clean + source_domain,
                                      cluster = ~source_domain,
@@ -836,12 +836,14 @@ data_long %>%
 ## Summary Table (Table 3)
 
 ```{r table3}
-note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth."
+note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 6 uses optimal bandwidth with full FEs (topic + source + country dummies). Model 7 uses non-military subset with full FEs. Model 8 uses full saturation (source-topic and topic-treatment FEs)."
 note_wrapped <- str_wrap(note_text, width = 80)
 
 table_3 <- modelsummary(
   list("(1)" = model5a, "(2)" = model5a_full, "(3)" = model5a_opt,
-       "(4)" = model5a_opt_non_mil, "(5)" = model5a_opt_russian),
+       "(4)" = model5a_opt_non_mil, "(5)" = model5a_opt_russian,
+       "(6)" = model5a_opt_full_fe, "(7)" = model5a_opt_non_mil_full_fe,
+       "(8)" = model5a_fully_saturated),
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
@@ -917,6 +919,8 @@ results_het <- list(
   model5a_opt_russian = model5a_opt_russian,
   model5a_csto = model5a_csto,
   model5a_neutral = model5a_neutral,
+  model5a_opt_full_fe = model5a_opt_full_fe,
+  model5a_opt_non_mil_full_fe = model5a_opt_non_mil_full_fe,
   model5a_fully_saturated = model5a_fully_saturated,
   model5a_opt_pol = model5a_opt_pol,
   model5a_opt_mil = model5a_opt_mil,
@@ -937,6 +941,8 @@ results_het <- list(
     model5a_opt = boot_model5a_opt,
     model5a_opt_non_mil = boot_model5a_opt_non_mil,
     model5a_opt_russian = boot_model5a_opt_russian,
+    model5a_opt_full_fe = boot_model5a_opt_full_fe,
+    model5a_opt_non_mil_full_fe = boot_model5a_opt_non_mil_full_fe,
     model5a_fully_saturated = boot_model5a_fully_saturated,
     model_placebo_nonmil = boot_model_placebo_nonmil,
 

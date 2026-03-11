@@ -354,8 +354,8 @@ optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
     country_dummy = factor(country_multi)
   )
 
-model5a_opt_non_mil_full_fe <- feols(sentiment_clean ~ running_probabilistic 
-                                     * treatment * csto + 
+model5a_opt_non_mil_full_fe <- feols(sentiment_clean ~ running_probabilistic
+                                     * treatment * csto +
                                        i(country_dummy, ref = "single_source") |
                                        topic_clean + source_domain,
                                      cluster = ~source_domain,
@@ -370,6 +370,117 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil_full_fe$se, "\n
 cat("Bootstrap p-value:", boot_model5a_opt_non_mil_full_fe$p_val, "\n")
 ```
 
+## Robustness: Heavily Saturated Non-Mil Model
+
+```{r}
+# Change source and topic to factor
+optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
+  mutate(
+    source_domain = as.factor(source_domain),
+    topic_clean = as.factor(topic_clean)
+  )
+
+# Heavily saturated model
+model5a_fully_saturated <- feols(
+  sentiment_clean ~ running_probabilistic * treatment * csto |
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_state_non_mil
+)
+
+summary(model5a_fully_saturated)
+```
+
+### Manual Wild Bootstrap Standard Errors
+
+```{r}
+set.seed(3184)
+B <- 99
+
+# Original model
+model_original <- model5a_fully_saturated
+original_coef <- coef(model_original)["treatment:csto"]
+original_se <- se(model_original)["treatment:csto"]
+original_t <- original_coef / original_se
+
+cat("Original t-stat:", original_t, "\n")
+
+# CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
+# Remove treatment:csto from the formula
+model_restricted <- feols(
+  sentiment_clean ~ running_probabilistic + treatment + csto + running_probabilistic:treatment + running_probabilistic:csto +
+    running_probabilistic:treatment:csto |  # Keep triple interaction but not treatment:csto
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_state_non_mil
+)
+
+# Get residuals and fitted values from RESTRICTED model
+residuals_restricted <- residuals(model_restricted)
+fitted_restricted <- fitted(model_restricted)
+
+cat("Using restricted model residuals (null imposed)\n")
+
+# Get clusters
+clusters <- unique(optimal_bandwidth_data_state_non_mil$source_domain)
+n_clusters <- length(clusters)
+
+# Bootstrap
+boot_t_stats <- numeric(B)
+
+for(b in 1:B) {
+  # Generate Rademacher weights
+  cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
+
+  # Assign to observations
+  data_boot <- optimal_bandwidth_data_state_non_mil
+  data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
+    cluster_weights[which(clusters == clust)]
+  })
+
+  # Create bootstrap outcome using RESTRICTED fitted values
+  data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
+
+  # Re-estimate FULL model on bootstrap data
+  model_boot <- feols(
+    sentiment_boot ~ running_probabilistic * treatment * csto |
+      source_domain^topic_clean + topic_clean^treatment,
+    cluster = ~source_domain,
+    data = data_boot
+  )
+
+  boot_coef <- coef(model_boot)["treatment:csto"]
+  boot_se <- se(model_boot)["treatment:csto"]
+  boot_t_stats[b] <- boot_coef / boot_se
+
+  if(b %% 100 == 0) cat("Iteration:", b, "\n")
+}
+
+# Calculate p-value
+p_value <- mean(abs(boot_t_stats) >= abs(original_t))
+
+cat("\n=== Results ===\n")
+cat("Original t-stat:", original_t, "\n")
+cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
+cat("P-value:", p_value, "\n")
+
+# Plot
+hist(boot_t_stats, breaks=30, main="Wild Bootstrap t-statistics (Null Imposed)",
+     xlab="t-statistic")
+abline(v=original_t, col="red", lwd=2)
+abline(v=0, col="blue", lwd=2, lty=2)
+legend("topright", c("Original t", "Null (t=0)"), col=c("red","blue"), lty=c(1,2), lwd=2)
+
+# Extract bootstrap results for saturated model in standard format
+boot_model5a_fully_saturated <- list(
+  se = original_se,
+  p_val = p_value,
+  ci_lower = NA,  # Not computed in manual bootstrap
+  ci_upper = NA,  # Not computed in manual bootstrap
+  t_stat = original_t
+)
+cat("Saturated model bootstrap results extracted\n")
+```
 
 ## Russian-Related Articles Only
 
@@ -631,12 +742,14 @@ data_long %>%
 ## Summary Table (Table 3I)
 
 ```{r table3i-prob}
-note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth."
+note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 6 uses optimal bandwidth with full FEs (topic + source + country dummies). Model 7 uses non-military subset with full FEs. Model 8 uses full saturation (source-topic and topic-treatment FEs)."
 note_wrapped <- str_wrap(note_text, width = 80)
 
 table_3i <- modelsummary(
   list("(1)" = model5a, "(2)" = model5a_full, "(3)" = model5a_opt,
-       "(4)" = model5a_opt_non_mil, "(5)" = model5a_opt_russian),
+       "(4)" = model5a_opt_non_mil, "(5)" = model5a_opt_russian,
+       "(6)" = model5a_opt_full_fe, "(7)" = model5a_opt_non_mil_full_fe,
+       "(8)" = model5a_fully_saturated),
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
@@ -711,6 +824,9 @@ results_het_prob <- list(
   model5a_opt_russian = model5a_opt_russian,
   model5a_csto = model5a_csto,
   model5a_neutral = model5a_neutral,
+  model5a_opt_full_fe = model5a_opt_full_fe,
+  model5a_opt_non_mil_full_fe = model5a_opt_non_mil_full_fe,
+  model5a_fully_saturated = model5a_fully_saturated,
   model5a_opt_pol = model5a_opt_pol,
   model5a_opt_mil = model5a_opt_mil,
   model5a_opt_econ = model5a_opt_econ,
@@ -730,6 +846,9 @@ results_het_prob <- list(
     model5a_opt = boot_model5a_opt,
     model5a_opt_non_mil = boot_model5a_opt_non_mil,
     model5a_opt_russian = boot_model5a_opt_russian,
+    model5a_opt_full_fe = boot_model5a_opt_full_fe,
+    model5a_opt_non_mil_full_fe = boot_model5a_opt_non_mil_full_fe,
+    model5a_fully_saturated = boot_model5a_fully_saturated,
 
     # Topic-specific model5a (optimal BW)
     model5a_opt_pol = boot_model5a_opt_pol,

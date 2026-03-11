@@ -566,19 +566,21 @@ save_table(table_2e, "table_02e_diff_disc_by_topic_full_continuous")
 n_cl_t3 <- sapply(list(results_align$model5a_csto, results_align$model5a_neutral,
                        results_align$model5a_full, results_align$model5a_opt,
                        results_align$model5a_opt_non_mil, results_align$model5a_opt_russian,
+                       results_align$model5a_opt_full_fe, results_align$model5a_opt_non_mil_full_fe,
                        results_align$model5a_fully_saturated), get_n_clusters)
 rows_t3 <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
-  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t3[1], n_cl_t3[2], n_cl_t3[3], n_cl_t3[4], n_cl_t3[5], n_cl_t3[6], n_cl_t3[7]
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8, ~row9,
+  'State FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Country Dummies', '-', '-', '-', '-', '-', '-', 'X', 'X', '-',
+  'Clusters', n_cl_t3[1], n_cl_t3[2], n_cl_t3[3], n_cl_t3[4], n_cl_t3[5], n_cl_t3[6], n_cl_t3[7], n_cl_t3[8], n_cl_t3[9]
 )
-attr(rows_t3, 'position') <- c(5, 6, 7, 8)
+attr(rows_t3, 'position') <- c(5, 6, 7, 8, 9)
 
-note_t3 <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-7, clustered at source level. Models 1-2 use rdrobust standard errors. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 7 uses full saturation (country-source-topic FEs). Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+note_t3 <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-9, clustered at source level. Models 1-2 use rdrobust standard errors. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 7 uses optimal bandwidth with full FEs (topic + source + country dummies). Model 8 uses non-military subset with full FEs. Model 9 uses full saturation (source-topic and topic-treatment FEs). Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
 
-# Create vcov list with bootstrap SEs for felm models (columns 3-7)
+# Create vcov list with bootstrap SEs for felm models (columns 3-9)
 vcov_t3 <- list(
   NULL,
   NULL,
@@ -586,7 +588,9 @@ vcov_t3 <- list(
   "(4)" = create_bootstrap_vcov(results_align$model5a_opt, results_align$bootstrap_se$model5a_opt, "treatment:csto"),
   "(5)" = create_bootstrap_vcov(results_align$model5a_opt_non_mil, results_align$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
   "(6)" = create_bootstrap_vcov(results_align$model5a_opt_russian, results_align$bootstrap_se$model5a_opt_russian, "treatment:csto"),
-  "(7)" = create_bootstrap_vcov(results_align$model5a_fully_saturated, results_align$bootstrap_se$model5a_fully_saturated, "treatment:csto")
+  "(7)" = create_bootstrap_vcov(results_align$model5a_opt_full_fe, results_align$bootstrap_se$model5a_opt_full_fe, "treatment:csto"),
+  "(8)" = create_bootstrap_vcov(results_align$model5a_opt_non_mil_full_fe, results_align$bootstrap_se$model5a_opt_non_mil_full_fe, "treatment:csto"),
+  "(9)" = create_bootstrap_vcov(results_align$model5a_fully_saturated, results_align$bootstrap_se$model5a_fully_saturated, "treatment:csto")
 )
 
 table_3 <- modelsummary(
@@ -597,7 +601,9 @@ table_3 <- modelsummary(
     "(4)" = results_align$model5a_opt,
     "(5)" = results_align$model5a_opt_non_mil,
     "(6)" = results_align$model5a_opt_russian,
-    "(7)" = results_align$model5a_fully_saturated
+    "(7)" = results_align$model5a_opt_full_fe,
+    "(8)" = results_align$model5a_opt_non_mil_full_fe,
+    "(9)" = results_align$model5a_fully_saturated
   ),
   vcov = vcov_t3,
   output = "gt",
@@ -624,18 +630,21 @@ save_table(table_3, "table_03_alignment_main")
 ```{r table3a}
 n_cl_t3a <- sapply(list(results_align_cont$model5a_csto, results_align_cont$model5a_neutral,
                         results_align_cont$model5a_full, results_align_cont$model5a_opt,
-                        results_align_cont$model5a_opt_non_mil, results_align_cont$model5a_opt_russian),
+                        results_align_cont$model5a_opt_non_mil, results_align_cont$model5a_opt_russian,
+                        results_align_cont$model5a_opt_full_fe, results_align_cont$model5a_opt_non_mil_full_fe,
+                        results_align_cont$model5a_fully_saturated),
                    get_n_clusters)
 rows_t3a <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', '-', '-', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-',
-  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t3a[1], n_cl_t3a[2], n_cl_t3a[3], n_cl_t3a[4], n_cl_t3a[5], n_cl_t3a[6]
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8, ~row9,
+  'State FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Country Dummies', '-', '-', '-', '-', '-', '-', 'X', 'X', '-',
+  'Clusters', n_cl_t3a[1], n_cl_t3a[2], n_cl_t3a[3], n_cl_t3a[4], n_cl_t3a[5], n_cl_t3a[6], n_cl_t3a[7], n_cl_t3a[8], n_cl_t3a[9]
 )
-attr(rows_t3a, 'position') <- c(5, 6, 7, 8)
+attr(rows_t3a, 'position') <- c(5, 6, 7, 8, 9)
 
-note_t3a <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+note_t3a <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-9, clustered at source level. Models 1-2 use rdrobust standard errors. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 7 uses optimal bandwidth with full FEs (topic + source + country dummies). Model 8 uses non-military subset with full FEs. Model 9 uses full saturation (source-topic and topic-treatment FEs). Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
 
 # Create vcov list with bootstrap SEs for felm models
 vcov_t3a <- list(
@@ -644,7 +653,10 @@ vcov_t3a <- list(
   "(3)" = create_bootstrap_vcov(results_align_cont$model5a_full, results_align_cont$bootstrap_se$model5a_full, "treatment:csto"),
   "(4)" = create_bootstrap_vcov(results_align_cont$model5a_opt, results_align_cont$bootstrap_se$model5a_opt, "treatment:csto"),
   "(5)" = create_bootstrap_vcov(results_align_cont$model5a_opt_non_mil, results_align_cont$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
-  "(6)" = create_bootstrap_vcov(results_align_cont$model5a_opt_russian, results_align_cont$bootstrap_se$model5a_opt_russian, "treatment:csto")
+  "(6)" = create_bootstrap_vcov(results_align_cont$model5a_opt_russian, results_align_cont$bootstrap_se$model5a_opt_russian, "treatment:csto"),
+  "(7)" = create_bootstrap_vcov(results_align_cont$model5a_opt_full_fe, results_align_cont$bootstrap_se$model5a_opt_full_fe, "treatment:csto"),
+  "(8)" = create_bootstrap_vcov(results_align_cont$model5a_opt_non_mil_full_fe, results_align_cont$bootstrap_se$model5a_opt_non_mil_full_fe, "treatment:csto"),
+  "(9)" = create_bootstrap_vcov(results_align_cont$model5a_fully_saturated, results_align_cont$bootstrap_se$model5a_fully_saturated, "treatment:csto")
 )
 
 table_3a <- modelsummary(
@@ -654,7 +666,10 @@ table_3a <- modelsummary(
     "(3)" = results_align_cont$model5a_full,
     "(4)" = results_align_cont$model5a_opt,
     "(5)" = results_align_cont$model5a_opt_non_mil,
-    "(6)" = results_align_cont$model5a_opt_russian
+    "(6)" = results_align_cont$model5a_opt_russian,
+    "(7)" = results_align_cont$model5a_opt_full_fe,
+    "(8)" = results_align_cont$model5a_opt_non_mil_full_fe,
+    "(9)" = results_align_cont$model5a_fully_saturated
   ),
   vcov = vcov_t3a,
   output = "gt",
@@ -1425,18 +1440,21 @@ save_table(table_2h, "table_02h_diff_disc_by_topic_full_drop_notime")
 ```{r table3f}
 n_cl_t3f <- sapply(list(results_align_drop$model5a_csto, results_align_drop$model5a_neutral,
                         results_align_drop$model5a_full, results_align_drop$model5a_opt,
-                        results_align_drop$model5a_opt_non_mil, results_align_drop$model5a_opt_russian),
+                        results_align_drop$model5a_opt_non_mil, results_align_drop$model5a_opt_russian,
+                        results_align_drop$model5a_opt_full_fe, results_align_drop$model5a_opt_non_mil_full_fe,
+                        results_align_drop$model5a_fully_saturated),
                    get_n_clusters)
 rows_t3f <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', '-', '-', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-',
-  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t3f[1], n_cl_t3f[2], n_cl_t3f[3], n_cl_t3f[4], n_cl_t3f[5], n_cl_t3f[6]
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8, ~row9,
+  'State FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Country Dummies', '-', '-', '-', '-', '-', '-', 'X', 'X', '-',
+  'Clusters', n_cl_t3f[1], n_cl_t3f[2], n_cl_t3f[3], n_cl_t3f[4], n_cl_t3f[5], n_cl_t3f[6], n_cl_t3f[7], n_cl_t3f[8], n_cl_t3f[9]
 )
-attr(rows_t3f, 'position') <- c(5, 6, 7, 8)
+attr(rows_t3f, 'position') <- c(5, 6, 7, 8, 9)
 
-note_t3f <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Articles without publication times are dropped. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+note_t3f <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-9, clustered at source level. Models 1-2 use rdrobust standard errors. Articles without publication times are dropped. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 7 uses optimal bandwidth with full FEs (topic + source + country dummies). Model 8 uses non-military subset with full FEs. Model 9 uses full saturation (source-topic and topic-treatment FEs). Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
 
 # Create vcov list with bootstrap SEs for felm models
 vcov_t3f <- list(
@@ -1445,7 +1463,10 @@ vcov_t3f <- list(
   "(3)" = create_bootstrap_vcov(results_align_drop$model5a_full, results_align_drop$bootstrap_se$model5a_full, "treatment:csto"),
   "(4)" = create_bootstrap_vcov(results_align_drop$model5a_opt, results_align_drop$bootstrap_se$model5a_opt, "treatment:csto"),
   "(5)" = create_bootstrap_vcov(results_align_drop$model5a_opt_non_mil, results_align_drop$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
-  "(6)" = create_bootstrap_vcov(results_align_drop$model5a_opt_russian, results_align_drop$bootstrap_se$model5a_opt_russian, "treatment:csto")
+  "(6)" = create_bootstrap_vcov(results_align_drop$model5a_opt_russian, results_align_drop$bootstrap_se$model5a_opt_russian, "treatment:csto"),
+  "(7)" = create_bootstrap_vcov(results_align_drop$model5a_opt_full_fe, results_align_drop$bootstrap_se$model5a_opt_full_fe, "treatment:csto"),
+  "(8)" = create_bootstrap_vcov(results_align_drop$model5a_opt_non_mil_full_fe, results_align_drop$bootstrap_se$model5a_opt_non_mil_full_fe, "treatment:csto"),
+  "(9)" = create_bootstrap_vcov(results_align_drop$model5a_fully_saturated, results_align_drop$bootstrap_se$model5a_fully_saturated, "treatment:csto")
 )
 
 table_3f <- modelsummary(
@@ -1455,7 +1476,10 @@ table_3f <- modelsummary(
     "(3)" = results_align_drop$model5a_full,
     "(4)" = results_align_drop$model5a_opt,
     "(5)" = results_align_drop$model5a_opt_non_mil,
-    "(6)" = results_align_drop$model5a_opt_russian
+    "(6)" = results_align_drop$model5a_opt_russian,
+    "(7)" = results_align_drop$model5a_opt_full_fe,
+    "(8)" = results_align_drop$model5a_opt_non_mil_full_fe,
+    "(9)" = results_align_drop$model5a_fully_saturated
   ),
   vcov = vcov_t3f,
   output = "gt",
@@ -1947,18 +1971,21 @@ save_table(table_2l, "table_02l_state_ind_rdd")
 ```{r table3i}
 n_cl_t3i <- sapply(list(results_align_prob$model5a_csto, results_align_prob$model5a_neutral,
                         results_align_prob$model5a_full, results_align_prob$model5a_opt,
-                        results_align_prob$model5a_opt_non_mil, results_align_prob$model5a_opt_russian),
+                        results_align_prob$model5a_opt_non_mil, results_align_prob$model5a_opt_russian,
+                        results_align_prob$model5a_opt_full_fe, results_align_prob$model5a_opt_non_mil_full_fe,
+                        results_align_prob$model5a_fully_saturated),
                    get_n_clusters)
 rows_t3i <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', '-', '-', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-',
-  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t3i[1], n_cl_t3i[2], n_cl_t3i[3], n_cl_t3i[4], n_cl_t3i[5], n_cl_t3i[6]
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8, ~row9,
+  'State FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', '-', '-', '-', '-', 'X', 'X', 'X',
+  'Topic FEs', '-', '-', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Country Dummies', '-', '-', '-', '-', '-', '-', 'X', 'X', '-',
+  'Clusters', n_cl_t3i[1], n_cl_t3i[2], n_cl_t3i[3], n_cl_t3i[4], n_cl_t3i[5], n_cl_t3i[6], n_cl_t3i[7], n_cl_t3i[8], n_cl_t3i[9]
 )
-attr(rows_t3i, 'position') <- c(5, 6, 7, 8)
+attr(rows_t3i, 'position') <- c(5, 6, 7, 8, 9)
 
-note_t3i <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-6, clustered at source level. Models 1-2 use rdrobust standard errors. Articles without publication times are assigned times via KDE sampling. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
+note_t3i <- paste("Standard errors computed via wild cluster bootstrap (9999 iterations, Rademacher weights) for Models 3-9, clustered at source level. Models 1-2 use rdrobust standard errors. Articles without publication times are assigned times via KDE sampling. Model 1 shows RDD results for CSTO countries only. Model 2 shows RDD results for Neutral countries only. Model 3 uses full data with topic fixed effects. Model 4 uses the optimal bandwidth with topic fixed effects. Model 5 omits military-related articles and uses a re-optimized bandwidth. Model 6 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 7 uses optimal bandwidth with full FEs (topic + source + country dummies). Model 8 uses non-military subset with full FEs. Model 9 uses full saturation (source-topic and topic-treatment FEs). Sample restricted to state-owned media in non-NATO countries.", SE_NOTE)
 
 # Create vcov list with bootstrap SEs for felm models
 vcov_t3i <- list(
@@ -1967,7 +1994,10 @@ vcov_t3i <- list(
   "(3)" = create_bootstrap_vcov(results_align_prob$model5a_full, results_align_prob$bootstrap_se$model5a_full, "treatment:csto"),
   "(4)" = create_bootstrap_vcov(results_align_prob$model5a_opt, results_align_prob$bootstrap_se$model5a_opt, "treatment:csto"),
   "(5)" = create_bootstrap_vcov(results_align_prob$model5a_opt_non_mil, results_align_prob$bootstrap_se$model5a_opt_non_mil, "treatment:csto"),
-  "(6)" = create_bootstrap_vcov(results_align_prob$model5a_opt_russian, results_align_prob$bootstrap_se$model5a_opt_russian, "treatment:csto")
+  "(6)" = create_bootstrap_vcov(results_align_prob$model5a_opt_russian, results_align_prob$bootstrap_se$model5a_opt_russian, "treatment:csto"),
+  "(7)" = create_bootstrap_vcov(results_align_prob$model5a_opt_full_fe, results_align_prob$bootstrap_se$model5a_opt_full_fe, "treatment:csto"),
+  "(8)" = create_bootstrap_vcov(results_align_prob$model5a_opt_non_mil_full_fe, results_align_prob$bootstrap_se$model5a_opt_non_mil_full_fe, "treatment:csto"),
+  "(9)" = create_bootstrap_vcov(results_align_prob$model5a_fully_saturated, results_align_prob$bootstrap_se$model5a_fully_saturated, "treatment:csto")
 )
 
 table_3i <- modelsummary(
@@ -1977,7 +2007,10 @@ table_3i <- modelsummary(
     "(3)" = results_align_prob$model5a_full,
     "(4)" = results_align_prob$model5a_opt,
     "(5)" = results_align_prob$model5a_opt_non_mil,
-    "(6)" = results_align_prob$model5a_opt_russian
+    "(6)" = results_align_prob$model5a_opt_russian,
+    "(7)" = results_align_prob$model5a_opt_full_fe,
+    "(8)" = results_align_prob$model5a_opt_non_mil_full_fe,
+    "(9)" = results_align_prob$model5a_fully_saturated
   ),
   vcov = vcov_t3i,
   output = "gt",
