@@ -794,13 +794,20 @@ sensitivity <- sensemakr(
 )
 
 summary(sensitivity)
+```
 
+
+```{r}
 partial_r2(lm_model, covariates = c("running_probabilistic:treatment",
                                      "running_probabilistic:csto",
                                      "treatment",
                                      "csto"))
 
+treatment_r2 <- partial_r2(lm_model, covariates = c("treatment"))
+```
 
+
+```{r}
 # Then manually recompute the CI bound using your bootstrapped SE
 coef_interest <- coef(lm_model)["treatment:csto"]
 rv_ci <- coef_interest / bootstrapped_se  # your corrected t-stat for reference
