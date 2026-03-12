@@ -531,6 +531,10 @@ ggplot(plot_data, aes(x = Value, y = source_domain, fill = Type)) +
        x = "Sentiment Value",
        y = "Media Outlet") +
   scale_fill_manual(values = c("sentiment_clean" = "#69b3a2", "sentiment_z" = "#404080"))
+
+ggsave(plot = last_plot(),
+       file.path(FIGURES_HETEROGENEITY_PROB, "sentiment_zscore_comparison_prob.png"),
+       width = 10, height = 7)
 ```
 
 
@@ -1253,6 +1257,7 @@ table_3i_topic_full
 
 ```{r save-prob}
 results_het_prob <- list(
+  # Main models
   model5a = model5a,
   model5a_full = model5a_full,
   model5a_opt = model5a_opt,
@@ -1264,6 +1269,19 @@ results_het_prob <- list(
   model5a_opt_non_mil_full_fe = model5a_opt_non_mil_full_fe,
   model5a_fully_saturated = model5a_fully_saturated,
   matched_model = matched_model,
+
+  # Z-score models
+  model5a_z = model5a_z,
+  model5a_csto_z = model5a_csto_z,
+  model5a_neutral_z = model5a_neutral_z,
+  model5a_opt_z = model5a_opt_z,
+  model5a_opt_non_mil_z = model5a_opt_non_mil_z,
+  model5a_opt_russian_z = model5a_opt_russian_z,
+
+  # Russian Full FE
+  model5a_opt_rus_full_fe = model5a_opt_rus_full_fe,
+
+  # Topic-specific models
   model5a_opt_pol = model5a_opt_pol,
   model5a_opt_mil = model5a_opt_mil,
   model5a_opt_econ = model5a_opt_econ,
@@ -1287,6 +1305,15 @@ results_het_prob <- list(
     model5a_opt_non_mil_full_fe = boot_model5a_opt_non_mil_full_fe,
     model5a_fully_saturated = boot_model5a_fully_saturated,
     matched_model = boot_matched_model,
+
+    # Z-score bootstrap SEs
+    model5a_z = boot_model5a_z,
+    model5a_opt_z = boot_model5a_opt_z,
+    model5a_opt_non_mil_z = boot_model5a_opt_non_mil_z,
+    model5a_opt_russian_z = boot_model5a_opt_russian_z,
+
+    # Russian Full FE bootstrap
+    model5a_opt_rus_full_fe = boot_model5a_opt_rus_full_fe,
 
     # Topic-specific model5a (optimal BW)
     model5a_opt_pol = boot_model5a_opt_pol,

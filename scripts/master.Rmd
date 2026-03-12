@@ -12,6 +12,12 @@ output:
 
 This master script runs the entire analysis pipeline for the Russia sentiment paper.
 
+Changes to make:
+06C has updated analysis that needs to push to rest of 061
+05C needs to be updated to match 06C
+05 Files need to be updated to match 05C
+08 tables need updating for 06 and full rework for 05 changes
+
 ## Workflow Diagram
 
 ```
