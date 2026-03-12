@@ -25,6 +25,33 @@ This script performs the Difference-in-Discontinuities analysis comparing state-
 ```{r setup-prob, include=FALSE}
 source("00_setup.R")
 knitr::opts_chunk$set(fig.path = paste0(FIGURES_DIFF_DISC_PROB, "/"))
+
+# Load packages for wild cluster bootstrap, matching, and sensitivity analysis
+p_load(fwildclusterboot, MatchIt, cobalt, rbounds, sensemakr)
+library(fwildclusterboot)
+
+set.seed(3184)
+
+# Helper function for wild cluster bootstrap
+run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999) {
+  boot_result <- boottest(
+    object = model,
+    param = param,
+    clustid = clustid,
+    B = B,
+    impose_null = TRUE,
+    bootstrap_type = "fnw11",
+    type = "webb"
+  )
+
+  list(
+    se = boot_result$point_estimate / boot_result$t_stat,
+    p_val = boot_result$p_val,
+    ci_lower = boot_result$conf_int[1],
+    ci_upper = boot_result$conf_int[2],
+    t_stat = boot_result$teststat
+  )
+}
 ```
 
 # Load Data
@@ -36,11 +63,71 @@ data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 cat("Non-Ukraine sample:", nrow(data_non_ukraine), "articles\n")
 cat("State-owned:", sum(data_non_ukraine$state_owned), "\n")
 cat("Independent:", sum(data_non_ukraine$state_owned == 0), "\n")
+
+# Convert factors
+data_non_ukraine <- data_non_ukraine %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+data <- data %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
 ```
 
-# Main Diff-in-Disc Model
+# State-Owned vs Independent Media Analysis
 
-## Model 2a: Full Triple Interaction
+## Separate RDDs by Media Type
+
+These analyses mirror the CSTO-only / Neutral-only separate RDDs in the
+heterogeneity analysis (file 06), but applied to state vs independent media.
+
+### State-Owned Media Only RDD
+
+```{r state-only-rdd-prob}
+# Filter to state-owned media only
+data_state_only <- data_non_ukraine %>%
+  filter(state_owned == 1) %>%
+  filter(!topic_clean %in% "Military")
+
+covs_state <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_state_only)
+
+model2_state_rdd <- rdrobust(
+  y = data_state_only$sentiment_clean,
+  x = data_state_only$running_probabilistic,
+  covs = covs_state,
+  cluster = data_state_only$source_domain
+)
+
+cat("State-Owned Media Only RDD (Probabilistic)\n")
+summary(model2_state_rdd)
+cat("N (state-owned, non-military):", nrow(data_state_only), "\n")
+cat("Unique clusters:", length(unique(data_state_only$source_domain)), "\n")
+```
+
+### Independent Media Only RDD
+
+```{r ind-only-rdd-prob}
+# Filter to independent media only
+data_ind_only <- data_non_ukraine %>%
+  filter(state_owned == 0) %>%
+  filter(!topic_clean %in% "Military")
+
+covs_ind <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_ind_only)
+
+model2_ind_rdd <- rdrobust(
+  y = data_ind_only$sentiment_clean,
+  x = data_ind_only$running_probabilistic,
+  covs = covs_ind,
+  cluster = data_ind_only$source_domain
+)
+
+cat("Independent Media Only RDD (Probabilistic)\n")
+summary(model2_ind_rdd)
+cat("N (independent, non-military):", nrow(data_ind_only), "\n")
+cat("Unique clusters:", length(unique(data_ind_only$source_domain)), "\n")
+```
+
+
+# Diff-in-Disc Analysis
+
+## Diff-in-Disc: State-Owned vs Independent
 
 ```{r model2a-prob}
 model2a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
@@ -48,6 +135,11 @@ model2a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_own
                  data = data_non_ukraine)
 
 summary(model2a)
+
+# Wild cluster bootstrap for model2a
+boot_model2a <- run_wild_bootstrap(model2a, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model2a$se, "\n")
+cat("Bootstrap p-value:", boot_model2a$p_val, "\n")
 ```
 
 ## Effect Size Analysis
@@ -66,10 +158,9 @@ coef_state <- model2a$coeftable["treatment:state_owned", "Estimate"]
 cat("Additional effect on state media (in SD):", round(coef_state / sd_sentiment_non_ukraine, 3), "\n")
 ```
 
-# Visualization: Main Diff-in-Disc Plot
+## Visualization: Main Diff-in-Disc Plot
 
 ```{r plot-discs-prob, fig.width=10, fig.height=7}
-# Aggregate data
 agg_data_discs <- data_non_ukraine %>%
   group_by(running_probabilistic, state_owned) %>%
   summarize(
@@ -109,17 +200,11 @@ ggsave(plot = invasion_discs_graph,
        width = 10, height = 7)
 ```
 
-# Optimal Bandwidth Selection
+## Optimal Bandwidth Selection
 
 ```{r optimal-bw-prob}
-data_non_ukraine <- data_non_ukraine %>%
-  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
-
-#covs_matrix <- model.matrix(~ country + topic_clean + state_owned - 1, data = data_non_ukraine)
-
 bw_select <- rdbwselect(y = data_non_ukraine$sentiment_clean,
                         x = data_non_ukraine$running_probabilistic,
-                        #covs = covs_matrix,
                         kernel = "triangular",
                         cluster = data_non_ukraine$source_domain,
                         p = 1,
@@ -137,7 +222,7 @@ optimal_bandwidth_data <- data_non_ukraine %>%
 cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ```
 
-## Model with Optimal Bandwidth
+### Model with Optimal Bandwidth
 
 ```{r model2a-opt-prob}
 model2a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
@@ -145,9 +230,171 @@ model2a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state
                      data = optimal_bandwidth_data)
 
 summary(model2a_opt)
+
+# Wild cluster bootstrap for model2a_opt
+boot_model2a_opt <- run_wild_bootstrap(model2a_opt, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model2a_opt$se, "\n")
+cat("Bootstrap p-value:", boot_model2a_opt$p_val, "\n")
 ```
 
-# Diff-in-Disc Models By Topic
+# Robustness Checks
+
+## Non-Military Topics
+
+```{r non-mil-prob}
+data_non_mil <- data_non_ukraine %>%
+  filter(!topic_clean %in% c("Military"))
+
+model2b <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                 cluster = ~source_domain,
+                 data = data_non_mil)
+
+summary(model2b)
+
+# Wild cluster bootstrap
+boot_model2b <- run_wild_bootstrap(model2b, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model2b$se, "\n")
+cat("Bootstrap p-value:", boot_model2b$p_val, "\n")
+```
+
+### Visualization (Non-Military)
+
+```{r plot-non-mil-prob, fig.width=10, fig.height=7}
+agg_data_non_mil <- data_non_mil %>%
+  group_by(running_probabilistic, state_owned) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+invasion_discs_non_mil_graph <- data_non_mil %>%
+  mutate(indicator = as.factor(indicator)) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Ind. Pre." = "1",
+    "State Pre." = "2",
+    "Ind. Post" = "3",
+    "State Post" = "4"
+  )) %>%
+  ggplot(aes(x = running_probabilistic, y = sentiment_clean, group = indicator, color = indicator)) +
+  geom_point(data = agg_data_non_mil,
+             aes(x = running_probabilistic, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    subtitle = "Non-Military Topics",
+    x = "Hours Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_discs_non_mil_graph
+
+ggsave(plot = invasion_discs_non_mil_graph,
+       file.path(FIGURES_DIFF_DISC_PROB, "invasion_discs_non_mil_prob.png"),
+       width = 10, height = 7)
+```
+
+## Non-NATO Countries
+
+```{r non-nato-prob}
+data_non_nato <- data_non_ukraine %>%
+  filter(!country %in% NATO_COUNTRIES)
+
+model2d <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                 cluster = ~source_domain,
+                 data = data_non_nato)
+
+summary(model2d)
+
+# Wild cluster bootstrap
+boot_model2d <- run_wild_bootstrap(model2d, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model2d$se, "\n")
+cat("Bootstrap p-value:", boot_model2d$p_val, "\n")
+```
+
+## Russian-Related Articles Only
+
+```{r russian-related-prob}
+data_russian_related <- data %>%
+  filter(!Russian.Involvement == "Not") %>%
+  filter(!country %in% c("Ukraine")) %>%
+  filter(!topic_clean %in% c("Military"))
+
+model3a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                 cluster = ~source_domain,
+                 data = data_russian_related)
+
+summary(model3a)
+
+# Wild cluster bootstrap
+boot_model3a <- run_wild_bootstrap(model3a, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model3a$se, "\n")
+cat("Bootstrap p-value:", boot_model3a$p_val, "\n")
+```
+
+## Combined Filter with Re-Optimized Bandwidth
+
+```{r combined-robust-prob}
+data_combined_filtered <- data %>%
+  filter(!Russian.Involvement == "Not") %>%
+  filter(!country %in% c("Ukraine")) %>%
+  filter(!country %in% NATO_COUNTRIES) %>%
+  filter(!topic_clean %in% c("Military"))
+
+data_combined_filtered <- data_combined_filtered %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+
+bw_select_combined <- rdbwselect(y = data_combined_filtered$sentiment_clean,
+                                  x = data_combined_filtered$running_probabilistic,
+                                  kernel = "triangular",
+                                  cluster = data_combined_filtered$source_domain,
+                                  p = 1,
+                                  bwselect = "mserd")
+
+summary(bw_select_combined)
+
+optimal_bw_combined <- bw_select_combined$bws[1, 1]
+```
+
+```{r combined-robust-model-prob}
+cat("Optimal bandwidth (combined filter):", round(optimal_bw_combined, 1), "seconds\n")
+
+optimal_bw_combined_data <- data_combined_filtered %>%
+  filter(running_probabilistic < optimal_bw_combined) %>%
+  filter(running_probabilistic > -optimal_bw_combined)
+
+cat("Observations within bandwidth:", nrow(optimal_bw_combined_data), "\n")
+
+model3a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+                     cluster = ~source_domain,
+                     data = optimal_bw_combined_data)
+
+summary(model3a_opt)
+
+# Wild cluster bootstrap
+boot_model3a_opt <- run_wild_bootstrap(model3a_opt, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt$se, "\n")
+cat("Bootstrap p-value:", boot_model3a_opt$p_val, "\n")
+```
+
+## Saturated Model
+
+```{r saturated-model-prob}
+model3a_opt_saturated <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
+                          source_domain^topic_clean + country^state_owned + country^topic_clean^treatment,
+                          cluster = ~source_domain,
+                          data = optimal_bw_combined_data)
+
+summary(model3a_opt_saturated)
+
+# Wild cluster bootstrap for saturated model
+boot_model3a_opt_saturated <- run_wild_bootstrap(model3a_opt_saturated, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt_saturated$se, "\n")
+cat("Bootstrap p-value:", boot_model3a_opt_saturated$p_val, "\n")
+```
+
+# By-Topic Analysis
 
 ## Full Data By Topic
 
@@ -173,6 +420,13 @@ model2a_full_cult <- feols(sentiment_clean ~ running_probabilistic * treatment *
 model2a_full_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
                           cluster = ~source_domain,
                           data = data_oth)
+
+# Wild cluster bootstrap for topic-specific models (full data)
+boot_model2a_full_pol <- run_wild_bootstrap(model2a_full_pol, "treatment:state_owned")
+boot_model2a_full_mil <- run_wild_bootstrap(model2a_full_mil, "treatment:state_owned")
+boot_model2a_full_econ <- run_wild_bootstrap(model2a_full_econ, "treatment:state_owned")
+boot_model2a_full_cult <- run_wild_bootstrap(model2a_full_cult, "treatment:state_owned")
+boot_model2a_full_oth <- run_wild_bootstrap(model2a_full_oth, "treatment:state_owned")
 ```
 
 ## Per-Topic Optimal Bandwidth
@@ -241,147 +495,79 @@ model2a_opt_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * s
                          cluster = ~source_domain,
                          data = opt_data_oth)
 summary(model2a_opt_oth)
+
+# Wild cluster bootstrap for topic-specific models (optimal BW)
+boot_model2a_opt_pol <- run_wild_bootstrap(model2a_opt_pol, "treatment:state_owned")
+boot_model2a_opt_mil <- run_wild_bootstrap(model2a_opt_mil, "treatment:state_owned")
+boot_model2a_opt_econ <- run_wild_bootstrap(model2a_opt_econ, "treatment:state_owned")
+boot_model2a_opt_cult <- run_wild_bootstrap(model2a_opt_cult, "treatment:state_owned")
+boot_model2a_opt_oth <- run_wild_bootstrap(model2a_opt_oth, "treatment:state_owned")
 ```
 
-# Robustness: Non-Military Topics
+# Leave-One-Out Country Robustness
 
-```{r non-mil-prob}
-data_non_mil <- data_non_ukraine %>%
-  filter(!topic_clean %in% c("Military"))
+```{r loo-country-prob}
+# Use non-military data within optimal bandwidth for LOO analysis
+data_non_mil_bw <- data_non_mil %>%
+  filter(running_probabilistic < optimal_bw, running_probabilistic > -optimal_bw)
 
-model2b <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
-                 cluster = ~source_domain,
-                 data = data_non_mil)
+countries <- unique(data_non_mil_bw$country)
+loo_results <- list()
 
-summary(model2b)
-```
+for (cntry in countries) {
+  data_loo <- data_non_mil_bw %>%
+    filter(country != cntry)
 
-## Visualization (Non-Military)
+  # Re-calculate optimal bandwidth for LOO data
+  bw_loo <- rdbwselect(y = data_loo$sentiment_clean,
+                       x = data_loo$running_probabilistic,
+                       kernel = "triangular",
+                       cluster = data_loo$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
 
-```{r plot-non-mil-prob, fig.width=10, fig.height=7}
-agg_data_non_mil <- data_non_mil %>%
-  group_by(running_probabilistic, state_owned) %>%
-  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+  optimal_bw_loo <- bw_loo$bws[1, 1]
 
-invasion_discs_non_mil_graph <- data_non_mil %>%
-  mutate(indicator = as.factor(indicator)) %>%
-  mutate(indicator = fct_recode(indicator,
-    "Ind. Pre." = "1",
-    "State Pre." = "2",
-    "Ind. Post" = "3",
-    "State Post" = "4"
-  )) %>%
-  ggplot(aes(x = running_probabilistic, y = sentiment_clean, group = indicator, color = indicator)) +
-  geom_point(data = agg_data_non_mil,
-             aes(x = running_probabilistic, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm") +
-  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
-  scale_size(name = "Observations") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic() +
-  labs(
-    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
-    subtitle = "Non-Military Topics",
-    x = "Hours Pre/Post Invasion",
-    y = "Sentiment"
-  )
+  data_loo_bw <- data_loo %>%
+    filter(running_probabilistic < optimal_bw_loo, running_probabilistic > -optimal_bw_loo)
 
-invasion_discs_non_mil_graph
-
-ggsave(plot = invasion_discs_non_mil_graph,
-       file.path(FIGURES_DIFF_DISC_PROB, "invasion_discs_non_mil_prob.png"),
-       width = 10, height = 7)
-```
-
-# Robustness: Non-NATO Countries
-
-```{r non-nato-prob}
-data_non_nato <- data_non_ukraine %>%
-  filter(!country %in% NATO_COUNTRIES)
-
-model2d <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
-                 cluster = ~source_domain,
-                 data = data_non_nato)
-
-summary(model2d)
-```
-
-# Russian-Related Articles Only
-
-```{r russian-related-prob}
-data_russian_related <- data %>%
-  filter(!Russian.Involvement == "Not") %>%
-  filter(!country %in% c("Ukraine")) %>%
-  filter(!topic_clean %in% c("Military"))
-
-model3a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
-                 cluster = ~source_domain,
-                 data = data_russian_related)
-
-summary(model3a)
-```
-
-# Robustness: Combined Filter with Re-Optimized Bandwidth
-
-```{r combined-robust-prob}
-data_combined_filtered <- data %>%
-  filter(!Russian.Involvement == "Not") %>%
-  filter(!country %in% c("Ukraine")) %>%
-  filter(!country %in% NATO_COUNTRIES) %>%
-  filter(!topic_clean %in% c("Military"))
-
-data_combined_filtered <- data_combined_filtered %>%
-  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
-
-bw_select_combined <- rdbwselect(y = data_combined_filtered$sentiment_clean,
-                                  x = data_combined_filtered$running_probabilistic,
-                                  kernel = "triangular",
-                                  cluster = data_combined_filtered$source_domain,
-                                  p = 1,
-                                  bwselect = "mserd")
-
-summary(bw_select_combined)
-
-optimal_bw_combined <- bw_select_combined$bws[1, 1]
-```
-
-
-```{r combined-robust-model-prob}
-cat("Optimal bandwidth (combined filter):", round(optimal_bw_combined, 1), "seconds\n")
-
-optimal_bw_combined_data <- data_combined_filtered %>%
-  filter(running_probabilistic < optimal_bw_combined) %>%
-  filter(running_probabilistic > -optimal_bw_combined)
-
-cat("Observations within bandwidth:", nrow(optimal_bw_combined_data), "\n")
-
-model3a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+  model_loo <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                      cluster = ~source_domain,
-                     data = optimal_bw_combined_data)
+                     data = data_loo_bw)
 
-summary(model3a_opt)
+  boot_loo <- tryCatch(
+    run_wild_bootstrap(model_loo, "treatment:state_owned", B = 999),
+    error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
+  )
+  loo_results[[cntry]] <- list(
+    model = model_loo,
+    bandwidth = optimal_bw_loo,
+    n = nrow(data_loo_bw),
+    country_dropped = cntry,
+    boot_p_val = boot_loo$p_val,
+    boot_se = boot_loo$se
+  )
+}
 
-# Saturated Model
-model3a_opt_saturated <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
-                          source_domain^topic_clean + country^state_owned + country^topic_clean^treatment,
-                          cluster = ~source_domain,
-                          data = optimal_bw_combined_data)
+# Extract key coefficient (treatment:state_owned interaction)
+loo_summary <- map_df(names(loo_results), function(cntry) {
+  mod <- loo_results[[cntry]]$model
+  tibble(
+    country_dropped = cntry,
+    estimate = coef(mod)["treatment:state_owned"],
+    std_error = se(mod)["treatment:state_owned"],
+    p_value = pvalue(mod)["treatment:state_owned"],
+    n_obs = loo_results[[cntry]]$n,
+    bandwidth = loo_results[[cntry]]$bandwidth
+  )
+})
 
-summary(model3a_opt_saturated)
+print(loo_summary)
 ```
 
-# Diff-in-Diff (Within Bandwidth)
+# Placebo Test
 
-```{r did-prob}
-model_did <- feols(sentiment_clean ~ treatment * state_owned | country + topic_clean,
-                   cluster = ~source_domain,
-                   data = optimal_bandwidth_data)
-
-summary(model_did)
-```
-
-# Placebo Test: December 7th Announcement (with Optimal Bandwidth)
+## December 7th Announcement (with Optimal Bandwidth)
 
 ```{r placebo-prob}
 data_dec <- data %>%
@@ -405,11 +591,16 @@ cat("Placebo optimal bandwidth:", round(optimal_bw_placebo, 1), "seconds\n")
 data_dec_bw <- data_dec %>%
   filter(running_probabilistic < optimal_bw_placebo, running_probabilistic > -optimal_bw_placebo)
 
-model4a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + Topic,
+model4a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
                  cluster = ~source_domain,
                  data = data_dec_bw)
 
 summary(model4a)
+
+# Wild cluster bootstrap for placebo
+boot_model4a <- run_wild_bootstrap(model4a, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model4a$se, "\n")
+cat("Bootstrap p-value:", boot_model4a$p_val, "\n")
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
 ```
 
@@ -438,14 +629,210 @@ data_dec %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Placebo Test: Effect of December 7th Announcement (Continuous, Probabilistic Time)",
+    title = "Placebo Test: Effect of December 7th Announcement (Probabilistic Time)",
     subtitle = "Pre-Invasion Period Only",
-    x = "Seconds Pre/Post Invasion",
+    x = "Seconds Pre/Post Announcement",
     y = "Sentiment"
   )
 ```
 
-# Summary Table (Table 2I)
+# Matching
+
+## Initial Match
+
+```{r matching-h2-prob}
+# Subset to data of interest (non-military, optimal bandwidth)
+matching_data <- data_non_mil %>%
+  filter(running_probabilistic < optimal_bw, running_probabilistic > -optimal_bw) %>%
+  mutate(running = floor(running_probabilistic / 86400)) %>%  # Convert to days for matching
+  select(sentiment_clean, running, running_probabilistic, treatment, state_owned,
+         topic_clean, source_domain, country)
+
+# Match on topic and publication day
+ps_model <- matchit(
+  state_owned ~ running + topic_clean,
+  data = matching_data,
+  method = "exact",
+  ratio = 1,
+)
+
+summary(ps_model)
+```
+
+## Assess Balance
+
+```{r balance-h2-prob}
+# Visual balance check
+plot(ps_model, type = "jitter", interactive = FALSE)
+plot(ps_model, type = "density", interactive = FALSE)
+
+# Numerical balance check
+bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
+
+# Love plot (publication quality)
+love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
+
+ggsave(plot = last_plot(),
+       file.path(FIGURES_DIFF_DISC_PROB, "love_balance_state_owned.png"),
+       width = 10, height = 7)
+```
+
+## Matching Analysis
+
+```{r matched-model-h2-prob}
+# Extract matched data and calculate treatment effects
+matched_data <- match.data(ps_model)
+
+matched_model <- feols(sentiment_clean ~ running_probabilistic
+                                     * treatment * state_owned |
+                                       topic_clean + source_domain + country,
+                                     cluster = ~source_domain,
+                                     data = matched_data
+                                     )
+
+summary(matched_model)
+
+# Wild cluster bootstrap for matched model
+boot_matched_model <- run_wild_bootstrap(matched_model, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_matched_model$se, "\n")
+cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
+```
+
+# Sensitivity Analysis
+
+## Sensitivity of OVB
+
+```{r sensitivity-h2-prob}
+# Respecify the model using lm for sensemakr
+lm_model <- lm(sentiment_clean ~ running_probabilistic * treatment * state_owned +
+                 factor(topic_clean) + factor(source_domain) + factor(country),
+               data = matched_data)
+
+# Sensitivity analysis
+sensitivity <- sensemakr(
+  model = lm_model,
+  treatment = "treatment:state_owned",
+  benchmark_covariates = c("running_probabilistic:treatment"),
+  kd = 1,
+  ky = 1,
+  reduce = TRUE
+)
+
+summary(sensitivity)
+```
+
+## Partial R-squared Analysis
+
+```{r sensitivity-r2-h2-prob}
+partial_r2(lm_model, covariates = c("running_probabilistic:treatment",
+                                     "running_probabilistic:state_owned",
+                                     "treatment",
+                                     "state_owned"))
+
+treatment_r2 <- partial_r2(lm_model, covariates = c("treatment"))
+```
+
+## Sensitivity Contour Plot
+
+```{r sensitivity-plot-h2-prob, fig.width=10, fig.height=7}
+# Extract the data sensemakr uses for the plot
+ovb_contour_data <- function(sensitivity, lim = 0.005) {
+
+  # Grid of r2dz.x and r2yz.dx values
+  r2dz <- seq(0, lim, length.out = 400)
+  r2yz <- seq(0, lim, length.out = 400)
+  grid <- expand.grid(r2dz.x = r2dz, r2yz.dx = r2yz)
+
+  # Extract key stats
+  estimate <- sensitivity$sensitivity_stats$estimate
+  se <- sensitivity$sensitivity_stats$se
+  df <- sensitivity$sensitivity_stats$dof
+
+  # Compute adjusted estimate across grid
+  grid$adjusted <- mapply(function(r2dz, r2yz) {
+    sensemakr::adjusted_estimate(
+      estimate = estimate,
+      se = se,
+      dof = df,
+      r2dz.x = r2dz,
+      r2yz.dx = r2yz
+    )
+  }, grid$r2dz.x, grid$r2yz.dx)
+
+  return(grid)
+}
+
+# Extract benchmark points
+benchmark_df <- data.frame(
+  r2dz.x = sensitivity$bounds$r2dz.x,
+  r2yz.dx = sensitivity$bounds$r2yz.dx,
+  label = sensitivity$bounds$bound_label
+)
+
+# Build contour data with wider x limit
+contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
+
+ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
+  geom_contour(colour = "grey60",
+               breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
+  geom_contour(breaks = 0,
+               colour = "red",
+               linetype = "dashed",
+               linewidth = 0.8) +
+  geom_point(data = benchmark_df,
+             aes(x = r2dz.x, y = r2yz.dx),
+             shape = 18, colour = "red", size = 3,
+             inherit.aes = FALSE) +
+  annotate("point", x = 0, y = 0, shape = 17, size = 3) +
+  annotate("text", x = 0.002, y = 0.003,
+           label = "Unadjusted",
+           size = 5, hjust = 0) +
+  annotate("text", x = 0.047, y = 0.003,
+           label = "running:treatment",
+           size = 5, hjust = 0) +
+  coord_cartesian(xlim = c(0, 0.1), ylim = c(0, 0.1)) +
+  scale_x_continuous(breaks = seq(0, 0.1, by = 0.02),
+                     labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
+                     labels = scales::number_format(accuracy = 0.01)) +
+  labs(
+    x = "Partial R² of confounder with state ownership",
+    y = "Partial R² of confounder with sentiment",
+    title = "Sensitivity to Unobserved Confounding, State Ownership",
+    subtitle = "Red dashed line indicates where estimate = 0"
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold"),
+    legend.position = "none"
+  )
+
+ggsave(plot = last_plot(),
+       file.path(FIGURES_DIFF_DISC_PROB, "sensitivity_ovb_state_owned.png"),
+       width = 10, height = 7)
+```
+
+# Additional Analysis
+
+## Diff-in-Diff (Within Bandwidth)
+
+```{r did-prob}
+model_did <- feols(sentiment_clean ~ treatment * state_owned | country + topic_clean,
+                   cluster = ~source_domain,
+                   data = optimal_bandwidth_data)
+
+summary(model_did)
+
+# Wild cluster bootstrap
+boot_model_did <- run_wild_bootstrap(model_did, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model_did$se, "\n")
+cat("Bootstrap p-value:", boot_model_did$p_val, "\n")
+```
+
+# Summary Tables
+
+## Table 2I: Main Results
 
 ```{r table2i-prob}
 rows <- tibble::tribble(
@@ -477,7 +864,7 @@ table_2i <- modelsummary(
 table_2i
 ```
 
-## Summary Table: By Topic (Optimal Bandwidth)
+## Table 2I: By Topic (Optimal Bandwidth)
 
 ```{r table2i-topic-opt-prob}
 rows_topic <- tibble::tribble(
@@ -510,7 +897,7 @@ table_2i_topic_opt <- modelsummary(
 table_2i_topic_opt
 ```
 
-## Summary Table: By Topic (Full Data)
+## Table 2I: By Topic (Full Data)
 
 ```{r table2i-topic-full-prob}
 note_topic_full <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction) with country fixed effects."
@@ -535,60 +922,11 @@ table_2i_topic_full <- modelsummary(
 table_2i_topic_full
 ```
 
-# State-Owned and Independent Media Separate RDDs
-
-These analyses mirror the CSTO-only / Neutral-only separate RDDs in the
-heterogeneity analysis (file 06), but applied to state vs independent media
-(probabilistic time assignment variant).
-
-## State-Owned Media Only RDD
-
-```{r state-only-rdd-prob}
-data_state_only <- data_non_ukraine %>%
-  filter(state_owned == 1) %>%
-  filter(!topic_clean %in% "Military")
-
-covs_state <- model.matrix(~ source_domain + topic_clean - 1, data = data_state_only)
-
-model2_state_rdd <- rdrobust(
-  y = data_state_only$sentiment_clean,
-  x = data_state_only$running_probabilistic,
-  covs = covs_state,
-  cluster = data_state_only$source_domain
-)
-
-cat("State-Owned Media Only RDD (Probabilistic)\n")
-summary(model2_state_rdd)
-cat("N (state-owned, non-military):", nrow(data_state_only), "\n")
-cat("Unique clusters:", length(unique(data_state_only$source_domain)), "\n")
-```
-
-## Independent Media Only RDD
-
-```{r ind-only-rdd-prob}
-data_ind_only <- data_non_ukraine %>%
-  filter(state_owned == 0) %>%
-  filter(!topic_clean %in% "Military")
-
-covs_ind <- model.matrix(~ source_domain + topic_clean - 1, data = data_ind_only)
-
-model2_ind_rdd <- rdrobust(
-  y = data_ind_only$sentiment_clean,
-  x = data_ind_only$running_probabilistic,
-  covs = covs_ind,
-  cluster = data_ind_only$source_domain
-)
-
-cat("Independent Media Only RDD (Probabilistic)\n")
-summary(model2_ind_rdd)
-cat("N (independent, non-military):", nrow(data_ind_only), "\n")
-cat("Unique clusters:", length(unique(data_ind_only$source_domain)), "\n")
-```
-
 # Save Results
 
 ```{r save-prob}
 results_h2_prob <- list(
+  # Main models
   model2a = model2a,
   model2a_opt = model2a_opt,
   model2d = model2d,
@@ -596,21 +934,68 @@ results_h2_prob <- list(
   model3a = model3a,
   model3a_opt = model3a_opt,
   model3a_opt_saturated = model3a_opt_saturated,
+
+  # DID within bandwidth
   model_did = model_did,
+
+  # Placebo
   model_placebo = model4a,
+
+  # Separate RDDs
+  model2_state_rdd = model2_state_rdd,
+  model2_ind_rdd = model2_ind_rdd,
+
+  # By-topic (optimal BW)
   model2a_opt_pol = model2a_opt_pol,
   model2a_opt_mil = model2a_opt_mil,
   model2a_opt_econ = model2a_opt_econ,
   model2a_opt_cult = model2a_opt_cult,
   model2a_opt_oth = model2a_opt_oth,
+
+  # By-topic (full data)
   model2a_full_pol = model2a_full_pol,
   model2a_full_mil = model2a_full_mil,
   model2a_full_econ = model2a_full_econ,
   model2a_full_cult = model2a_full_cult,
   model2a_full_oth = model2a_full_oth,
-  # State-only and independent-only RDDs (cluster-robust SEs via rdrobust)
-  model2_state_rdd = model2_state_rdd,
-  model2_ind_rdd = model2_ind_rdd,
+
+  # Matching
+  matched_model = matched_model,
+
+  # LOO robustness
+  loo_results = loo_results,
+  loo_summary = loo_summary,
+
+  # Bootstrap SEs
+  bootstrap_se = list(
+    model2a = boot_model2a,
+    model2a_opt = boot_model2a_opt,
+    model2b = boot_model2b,
+    model2d = boot_model2d,
+    model3a = boot_model3a,
+    model3a_opt = boot_model3a_opt,
+    model3a_opt_saturated = boot_model3a_opt_saturated,
+    model_did = boot_model_did,
+    model_placebo = boot_model4a,
+    matched_model = boot_matched_model,
+    # Topic models (optimal BW)
+    model2a_opt_pol = boot_model2a_opt_pol,
+    model2a_opt_mil = boot_model2a_opt_mil,
+    model2a_opt_econ = boot_model2a_opt_econ,
+    model2a_opt_cult = boot_model2a_opt_cult,
+    model2a_opt_oth = boot_model2a_opt_oth,
+    # Topic models (full data)
+    model2a_full_pol = boot_model2a_full_pol,
+    model2a_full_mil = boot_model2a_full_mil,
+    model2a_full_econ = boot_model2a_full_econ,
+    model2a_full_cult = boot_model2a_full_cult,
+    model2a_full_oth = boot_model2a_full_oth
+  ),
+
+  # Sensitivity
+  sens_analysis = sensitivity,
+
+  # Bandwidths
   optimal_bandwidth = optimal_bw,
   optimal_bandwidth_combined = optimal_bw_combined,
   optimal_bw_pol = optimal_bw_pol,
