@@ -893,7 +893,7 @@ ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   labs(
     x = "Partial R² of confounder with CSTO membership",
     y = "Partial R² of confounder with sentiment",
-    title = "Sensitivity to Unobserved Confounding",
+    title = "Sensitivity to Unobserved Confounding, CSTO Affiliation",
     subtitle = "Red dashed line indicates where estimate = 0"
   ) +
   theme_bw() +
@@ -902,6 +902,10 @@ ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
     plot.title = element_text(face = "bold"),
     legend.position = "none"
   )
+
+ggsave(plot = last_plot(),
+       file.path(FIGURES_HETEROGENEITY_PROB, "sensitivity_ovb_csto.png"),
+       width = 10, height = 7)
 ```
 
 The robustness value of 3.2% indicates that an unobserved confounder would need to simultaneously explain 3.2% of residual variance in both CSTO membership and sentiment to explain away our result. To contextualize this threshold, our observed covariates — including treatment assignment (partial R² = 0.021%) and CSTO membership itself (partial R² = 0.001%) — explain a fraction of this amount. We additionally benchmark against temporal proximity to the date of the invasion (partial R² = 4.5% for CSTO membership, 0.001% for sentiment), which represents the strongest observed predictor of group assignment in our model. Despite exceeding the robustness value threshold on the treatment dimension, this benchmark explains essentially no variance in sentiment outcomes — as visible in Figure X, where the benchmark point sits far to the right of the zero contour but hugging the x-axis. An unobserved confounder would therefore need to be approximately 150 times more influential than treatment assignment itself, and simultaneously predict sentiment far more strongly than the timing of the invasion, to overturn our finding. This suggests the result is highly robust to potential confounding.
@@ -1029,6 +1033,7 @@ results_het_prob <- list(
   model5a_opt_full_fe = model5a_opt_full_fe,
   model5a_opt_non_mil_full_fe = model5a_opt_non_mil_full_fe,
   model5a_fully_saturated = model5a_fully_saturated,
+  matched_model = matched_model,
   model5a_opt_pol = model5a_opt_pol,
   model5a_opt_mil = model5a_opt_mil,
   model5a_opt_econ = model5a_opt_econ,
@@ -1051,6 +1056,7 @@ results_het_prob <- list(
     model5a_opt_full_fe = boot_model5a_opt_full_fe,
     model5a_opt_non_mil_full_fe = boot_model5a_opt_non_mil_full_fe,
     model5a_fully_saturated = boot_model5a_fully_saturated,
+    matched_model = boot_matched_model,
 
     # Topic-specific model5a (optimal BW)
     model5a_opt_pol = boot_model5a_opt_pol,

@@ -31,6 +31,7 @@ knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_CONT, "/"))
 
 ```{r load}
 library(fwildclusterboot)
+p_load(MatchIt, cobalt, rbounds, sensemakr)
 
 set.seed(3184)
 
@@ -707,6 +708,196 @@ cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
 ```
 
+## Matching
+
+### Initial Match
+
+```{r matching-analysis-cont}
+# Subset to data of interest - need running (days) for matching and running_continuous for model
+# First get running from original data before the /86400 transformation
+data_for_matching <- data_align %>%
+  filter(state_owned == 1) %>%
+  filter(!topic_clean %in% "Military") %>%
+  mutate(source_domain = droplevels(source_domain))
+
+# Get optimal bandwidth filtered data with both running variables
+optimal_bandwidth_data_matching <- data_for_matching %>%
+  mutate(running_continuous_scaled = running_continuous / 86400) %>%
+  filter(running_continuous_scaled < optimal_bw_align_non_mil,
+         running_continuous_scaled > -optimal_bw_align_non_mil)
+
+# Create country dummies
+source_counts_match <- optimal_bandwidth_data_matching %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
+
+optimal_bandwidth_data_matching <- optimal_bandwidth_data_matching %>%
+  mutate(
+    has_multi_sources = country %in% source_counts_match$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
+  )
+
+matching_data <- optimal_bandwidth_data_matching %>%
+  select(sentiment_clean, running, running_continuous_scaled, treatment, csto,
+         topic_clean, source_domain, country, country_dummy)
+
+# Match on topic and publication day (using running in days)
+ps_model <- matchit(
+  csto ~ running + topic_clean,
+  data = matching_data,
+  method = "exact",
+  ratio = 1,
+)
+
+summary(ps_model)
+```
+
+### Assess Balance
+
+```{r matching-balance-cont}
+# Visual balance check
+plot(ps_model, type = "jitter", interactive = FALSE)
+plot(ps_model, type = "density", interactive = FALSE)
+
+# Numerical balance check (better)
+bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
+# Want: all standardized mean differences < 0.1 after matching
+
+# Love plot (publication quality)
+love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
+```
+
+### Matching analysis
+
+```{r matching-model-cont}
+# Extract matched data and calculate treatment effects
+matched_data <- match.data(ps_model)
+
+# Use running_continuous_scaled for the model
+matched_model <- feols(sentiment_clean ~ running_continuous_scaled
+                                     * treatment * csto +
+                                       i(country_dummy, ref = "single_source") |
+                                       topic_clean + source_domain,
+                                     cluster = ~source_domain,
+                                     data = matched_data
+                                     )
+
+summary(matched_model)
+
+# Wild cluster bootstrap for matched model
+boot_matched_model <- run_wild_bootstrap(matched_model, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_matched_model$se, "\n")
+cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
+```
+
+### Sensitivity of OVB
+
+```{r sensitivity-ovb-cont}
+# Save the bootstrapped p-val
+bootstrapped_se <- boot_matched_model$p_val
+
+# Respecify the model using lm
+lm_model <- lm(sentiment_clean ~ running_continuous_scaled * treatment * csto +
+                 i(country_dummy, ref = "single_source") +
+                 factor(topic_clean) + factor(source_domain),
+               data = matched_data)
+
+# Sensitivity analysis
+sensitivity <- sensemakr(
+  model = lm_model,
+  treatment = "treatment:csto",
+  benchmark_covariates = c("running_continuous_scaled:treatment"),
+  kd = 1,
+  ky = 1,
+  reduce = TRUE
+)
+
+summary(sensitivity)
+```
+
+```{r sensitivity-plot-cont}
+# Sensitivity Plot
+
+# Extract the data sensemakr uses for the plot
+ovb_contour_data <- function(sensitivity, lim = 0.005) {
+
+  # Grid of r2dz.x and r2yz.dx values
+  r2dz <- seq(0, lim, length.out = 400)
+  r2yz <- seq(0, lim, length.out = 400)
+  grid <- expand.grid(r2dz.x = r2dz, r2yz.dx = r2yz)
+
+  # Extract key stats
+  estimate <- sensitivity$sensitivity_stats$estimate
+  se <- sensitivity$sensitivity_stats$se
+  df <- sensitivity$sensitivity_stats$dof
+
+  # Compute adjusted estimate across grid
+  grid$adjusted <- mapply(function(r2dz, r2yz) {
+    sensemakr::adjusted_estimate(
+      estimate = estimate,
+      se = se,
+      dof = df,
+      r2dz.x = r2dz,
+      r2yz.dx = r2yz
+    )
+  }, grid$r2dz.x, grid$r2yz.dx)
+
+  return(grid)
+}
+
+# Extract benchmark points
+benchmark_df <- data.frame(
+  r2dz.x = sensitivity$bounds$r2dz.x,
+  r2yz.dx = sensitivity$bounds$r2yz.dx,
+  label = sensitivity$bounds$bound_label
+)
+
+# Build contour data
+contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
+
+ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
+  geom_contour(colour = "grey60",
+               breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
+  geom_contour(breaks = 0,
+               colour = "red",
+               linetype = "dashed",
+               linewidth = 0.8) +
+  geom_point(data = benchmark_df,
+             aes(x = r2dz.x, y = r2yz.dx),
+             shape = 18, colour = "red", size = 3,
+             inherit.aes = FALSE) +
+  annotate("point", x = 0, y = 0, shape = 17, size = 3) +
+  annotate("text", x = 0.002, y = 0.003,
+           label = "Unadjusted\n(-0.146)",
+           size = 5, hjust = 0) +
+  annotate("text", x = 0.047, y = 0.003,
+           label = "running:treatment",
+           size = 5, hjust = 0) +
+  coord_cartesian(xlim = c(0, 0.1), ylim = c(0, 0.1)) +
+  scale_x_continuous(breaks = seq(0, 0.1, by = 0.02),
+                     labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
+                     labels = scales::number_format(accuracy = 0.01)) +
+  labs(
+    x = "Partial R² of confounder with CSTO membership",
+    y = "Partial R² of confounder with sentiment",
+    title = "Sensitivity to Unobserved Confounding, CSTO Affiliation",
+    subtitle = "Red dashed line indicates where estimate = 0"
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold"),
+    legend.position = "none"
+  )
+
+ggsave(plot = last_plot(),
+       file.path(FIGURES_HETEROGENEITY_CONT, "sensitivity_ovb_csto_cont.png"),
+       width = 10, height = 7)
+```
+
 # Country-Level Analysis
 
 ## State Media by Country and Alliance
@@ -826,6 +1017,7 @@ results_alignment_cont <- list(
   model5a_opt_russian = model5a_opt_russian,
   model5a_csto = model5a_csto,
   model5a_neutral = model5a_neutral,
+  matched_model = matched_model,
   model5a_opt_full_fe = model5a_opt_full_fe,
   model5a_opt_non_mil_full_fe = model5a_opt_non_mil_full_fe,
   model5a_fully_saturated = model5a_fully_saturated,
@@ -851,6 +1043,7 @@ results_alignment_cont <- list(
     model5a_opt_full_fe = boot_model5a_opt_full_fe,
     model5a_opt_non_mil_full_fe = boot_model5a_opt_non_mil_full_fe,
     model5a_fully_saturated = boot_model5a_fully_saturated,
+    matched_model = boot_matched_model,
 
     # Placebo test
     model_placebo_nonmil = boot_model_placebo_nonmil,
