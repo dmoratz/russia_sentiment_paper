@@ -23,6 +23,7 @@ This script examines heterogeneous treatment effects by Russian alignment (CSTO 
 ```{r setup-prob, include=FALSE}
 source("00_setup.R")
 knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_PROB, "/"))
+options(digits = 10)
 
 # Load fwildclusterboot for wild cluster bootstrap
 p_load(fwildclusterboot, MatchIt, cobalt, rbounds, sensemakr)
@@ -160,12 +161,27 @@ ggsave(plot = state_align_discs_graph,
 ### CSTO Countries Only
 
 ```{r align-csto-prob}
+# Filter to CSTO data, non military
 data_align_state_csto <- data_align %>%
   filter(state_owned == 1, csto == 1) %>%
   filter(!topic_clean %in% "Military") %>%
-  mutate(running_probabilistic = running_probabilistic / 86400)
+  mutate(running_probabilistic = running_probabilistic / 86400.0)
 
-covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_csto)
+# Create manual country dummies for countries with 2+ sources
+source_counts <- data_align_state_csto %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
+
+# Create dummies
+data_align_state_csto <- data_align_state_csto %>%
+  mutate(
+    has_multi_sources = country %in% source_counts$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
+  )
+
+covs_matrix <- model.matrix(~ country_dummy + source_domain + topic_clean - 1, data = data_align_state_csto)
 
 model5a_csto <- rdrobust(
   y = data_align_state_csto$sentiment_clean,
@@ -180,12 +196,29 @@ summary(model5a_csto)
 ### Neutral Countries Only
 
 ```{r align-neutral-prob}
+# Filter data to neutral countries only
 data_align_state_neutral <- data_align %>%
   filter(state_owned == 1, csto == 0) %>%
   filter(!topic_clean %in% "Military") %>%
   mutate(running_probabilistic = running_probabilistic / 86400)
 
+# Create manual country dummies for countries with 2+ sources
+source_counts <- data_align_state_neutral %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
+
+# Create dummies
+data_align_state_neutral <- data_align_state_neutral %>%
+  mutate(
+    has_multi_sources = country %in% source_counts$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
+  )
+
 covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_neutral)
+
+# Doesn't need country fixed effects since each country has only a single source
 
 model5a_neutral <- rdrobust(
   y = data_align_state_neutral$sentiment_clean,
@@ -197,7 +230,10 @@ model5a_neutral <- rdrobust(
 summary(model5a_neutral)
 ```
 
-### Diff-in-Disc: CSTO vs Neutral (State Media)
+# Diff-in-Disc Analysis
+
+## Full Data, Topic FEs
+Diff-in-Disc: CSTO vs Neutral (State Media)
 
 ```{r align-diff-prob}
 data_align_state <- data_align %>%
@@ -205,7 +241,7 @@ data_align_state <- data_align %>%
   mutate(source_domain = droplevels(source_domain)) %>%
   mutate(running_probabilistic = running_probabilistic / 86400)
 
-model5a <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a <- feols(sentiment_clean ~ running_probabilistic * treatment * csto | topic_clean,
                  cluster = ~source_domain,
                  data = data_align_state)
 
@@ -218,10 +254,27 @@ cat("Bootstrap p-value:", boot_model5a$p_val, "\n")
 ```
 
 
-## Full Data with Topic FEs
+## Full Data with FEs
 
 ```{r align-full-prob}
-model5a_full <- feols(sentiment_clean ~ running_probabilistic * treatment * csto | topic_clean,
+# Create manual country dummies for countries with 2+ sources
+source_counts <- data_align_state %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
+
+# Create dummies
+data_align_state <- data_align_state %>%
+  mutate(
+    has_multi_sources = country %in% source_counts$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
+  )
+
+model5a_full <- feols(sentiment_clean ~ running_probabilistic * 
+                        treatment * csto + 
+                        i(country_dummy, ref = "single_source") | 
+                        topic_clean + source_domain,
                       cluster = ~source_domain,
                       data = data_align_state)
 
@@ -233,7 +286,7 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_full$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_full$p_val, "\n")
 ```
 
-## Optimal Bandwidth
+## Optimal Bandwidth, Topic FEs
 
 ```{r align-optimal-prob}
 bw_align <- rdbwselect(y = data_align_state$sentiment_clean,
@@ -261,15 +314,6 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_opt$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt$p_val, "\n")
 ```
 
-### Effect Size
-
-```{r align-effect-prob}
-sd_state_owned <- sd(data_align_state$sentiment_clean)
-cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
-
-coef_csto_int <- model5a_opt$coeftable["treatment:csto", "Estimate"]
-cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
-```
 
 ## Optimal Bandwidth Full FE
 
@@ -320,7 +364,7 @@ bw_align_non_mil <- rdbwselect(y = data_align_state_non_mil$sentiment_clean,
                                bwselect = "mserd")
 
 optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
-cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "seconds\n")
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "days\n")
 
 optimal_bandwidth_data_state_non_mil <- data_align_state_non_mil %>%
   filter(running_probabilistic < optimal_bw_align_non_mil, running_probabilistic > -optimal_bw_align_non_mil)
@@ -371,117 +415,16 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil_full_fe$se, "\n
 cat("Bootstrap p-value:", boot_model5a_opt_non_mil_full_fe$p_val, "\n")
 ```
 
-## Robustness: Heavily Saturated Non-Mil Model
+### Effect Size
 
-```{r}
-# Change source and topic to factor
-optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
-  mutate(
-    source_domain = as.factor(source_domain),
-    topic_clean = as.factor(topic_clean)
-  )
+```{r align-effect-prob}
+sd_state_owned <- sd(data_align_state$sentiment_clean)
+cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
 
-# Heavily saturated model
-model5a_fully_saturated <- feols(
-  sentiment_clean ~ running_probabilistic * treatment * csto |
-    source_domain^topic_clean + topic_clean^treatment,
-  cluster = ~source_domain,
-  data = optimal_bandwidth_data_state_non_mil
-)
-
-summary(model5a_fully_saturated)
+coef_csto_int <- model5a_opt_non_mil_full_fe$coeftable["treatment:csto", "Estimate"]
+cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
 ```
 
-### Manual Wild Bootstrap Standard Errors
-
-```{r}
-set.seed(3184)
-B <- 99
-
-# Original model
-model_original <- model5a_fully_saturated
-original_coef <- coef(model_original)["treatment:csto"]
-original_se <- se(model_original)["treatment:csto"]
-original_t <- original_coef / original_se
-
-cat("Original t-stat:", original_t, "\n")
-
-# CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
-# Remove treatment:csto from the formula
-model_restricted <- feols(
-  sentiment_clean ~ running_probabilistic + treatment + csto + running_probabilistic:treatment + running_probabilistic:csto +
-    running_probabilistic:treatment:csto |  # Keep triple interaction but not treatment:csto
-    source_domain^topic_clean + topic_clean^treatment,
-  cluster = ~source_domain,
-  data = optimal_bandwidth_data_state_non_mil
-)
-
-# Get residuals and fitted values from RESTRICTED model
-residuals_restricted <- residuals(model_restricted)
-fitted_restricted <- fitted(model_restricted)
-
-cat("Using restricted model residuals (null imposed)\n")
-
-# Get clusters
-clusters <- unique(optimal_bandwidth_data_state_non_mil$source_domain)
-n_clusters <- length(clusters)
-
-# Bootstrap
-boot_t_stats <- numeric(B)
-
-for(b in 1:B) {
-  # Generate Rademacher weights
-  cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
-
-  # Assign to observations
-  data_boot <- optimal_bandwidth_data_state_non_mil
-  data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
-    cluster_weights[which(clusters == clust)]
-  })
-
-  # Create bootstrap outcome using RESTRICTED fitted values
-  data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
-
-  # Re-estimate FULL model on bootstrap data
-  model_boot <- feols(
-    sentiment_boot ~ running_probabilistic * treatment * csto |
-      source_domain^topic_clean + topic_clean^treatment,
-    cluster = ~source_domain,
-    data = data_boot
-  )
-
-  boot_coef <- coef(model_boot)["treatment:csto"]
-  boot_se <- se(model_boot)["treatment:csto"]
-  boot_t_stats[b] <- boot_coef / boot_se
-
-  if(b %% 100 == 0) cat("Iteration:", b, "\n")
-}
-
-# Calculate p-value
-p_value <- mean(abs(boot_t_stats) >= abs(original_t))
-
-cat("\n=== Results ===\n")
-cat("Original t-stat:", original_t, "\n")
-cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
-cat("P-value:", p_value, "\n")
-
-# Plot
-hist(boot_t_stats, breaks=30, main="Wild Bootstrap t-statistics (Null Imposed)",
-     xlab="t-statistic")
-abline(v=original_t, col="red", lwd=2)
-abline(v=0, col="blue", lwd=2, lty=2)
-legend("topright", c("Original t", "Null (t=0)"), col=c("red","blue"), lty=c(1,2), lwd=2)
-
-# Extract bootstrap results for saturated model in standard format
-boot_model5a_fully_saturated <- list(
-  se = original_se,
-  p_val = p_value,
-  ci_lower = NA,  # Not computed in manual bootstrap
-  ci_upper = NA,  # Not computed in manual bootstrap
-  t_stat = original_t
-)
-cat("Saturated model bootstrap results extracted\n")
-```
 
 ## Russian-Related Articles Only
 
@@ -498,7 +441,7 @@ bw_align_russian <- rdbwselect(y = data_align_state_russian$sentiment_clean,
                                bwselect = "mserd")
 
 optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
-cat("Optimal bandwidth (russian):", round(optimal_bw_align_russian, 1), "seconds\n")
+cat("Optimal bandwidth (russian):", round(optimal_bw_align_russian, 1), "days\n")
 
 optimal_bandwidth_data_state_russian <- data_align_state_russian %>%
   filter(running_probabilistic < optimal_bw_align_russian, running_probabilistic > -optimal_bw_align_russian)
@@ -515,6 +458,40 @@ boot_model5a_opt_russian <- run_wild_bootstrap(model5a_opt_russian, "treatment:c
 cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_russian$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt_russian$p_val, "\n")
 ```
+
+## Russia Only, Full FE
+
+```{r align-non-mil-prob-full-fe}
+# Create manual country dummies for countries with 2+ sources
+source_counts <- optimal_bandwidth_data_state_russian %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
+
+# Create dummies
+optimal_bandwidth_data_state_russian <- optimal_bandwidth_data_state_russian %>%
+  mutate(
+    has_multi_sources = country %in% source_counts$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
+  )
+
+model5a_opt_rus_full_fe <- feols(sentiment_clean ~ running_probabilistic
+                                     * treatment * csto +
+                                       i(country_dummy, ref = "single_source") |
+                                       topic_clean + source_domain,
+                                     cluster = ~source_domain,
+                                     data = optimal_bandwidth_data_state_russian
+                                     )
+
+summary(model5a_opt_rus_full_fe)
+
+# Wild cluster bootstrap for model5a_opt_non_mil
+boot_model5a_opt_rus_full_fe <- run_wild_bootstrap(model5a_opt_rus_full_fe, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_rus_full_fe$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt_rus_full_fe$p_val, "\n")
+```
+
 
 # By Topic
 
@@ -911,6 +888,118 @@ ggsave(plot = last_plot(),
 The robustness value of 3.2% indicates that an unobserved confounder would need to simultaneously explain 3.2% of residual variance in both CSTO membership and sentiment to explain away our result. To contextualize this threshold, our observed covariates — including treatment assignment (partial R² = 0.021%) and CSTO membership itself (partial R² = 0.001%) — explain a fraction of this amount. We additionally benchmark against temporal proximity to the date of the invasion (partial R² = 4.5% for CSTO membership, 0.001% for sentiment), which represents the strongest observed predictor of group assignment in our model. Despite exceeding the robustness value threshold on the treatment dimension, this benchmark explains essentially no variance in sentiment outcomes — as visible in Figure X, where the benchmark point sits far to the right of the zero contour but hugging the x-axis. An unobserved confounder would therefore need to be approximately 150 times more influential than treatment assignment itself, and simultaneously predict sentiment far more strongly than the timing of the invasion, to overturn our finding. This suggests the result is highly robust to potential confounding.
 
 We caution that robustness values should never be interpreted in isolation. The partial R² scale is model and data specific, and a robustness value that appears small in absolute terms may represent an implausibly large confounding requirement relative to the explanatory power of observed covariates. We recommend always reporting benchmark partial R² values alongside the robustness value to allow readers to calibrate the practical significance of the sensitivity result.
+
+## Heavily Saturated Non-Mil Model
+
+```{r}
+# Change source and topic to factor
+optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
+  mutate(
+    source_domain = as.factor(source_domain),
+    topic_clean = as.factor(topic_clean)
+  )
+
+# Heavily saturated model
+model5a_fully_saturated <- feols(
+  sentiment_clean ~ running_probabilistic * treatment * csto |
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_state_non_mil
+)
+
+summary(model5a_fully_saturated)
+```
+
+### Manual Wild Bootstrap Standard Errors
+
+```{r}
+set.seed(3184)
+B <- 99
+
+# Original model
+model_original <- model5a_fully_saturated
+original_coef <- coef(model_original)["treatment:csto"]
+original_se <- se(model_original)["treatment:csto"]
+original_t <- original_coef / original_se
+
+cat("Original t-stat:", original_t, "\n")
+
+# CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
+# Remove treatment:csto from the formula
+model_restricted <- feols(
+  sentiment_clean ~ running_probabilistic + treatment + csto + running_probabilistic:treatment + running_probabilistic:csto +
+    running_probabilistic:treatment:csto |  # Keep triple interaction but not treatment:csto
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_state_non_mil
+)
+
+# Get residuals and fitted values from RESTRICTED model
+residuals_restricted <- residuals(model_restricted)
+fitted_restricted <- fitted(model_restricted)
+
+cat("Using restricted model residuals (null imposed)\n")
+
+# Get clusters
+clusters <- unique(optimal_bandwidth_data_state_non_mil$source_domain)
+n_clusters <- length(clusters)
+
+# Bootstrap
+boot_t_stats <- numeric(B)
+
+for(b in 1:B) {
+  # Generate Rademacher weights
+  cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
+
+  # Assign to observations
+  data_boot <- optimal_bandwidth_data_state_non_mil
+  data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
+    cluster_weights[which(clusters == clust)]
+  })
+
+  # Create bootstrap outcome using RESTRICTED fitted values
+  data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
+
+  # Re-estimate FULL model on bootstrap data
+  model_boot <- feols(
+    sentiment_boot ~ running_probabilistic * treatment * csto |
+      source_domain^topic_clean + topic_clean^treatment,
+    cluster = ~source_domain,
+    data = data_boot
+  )
+
+  boot_coef <- coef(model_boot)["treatment:csto"]
+  boot_se <- se(model_boot)["treatment:csto"]
+  boot_t_stats[b] <- boot_coef / boot_se
+
+  if(b %% 100 == 0) cat("Iteration:", b, "\n")
+}
+
+# Calculate p-value
+p_value <- mean(abs(boot_t_stats) >= abs(original_t))
+
+cat("\n=== Results ===\n")
+cat("Original t-stat:", original_t, "\n")
+cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
+cat("P-value:", p_value, "\n")
+
+# Plot
+hist(boot_t_stats, breaks=30, main="Wild Bootstrap t-statistics (Null Imposed)",
+     xlab="t-statistic")
+abline(v=original_t, col="red", lwd=2)
+abline(v=0, col="blue", lwd=2, lty=2)
+legend("topright", c("Original t", "Null (t=0)"), col=c("red","blue"), lty=c(1,2), lwd=2)
+
+# Extract bootstrap results for saturated model in standard format
+boot_model5a_fully_saturated <- list(
+  se = original_se,
+  p_val = p_value,
+  ci_lower = NA,  # Not computed in manual bootstrap
+  ci_upper = NA,  # Not computed in manual bootstrap
+  t_stat = original_t
+)
+cat("Saturated model bootstrap results extracted\n")
+```
 
 # Country-Level Analysis
 

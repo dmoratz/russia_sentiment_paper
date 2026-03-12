@@ -161,12 +161,27 @@ ggsave(plot = state_align_discs_graph,
 ### CSTO Countries Only
 
 ```{r align-csto}
+# Filter to CSTO data, non military
 data_align_state_csto <- data_align %>%
   filter(state_owned == 1, csto == 1) %>%
   filter(!topic_clean %in% "Military") %>%
   mutate(running_continuous = running_continuous / 86400)
 
-covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_csto)
+# Create manual country dummies for countries with 2+ sources
+source_counts <- data_align_state_csto %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
+
+# Create dummies
+data_align_state_csto <- data_align_state_csto %>%
+  mutate(
+    has_multi_sources = country %in% source_counts$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
+  )
+
+covs_matrix <- model.matrix(~ country_dummy + source_domain + topic_clean - 1, data = data_align_state_csto)
 
 model5a_csto <- rdrobust(
   y = data_align_state_csto$sentiment_clean,
@@ -181,12 +196,29 @@ summary(model5a_csto)
 ### Neutral Countries Only
 
 ```{r align-neutral}
+# Filter data to neutral countries only
 data_align_state_neutral <- data_align %>%
   filter(state_owned == 1, csto == 0) %>%
   filter(!topic_clean %in% "Military") %>%
   mutate(running_continuous = running_continuous / 86400)
 
+# Create manual country dummies for countries with 2+ sources
+source_counts <- data_align_state_neutral %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain)) %>%
+  filter(n_sources >= 2)
+
+# Create dummies
+data_align_state_neutral <- data_align_state_neutral %>%
+  mutate(
+    has_multi_sources = country %in% source_counts$country,
+    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
+    country_dummy = factor(country_multi)
+  )
+
 covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_neutral)
+
+# Doesn't need country fixed effects since each country has only a single source
 
 model5a_neutral <- rdrobust(
   y = data_align_state_neutral$sentiment_clean,
@@ -197,6 +229,9 @@ model5a_neutral <- rdrobust(
 
 summary(model5a_neutral)
 ```
+
+
+# Diff-in-Disc Analysis
 
 ## Diff-in-Disc: CSTO vs Neutral (State Media)
 
