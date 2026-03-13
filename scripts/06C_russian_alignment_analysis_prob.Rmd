@@ -262,7 +262,7 @@ cat("Bootstrap p-value:", boot_model5a_full$p_val, "\n")
 
 ### Sentiment Z
 
-```{r align-diff-prob}
+```{r align-diff-prob-z}
 data_align_state <- data_align_state %>%
   group_by(source_domain) %>%
   mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) / 
@@ -338,7 +338,7 @@ cat("Bootstrap p-value:", boot_model5a_opt_full_fe$p_val, "\n")
 
 ### Optimal Bandwidth Sentiment Z
 
-```{r align-optimal-prob}
+```{r align-optimal-prob-z}
 # Residualize the dependent variable for fixed effects to do bandwidth selection
 resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto, 
                  data = data_align_state)$residuals
@@ -710,7 +710,7 @@ opt_align_cult <- data_align_state_cult %>% filter(running_probabilistic < optim
                                                    running_probabilistic > -optimal_bw_align_cult)
 
 # Other
-bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_clean, 
+bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_z, 
                            x = data_align_state_oth$running_probabilistic,
                            kernel = "triangular", 
                            cluster = data_align_state_oth$source_domain, 
@@ -817,7 +817,7 @@ print(loo_summary)
 data_dec_align <- data_align_state_non_mil %>%
   filter(date_publish < "2022-02-19") %>%
   mutate(
-    running_probabilistic = as.numeric(difftime(date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    running_probabilistic = as.numeric(difftime(date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs"))/86400,
     treatment = ifelse(date_publish_probabilistic < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
   )
 
