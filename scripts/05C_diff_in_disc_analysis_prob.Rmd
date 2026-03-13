@@ -935,7 +935,7 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 
 # Z-score matched model
 matched_model_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned |
-                          topic_clean + source_domain,
+                          topic_clean,
                           cluster = ~source_domain, data = matched_data)
 boot_matched_model_z <- run_wild_bootstrap(matched_model_z, "treatment:state_owned")
 cat("Z-score matched model — Bootstrap p-value:", boot_matched_model_z$p_val, "\n")
