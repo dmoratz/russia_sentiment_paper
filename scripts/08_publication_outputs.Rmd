@@ -391,28 +391,32 @@ save_table(tbl_1cz, "table_01cz_rdd_zscore_by_topic_continuous")
 # Table 2: Diff-in-Disc Results
 
 ```{r table2}
-n_cl_t2 <- sapply(list(results_h2$model2a, results_h2$model2a_opt, results_h2$model2d,
-                        results_h2$model2b, results_h2$model3a, results_h2$model3a_opt),
+n_cl_t2 <- sapply(list(results_h2$model2a, results_h2$model2a_full,
+                        results_h2$model2a_opt, results_h2$model2a_opt_full_fe,
+                        results_h2$model2b, results_h2$model2d,
+                        results_h2$model3a_opt, results_h2$model3a_opt_saturated),
                   get_n_clusters)
 rows_t2 <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t2[1], n_cl_t2[2], n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6]
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', 'X', '-', 'X', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t2[1], n_cl_t2[2], n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6], n_cl_t2[7], n_cl_t2[8]
 )
 attr(rows_t2, 'position') <- c(5, 6, 7, 8)
 
-note_t2 <- paste("All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth.", SE_NOTE)
+note_t2 <- paste("All standard errors are clustered at the source level. Model 1 uses full data with topic FEs. Model 2 adds source FEs. Model 3 uses optimal bandwidth with topic FEs. Model 4 uses optimal bandwidth with full FEs. Model 5 omits military-related articles. Model 6 omits NATO allies. Model 7 combines Russian-related + combined bandwidth filters. Model 8 uses saturated FEs.", SE_NOTE)
 
 table_2 <- modelsummary(
   list(
     "(1)" = results_h2$model2a,
-    "(2)" = results_h2$model2a_opt,
-    "(3)" = results_h2$model2d,
-    "(4)" = results_h2$model2b,
-    "(5)" = results_h2$model3a,
-    "(6)" = results_h2$model3a_opt
+    "(2)" = results_h2$model2a_full,
+    "(3)" = results_h2$model2a_opt,
+    "(4)" = results_h2$model2a_opt_full_fe,
+    "(5)" = results_h2$model2b,
+    "(6)" = results_h2$model2d,
+    "(7)" = results_h2$model3a_opt,
+    "(8)" = results_h2$model3a_opt_saturated
   ),
   output = "gt",
   fmt = 3,
@@ -430,6 +434,45 @@ table_2 <- modelsummary(
 table_2
 
 save_table(table_2, "table_02_diff_disc_main")
+```
+
+## Table 2-S: H2 Diff-in-Disc (Days) — Full FE Robustness
+
+```{r table2s}
+n_cl_t2s <- sapply(list(results_h2$model2b_full_fe, results_h2$model3a_opt_full_fe),
+                   get_n_clusters)
+rows_t2s <- tibble::tribble(
+  ~term, ~row1, ~row2,
+  'State FEs', 'X', 'X',
+  'Source FEs', 'X', 'X',
+  'Topic FEs', 'X', 'X',
+  'Clusters', n_cl_t2s[1], n_cl_t2s[2]
+)
+attr(rows_t2s, 'position') <- c(5, 6, 7, 8)
+
+note_t2s <- paste("All standard errors are clustered at the source level. Both models include full FEs (topic + source). Model 1 uses non-military subset. Model 2 uses Russian-related + combined bandwidth filters.", SE_NOTE)
+
+table_2s <- modelsummary(
+  list(
+    "(1) Non-Mil, Full FEs" = results_h2$model2b_full_fe,
+    "(2) Russian Opt, Full FEs" = results_h2$model3a_opt_full_fe
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2-S: H2 Diff-in-Disc (Days) — Full FE Robustness",
+  add_rows = rows_t2s,
+  notes = str_wrap(note_t2s, 80)
+)
+
+table_2s
+
+save_table(table_2s, "table_02s_diff_disc_full_fe_robustness")
 ```
 
 ## Table 2-Z: H2 Z-Score Results (Days)
@@ -463,30 +506,32 @@ save_table(tbl_2z, "table_02z_h2_zscore_days")
 ## Table 2A: Diff-in-Disc (Continuous)
 
 ```{r table2a}
-n_cl_t2a <- sapply(list(results_h2_cont$model2a, results_h2_cont$model2a_opt,
-                         results_h2_cont$model2d, results_h2_cont$model2b,
-                         results_h2_cont$model3a, results_h2_cont$model3a_opt,
-                         results_h2_cont$model3a_opt_saturated), get_n_clusters)
+n_cl_t2a <- sapply(list(results_h2_cont$model2a, results_h2_cont$model2a_full,
+                         results_h2_cont$model2a_opt, results_h2_cont$model2a_opt_full_fe,
+                         results_h2_cont$model2b, results_h2_cont$model2d,
+                         results_h2_cont$model3a_opt, results_h2_cont$model3a_opt_saturated),
+                   get_n_clusters)
 rows_t2a <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t2a[1], n_cl_t2a[2], n_cl_t2a[3], n_cl_t2a[4], n_cl_t2a[5], n_cl_t2a[6], n_cl_t2a[7]
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', 'X', '-', 'X', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t2a[1], n_cl_t2a[2], n_cl_t2a[3], n_cl_t2a[4], n_cl_t2a[5], n_cl_t2a[6], n_cl_t2a[7], n_cl_t2a[8]
 )
 attr(rows_t2a, 'position') <- c(5, 6, 7, 8)
 
-note_t2a <- paste("All standard errors are clustered at the source level. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters (non-NATO, non-military, Russian-related) with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs).", SE_NOTE)
+note_t2a <- paste("All standard errors are clustered at the source level. Model 1 uses full data with topic FEs. Model 2 adds source FEs. Model 3 uses optimal bandwidth with topic FEs. Model 4 uses optimal bandwidth with full FEs. Model 5 omits military-related articles. Model 6 omits NATO allies. Model 7 combines Russian-related + combined bandwidth filters. Model 8 uses saturated FEs.", SE_NOTE)
 
 table_2a <- modelsummary(
   list(
     "(1)" = results_h2_cont$model2a,
-    "(2)" = results_h2_cont$model2a_opt,
-    "(3)" = results_h2_cont$model2d,
-    "(4)" = results_h2_cont$model2b,
-    "(5)" = results_h2_cont$model3a,
-    "(6)" = results_h2_cont$model3a_opt,
-    "(7)" = results_h2_cont$model3a_opt_saturated
+    "(2)" = results_h2_cont$model2a_full,
+    "(3)" = results_h2_cont$model2a_opt,
+    "(4)" = results_h2_cont$model2a_opt_full_fe,
+    "(5)" = results_h2_cont$model2b,
+    "(6)" = results_h2_cont$model2d,
+    "(7)" = results_h2_cont$model3a_opt,
+    "(8)" = results_h2_cont$model3a_opt_saturated
   ),
   output = "gt",
   fmt = 3,
@@ -504,6 +549,45 @@ table_2a <- modelsummary(
 table_2a
 
 save_table(table_2a, "table_02a_diff_disc_continuous")
+```
+
+## Table 2A-S: H2 Diff-in-Disc (Continuous) — Full FE Robustness
+
+```{r table2as}
+n_cl_t2as <- sapply(list(results_h2_cont$model2b_full_fe, results_h2_cont$model3a_opt_full_fe),
+                    get_n_clusters)
+rows_t2as <- tibble::tribble(
+  ~term, ~row1, ~row2,
+  'State FEs', 'X', 'X',
+  'Source FEs', 'X', 'X',
+  'Topic FEs', 'X', 'X',
+  'Clusters', n_cl_t2as[1], n_cl_t2as[2]
+)
+attr(rows_t2as, 'position') <- c(5, 6, 7, 8)
+
+note_t2as <- paste("All standard errors are clustered at the source level. Both models include full FEs (topic + source). Model 1 uses non-military subset. Model 2 uses Russian-related + combined bandwidth filters.", SE_NOTE)
+
+table_2as <- modelsummary(
+  list(
+    "(1) Non-Mil, Full FEs" = results_h2_cont$model2b_full_fe,
+    "(2) Russian Opt, Full FEs" = results_h2_cont$model3a_opt_full_fe
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2A-S: H2 Diff-in-Disc (Continuous) — Full FE Robustness",
+  add_rows = rows_t2as,
+  notes = str_wrap(note_t2as, 80)
+)
+
+table_2as
+
+save_table(table_2as, "table_02as_diff_disc_continuous_full_fe_robustness")
 ```
 
 ## Table 2A-Z: H2 Z-Score Results (Continuous)
@@ -1557,30 +1641,32 @@ save_table(tbl_1ez, "table_01ez_rdd_zscore_by_topic_drop")
 ## Table 2F: Diff-in-Disc Main (Drop No-Time)
 
 ```{r table2f}
-n_cl_t2f <- sapply(list(results_h2_drop$model2a, results_h2_drop$model2a_opt,
-                        results_h2_drop$model2d, results_h2_drop$model2b,
-                        results_h2_drop$model3a, results_h2_drop$model3a_opt,
-                        results_h2_drop$model3a_opt_saturated), get_n_clusters)
+n_cl_t2f <- sapply(list(results_h2_drop$model2a, results_h2_drop$model2a_full,
+                        results_h2_drop$model2a_opt, results_h2_drop$model2a_opt_full_fe,
+                        results_h2_drop$model2b, results_h2_drop$model2d,
+                        results_h2_drop$model3a_opt, results_h2_drop$model3a_opt_saturated),
+                   get_n_clusters)
 rows_t2f <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t2f[1], n_cl_t2f[2], n_cl_t2f[3], n_cl_t2f[4], n_cl_t2f[5], n_cl_t2f[6], n_cl_t2f[7]
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', 'X', '-', 'X', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t2f[1], n_cl_t2f[2], n_cl_t2f[3], n_cl_t2f[4], n_cl_t2f[5], n_cl_t2f[6], n_cl_t2f[7], n_cl_t2f[8]
 )
 attr(rows_t2f, 'position') <- c(5, 6, 7, 8)
 
-note_t2f <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs).", SE_NOTE)
+note_t2f <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Model 1 uses full data with topic FEs. Model 2 adds source FEs. Model 3 uses optimal bandwidth with topic FEs. Model 4 uses optimal bandwidth with full FEs. Model 5 omits military-related articles. Model 6 omits NATO allies. Model 7 combines Russian-related + combined bandwidth filters. Model 8 uses saturated FEs.", SE_NOTE)
 
 table_2f <- modelsummary(
   list(
     "(1)" = results_h2_drop$model2a,
-    "(2)" = results_h2_drop$model2a_opt,
-    "(3)" = results_h2_drop$model2d,
-    "(4)" = results_h2_drop$model2b,
-    "(5)" = results_h2_drop$model3a,
-    "(6)" = results_h2_drop$model3a_opt,
-    "(7)" = results_h2_drop$model3a_opt_saturated
+    "(2)" = results_h2_drop$model2a_full,
+    "(3)" = results_h2_drop$model2a_opt,
+    "(4)" = results_h2_drop$model2a_opt_full_fe,
+    "(5)" = results_h2_drop$model2b,
+    "(6)" = results_h2_drop$model2d,
+    "(7)" = results_h2_drop$model3a_opt,
+    "(8)" = results_h2_drop$model3a_opt_saturated
   ),
   output = "gt",
   fmt = 3,
@@ -1598,6 +1684,45 @@ table_2f <- modelsummary(
 table_2f
 
 save_table(table_2f, "table_02f_diff_disc_drop_notime")
+```
+
+## Table 2F-S: H2 Diff-in-Disc (Drop No-Time) — Full FE Robustness
+
+```{r table2fs}
+n_cl_t2fs <- sapply(list(results_h2_drop$model2b_full_fe, results_h2_drop$model3a_opt_full_fe),
+                    get_n_clusters)
+rows_t2fs <- tibble::tribble(
+  ~term, ~row1, ~row2,
+  'State FEs', 'X', 'X',
+  'Source FEs', 'X', 'X',
+  'Topic FEs', 'X', 'X',
+  'Clusters', n_cl_t2fs[1], n_cl_t2fs[2]
+)
+attr(rows_t2fs, 'position') <- c(5, 6, 7, 8)
+
+note_t2fs <- paste("All standard errors are clustered at the source level. Articles without publication times are dropped. Both models include full FEs (topic + source). Model 1 uses non-military subset. Model 2 uses Russian-related + combined bandwidth filters.", SE_NOTE)
+
+table_2fs <- modelsummary(
+  list(
+    "(1) Non-Mil, Full FEs" = results_h2_drop$model2b_full_fe,
+    "(2) Russian Opt, Full FEs" = results_h2_drop$model3a_opt_full_fe
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2F-S: H2 Diff-in-Disc (Drop No-Time) — Full FE Robustness",
+  add_rows = rows_t2fs,
+  notes = str_wrap(note_t2fs, 80)
+)
+
+table_2fs
+
+save_table(table_2fs, "table_02fs_diff_disc_drop_notime_full_fe_robustness")
 ```
 
 ## Table 2F-Z: H2 Z-Score Results (Drop No-Time)
@@ -2167,30 +2292,32 @@ save_table(tbl_1gz, "table_01gz_rdd_zscore_by_topic_prob")
 ## Table 2I: Diff-in-Disc Main (Probabilistic Time)
 
 ```{r table2i}
-n_cl_t2i <- sapply(list(results_h2_prob$model2a, results_h2_prob$model2a_opt,
-                        results_h2_prob$model2d, results_h2_prob$model2b,
-                        results_h2_prob$model3a, results_h2_prob$model3a_opt,
-                        results_h2_prob$model3a_opt_saturated), get_n_clusters)
+n_cl_t2i <- sapply(list(results_h2_prob$model2a, results_h2_prob$model2a_full,
+                        results_h2_prob$model2a_opt, results_h2_prob$model2a_opt_full_fe,
+                        results_h2_prob$model2b, results_h2_prob$model2d,
+                        results_h2_prob$model3a_opt, results_h2_prob$model3a_opt_saturated),
+                   get_n_clusters)
 rows_t2i <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', '-', '-', '-', '-', 'X',
-  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t2i[1], n_cl_t2i[2], n_cl_t2i[3], n_cl_t2i[4], n_cl_t2i[5], n_cl_t2i[6], n_cl_t2i[7]
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'State FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', 'X', '-', 'X', '-', '-', '-', 'X',
+  'Topic FEs', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_t2i[1], n_cl_t2i[2], n_cl_t2i[3], n_cl_t2i[4], n_cl_t2i[5], n_cl_t2i[6], n_cl_t2i[7], n_cl_t2i[8]
 )
 attr(rows_t2i, 'position') <- c(5, 6, 7, 8)
 
-note_t2i <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 2 uses the optimal bandwidth. Model 3 omits NATO allies. Model 4 omits military-related articles. Model 5 uses only Russian-related articles. Model 6 combines all robustness filters with a re-optimized bandwidth. Model 7 uses full saturation (source-topic and country-state-topic FEs).", SE_NOTE)
+note_t2i <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Model 1 uses full data with topic FEs. Model 2 adds source FEs. Model 3 uses optimal bandwidth with topic FEs. Model 4 uses optimal bandwidth with full FEs. Model 5 omits military-related articles. Model 6 omits NATO allies. Model 7 combines Russian-related + combined bandwidth filters. Model 8 uses saturated FEs.", SE_NOTE)
 
 table_2i <- modelsummary(
   list(
     "(1)" = results_h2_prob$model2a,
-    "(2)" = results_h2_prob$model2a_opt,
-    "(3)" = results_h2_prob$model2d,
-    "(4)" = results_h2_prob$model2b,
-    "(5)" = results_h2_prob$model3a,
-    "(6)" = results_h2_prob$model3a_opt,
-    "(7)" = results_h2_prob$model3a_opt_saturated
+    "(2)" = results_h2_prob$model2a_full,
+    "(3)" = results_h2_prob$model2a_opt,
+    "(4)" = results_h2_prob$model2a_opt_full_fe,
+    "(5)" = results_h2_prob$model2b,
+    "(6)" = results_h2_prob$model2d,
+    "(7)" = results_h2_prob$model3a_opt,
+    "(8)" = results_h2_prob$model3a_opt_saturated
   ),
   output = "gt",
   fmt = 3,
@@ -2208,6 +2335,45 @@ table_2i <- modelsummary(
 table_2i
 
 save_table(table_2i, "table_02i_diff_disc_probabilistic")
+```
+
+## Table 2I-S: H2 Diff-in-Disc (Probabilistic) — Full FE Robustness
+
+```{r table2is}
+n_cl_t2is <- sapply(list(results_h2_prob$model2b_full_fe, results_h2_prob$model3a_opt_full_fe),
+                    get_n_clusters)
+rows_t2is <- tibble::tribble(
+  ~term, ~row1, ~row2,
+  'State FEs', 'X', 'X',
+  'Source FEs', 'X', 'X',
+  'Topic FEs', 'X', 'X',
+  'Clusters', n_cl_t2is[1], n_cl_t2is[2]
+)
+attr(rows_t2is, 'position') <- c(5, 6, 7, 8)
+
+note_t2is <- paste("All standard errors are clustered at the source level. Articles without publication times are assigned times via KDE sampling. Both models include full FEs (topic + source). Model 1 uses non-military subset. Model 2 uses Russian-related + combined bandwidth filters.", SE_NOTE)
+
+table_2is <- modelsummary(
+  list(
+    "(1) Non-Mil, Full FEs" = results_h2_prob$model2b_full_fe,
+    "(2) Russian Opt, Full FEs" = results_h2_prob$model3a_opt_full_fe
+  ),
+  output = "gt",
+  fmt = 3,
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 2I-S: H2 Diff-in-Disc (Probabilistic) — Full FE Robustness",
+  add_rows = rows_t2is,
+  notes = str_wrap(note_t2is, 80)
+)
+
+table_2is
+
+save_table(table_2is, "table_02is_diff_disc_probabilistic_full_fe_robustness")
 ```
 
 ## Table 2I-Z: H2 Z-Score Results (Probabilistic)
