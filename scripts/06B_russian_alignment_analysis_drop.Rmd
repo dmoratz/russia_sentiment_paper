@@ -713,7 +713,7 @@ opt_align_cult <- data_align_state_cult %>% filter(running_continuous < optimal_
                                                    running_continuous > -optimal_bw_align_cult)
 
 # Other
-bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_clean,
+bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_z,
                            x = data_align_state_oth$running_continuous,
                            kernel = "triangular",
                            cluster = data_align_state_oth$source_domain,
