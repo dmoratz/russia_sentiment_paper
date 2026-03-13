@@ -25,6 +25,33 @@ This script performs the Difference-in-Discontinuities analysis comparing state-
 ```{r setup, include=FALSE}
 source("00_setup.R")
 knitr::opts_chunk$set(fig.path = paste0(FIGURES_DIFF_DISC_DAYS, "/"))
+
+# Load packages for wild cluster bootstrap
+p_load(fwildclusterboot)
+library(fwildclusterboot)
+
+set.seed(3184)
+
+# Helper function for wild cluster bootstrap
+run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999) {
+  boot_result <- boottest(
+    object = model,
+    param = param,
+    clustid = clustid,
+    B = B,
+    impose_null = TRUE,
+    bootstrap_type = "fnw11",
+    type = "webb"
+  )
+
+  list(
+    se = boot_result$point_estimate / boot_result$t_stat,
+    p_val = boot_result$p_val,
+    ci_lower = boot_result$conf_int[1],
+    ci_upper = boot_result$conf_int[2],
+    t_stat = boot_result$teststat
+  )
+}
 ```
 
 # Load Data
@@ -36,6 +63,25 @@ data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 cat("Non-Ukraine sample:", nrow(data_non_ukraine), "articles\n")
 cat("State-owned:", sum(data_non_ukraine$state_owned), "\n")
 cat("Independent:", sum(data_non_ukraine$state_owned == 0), "\n")
+
+# Convert factors
+data_non_ukraine <- data_non_ukraine %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+data <- data %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+
+# Compute z-scored sentiment within source_domain
+data_non_ukraine <- data_non_ukraine %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                       sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+data <- data %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                       sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
 ```
 
 # Main Diff-in-Disc Model
@@ -43,7 +89,7 @@ cat("Independent:", sum(data_non_ukraine$state_owned == 0), "\n")
 ## Model 2a: Full Triple Interaction
 
 ```{r model2a}
-model2a <- feols(sentiment_clean ~ running * treatment * state_owned | country + topic_clean,
+model2a <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_non_ukraine)
 
@@ -137,7 +183,7 @@ cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ## Model with Optimal Bandwidth
 
 ```{r model2a-opt}
-model2a_opt <- feols(sentiment_clean ~ running * treatment * state_owned | country + topic_clean,
+model2a_opt <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                      cluster = ~source_domain,
                      data = optimal_bandwidth_data)
 
@@ -155,19 +201,19 @@ data_econ <- data_non_ukraine %>% filter(topic_clean == "Economic")
 data_cult <- data_non_ukraine %>% filter(topic_clean == "Culture")
 data_oth <- data_non_ukraine %>% filter(topic_clean == "Other")
 
-model2a_full_pol <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_full_pol <- feols(sentiment_clean ~ running * treatment * state_owned,
                           cluster = ~source_domain,
                           data = data_pol)
-model2a_full_mil <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_full_mil <- feols(sentiment_clean ~ running * treatment * state_owned,
                           cluster = ~source_domain,
                           data = data_mil)
-model2a_full_econ <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_full_econ <- feols(sentiment_clean ~ running * treatment * state_owned,
                            cluster = ~source_domain,
                            data = data_econ)
-model2a_full_cult <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_full_cult <- feols(sentiment_clean ~ running * treatment * state_owned,
                            cluster = ~source_domain,
                            data = data_cult)
-model2a_full_oth <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_full_oth <- feols(sentiment_clean ~ running * treatment * state_owned,
                           cluster = ~source_domain,
                           data = data_oth)
 ```
@@ -214,27 +260,27 @@ opt_data_oth <- data_oth %>% filter(running < optimal_bw_oth, running > -optimal
 ## Topic Models with Per-Topic Optimal Bandwidth
 
 ```{r topic-opt-models}
-model2a_opt_pol <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_opt_pol <- feols(sentiment_clean ~ running * treatment * state_owned,
                          cluster = ~source_domain,
                          data = opt_data_pol)
 summary(model2a_opt_pol)
 
-model2a_opt_mil <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_opt_mil <- feols(sentiment_clean ~ running * treatment * state_owned,
                          cluster = ~source_domain,
                          data = opt_data_mil)
 summary(model2a_opt_mil)
 
-model2a_opt_econ <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_opt_econ <- feols(sentiment_clean ~ running * treatment * state_owned,
                           cluster = ~source_domain,
                           data = opt_data_econ)
 summary(model2a_opt_econ)
 
-model2a_opt_cult <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_opt_cult <- feols(sentiment_clean ~ running * treatment * state_owned,
                           cluster = ~source_domain,
                           data = opt_data_cult)
 summary(model2a_opt_cult)
 
-model2a_opt_oth <- feols(sentiment_clean ~ running * treatment * state_owned | country,
+model2a_opt_oth <- feols(sentiment_clean ~ running * treatment * state_owned,
                          cluster = ~source_domain,
                          data = opt_data_oth)
 summary(model2a_opt_oth)
@@ -246,7 +292,7 @@ summary(model2a_opt_oth)
 data_non_mil <- data_non_ukraine %>%
   filter(!topic_clean %in% c("Military"))
 
-model2b <- feols(sentiment_clean ~ running * treatment * state_owned | country + topic_clean,
+model2b <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_non_mil)
 
@@ -297,11 +343,41 @@ ggsave(plot = invasion_discs_non_mil_graph,
 data_non_nato <- data_non_ukraine %>%
   filter(!country %in% NATO_COUNTRIES)
 
-model2d <- feols(sentiment_clean ~ running * treatment * state_owned | country + topic_clean,
+model2d <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_non_nato)
 
 summary(model2d)
+```
+
+# Z-Score Models (Parallel Analysis)
+
+```{r z-score-models}
+# Z-score versions (parallel analysis)
+model2a_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_non_ukraine)
+boot_model2a_z <- run_wild_bootstrap(model2a_z, "treatment:state_owned")
+
+model2a_opt_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
+                       cluster = ~source_domain,
+                       data = optimal_bandwidth_data)
+boot_model2a_opt_z <- run_wild_bootstrap(model2a_opt_z, "treatment:state_owned")
+
+model2b_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_non_mil)
+boot_model2b_z <- run_wild_bootstrap(model2b_z, "treatment:state_owned")
+
+model2d_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_non_nato)
+boot_model2d_z <- run_wild_bootstrap(model2d_z, "treatment:state_owned")
+
+cat("Z-score model2a — Bootstrap p-value:", boot_model2a_z$p_val, "\n")
+cat("Z-score model2a_opt — Bootstrap p-value:", boot_model2a_opt_z$p_val, "\n")
+cat("Z-score model2b — Bootstrap p-value:", boot_model2b_z$p_val, "\n")
+cat("Z-score model2d — Bootstrap p-value:", boot_model2d_z$p_val, "\n")
 ```
 
 # Russian-Related Articles Only
@@ -312,11 +388,24 @@ data_russian_related <- data %>%
   filter(!country %in% c("Ukraine")) %>%
   filter(!topic_clean %in% c("Military"))
 
-model3a <- feols(sentiment_clean ~ running * treatment * state_owned | country + topic_clean,
+model3a <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_russian_related)
 
 summary(model3a)
+
+# Add z-scored sentiment to Russian-related data
+data_russian_related <- data_russian_related %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                       sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+model3a_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_russian_related)
+boot_model3a_z <- run_wild_bootstrap(model3a_z, "treatment:state_owned")
+cat("Z-score model3a — Bootstrap p-value:", boot_model3a_z$p_val, "\n")
 ```
 
 # Robustness: Combined Filter with Re-Optimized Bandwidth
@@ -352,7 +441,7 @@ optimal_bw_combined_data <- data_combined_filtered %>%
 
 cat("Observations within bandwidth:", nrow(optimal_bw_combined_data), "\n")
 
-model3a_opt <- feols(sentiment_clean ~ running * treatment * state_owned | country + topic_clean,
+model3a_opt <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                      cluster = ~source_domain,
                      data = optimal_bw_combined_data)
 
@@ -364,7 +453,7 @@ summary(model3a_opt)
 ```{r combined-saturated-robust-model}
 
 model3a_opt_saturated <- feols(sentiment_clean ~ running * treatment * state_owned |
-                          source_domain^topic_clean + country^state_owned + country^topic_clean^treatment,
+                          source_domain^topic_clean + topic_clean^treatment,
                           cluster = ~source_domain,
                           data = optimal_bw_combined_data)
 
@@ -509,7 +598,7 @@ print(missing_check)
 # Diff-in-Diff (Within Bandwidth)
 
 ```{r did}
-model_did <- feols(sentiment_clean ~ treatment * state_owned | country + topic_clean,
+model_did <- feols(sentiment_clean ~ treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
                    data = optimal_bandwidth_data)
 
@@ -540,7 +629,7 @@ cat("Placebo optimal bandwidth:", round(optimal_bw_placebo, 1), "days\n")
 data_dec_bw <- data_dec %>%
   filter(running < optimal_bw_placebo, running > -optimal_bw_placebo)
 
-model4a <- feols(sentiment_clean ~ running * treatment * state_owned | country + Topic,
+model4a <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_dec_bw)
 

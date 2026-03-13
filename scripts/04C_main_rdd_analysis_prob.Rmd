@@ -37,7 +37,7 @@ cat("Date range:", as.character(min(data_non_ukraine$date_publish)), "to",
     as.character(max(data_non_ukraine$date_publish)), "\n")
 ```
 
-# Main Linear RDD Models
+# Full Data RDD
 
 ## Model 1: Basic RDD (Different Slopes)
 
@@ -79,9 +79,9 @@ model1_full_linear <- feols(sentiment_clean ~ running_probabilistic * treatment 
 summary(model1_full_linear)
 ```
 
-# Linear Effect Size Calculation
+### Linear Effect Size Calculation
 
-```{r effect-size-linear-prob}
+```{r effect-size-prob}
 sd_sentiment <- sd(data_non_ukraine$sentiment_clean)
 
 cat("Standard deviation of sentiment:", round(sd_sentiment, 3), "\n\n")
@@ -100,6 +100,24 @@ effect_size <- coef_treatment / sd_sentiment
 cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
 cat("Effect size (in SD units):", round(effect_size, 3), "\n")
 ```
+
+
+## Model 5: Z-Score Model (Topic FE)
+
+```{r model1-Z-prob}
+data_non_ukraine <- data_non_ukraine %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+model1_z <- feols(sentiment_z ~ running_probabilistic * treatment | topic_clean,
+                    cluster = ~source_domain,
+                    data = data_non_ukraine)
+
+summary(model1_z)
+```
+
 
 # Main RDD Models
 
@@ -129,13 +147,13 @@ summary(bw_select)
 optimal_bw <- bw_select$bws[1, 1]
 cat("\nOptimal bandwidth:", round(optimal_bw, 1), "hours\n")
 
-# rdrobust handles bandwidth internally
+# Filter to optimal bandwidth, removed since rdrobust does this automatically
 optimal_bandwidth_data <- data_non_ukraine
 
-cat("Total observations:", nrow(optimal_bandwidth_data), "\n")
+cat("Observations within optimal bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ```
 
-### Model 1: Basic RDD
+## Model 1: Basic RDD
 
 ```{r model1-optimal-prob}
 model1_opt <- rdrobust(
@@ -147,7 +165,7 @@ model1_opt <- rdrobust(
 summary(model1_opt)
 ```
 
-### Model 2: With Country Fixed Effects
+## Model 2: With Country Fixed Effects
 
 ```{r model2-optimal-prob}
 # Only country fixed effects as covariates
@@ -163,7 +181,7 @@ model2_opt <- rdrobust(
 summary(model2_opt)
 ```
 
-### Model 3: With Country and Source Fixed Effects
+## Model 3: With Country and Source Fixed Effects
 
 ```{r model3-optimal-prob}
 # Only country and source domain fixed effects as covariates
@@ -179,7 +197,7 @@ model3_opt <- rdrobust(
 summary(model3_opt)
 ```
 
-### Model 4: Full Model (Country + Source + Topic FE)
+## Model 4: Full Model (Country + Source + Topic FE)
 
 ```{r model4-optimal-prob}
 # All covariates
@@ -195,7 +213,7 @@ model4_opt <- rdrobust(
 summary(model4_opt)
 ```
 
-# RDRobust Effect Size Calculation
+### RDRobust Effect Size Calculation
 
 ```{r effect-size-rdrobust-prob}
 sd_sentiment <- sd(data_non_ukraine$sentiment_clean)
@@ -210,36 +228,119 @@ cat("Mean sentiment (pre-invasion):", round(mean_pre, 3), "\n")
 cat("Mean sentiment (post-invasion):", round(mean_post, 3), "\n\n")
 
 # Effect size in SD units
-coef_treatment <- model4_opt$coef[1]
+coef_treatment <- model4_opt$coef["Conventional", "Coeff"]
 effect_size <- coef_treatment / sd_sentiment
 
 cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
 cat("Effect size (in SD units):", round(effect_size, 3), "\n")
 ```
 
-# Saturated Model
 
-```{r saturated-model-prob}
-# Filter to optimal bandwidth and create post indicator
-optimal_bandwidth_data_filtered <- optimal_bandwidth_data %>%
-  filter(abs(running_probabilistic) <= optimal_bw) %>%
-  mutate(post = ifelse(running_probabilistic >= 0, 1, 0))
+## Model 5: Z-Score Model (Topic FE)
 
-# Fully saturated feols RDD model
-model4_felm_saturated <- feols(
-  sentiment_clean ~ post + running_probabilistic + running_probabilistic:post |
-    source_domain^topic_clean,
-  cluster = ~source_domain,
-  data = optimal_bandwidth_data_filtered
+```{r model5-optimal-prob}
+# All covariates
+covs_matrix <- model.matrix(~ topic_clean - 1, data = optimal_bandwidth_data)
+
+model5_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_z,
+  x = optimal_bandwidth_data$running_probabilistic,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data$source_domain
 )
 
-summary(model4_felm_saturated)
+summary(model5_opt)
 ```
 
-# RDD Models By Topic
+## Non-Mil Models
+
+### Model 6: Non-Military Topics Only
+
+```{r non-military-prob}
+data_non_mil <- optimal_bandwidth_data %>%
+  filter(topic_clean != "Military")
+
+cat("Non-military sample:", nrow(data_non_mil), "articles\n")
+
+covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_non_mil)
+
+model6_nonmil <- rdrobust(
+  y = data_non_mil$sentiment_clean,
+  x = data_non_mil$running_probabilistic,
+  covs = covs_matrix,
+  cluster = data_non_mil$source_domain
+)
+
+summary(model6_nonmil)
+```
+
+#### Effect Size (Non-Military)
+
+```{r effect-non-mil-prob}
+sd_sentiment_non_mil <- sd(data_non_mil$sentiment_clean)
+coef_model4_opt_nonmil <- model6_nonmil$coef["Conventional", "Coeff"]
+
+cat("Effect size (non-military, in SD units):", round(coef_model4_opt_nonmil / sd_sentiment_non_mil, 3), "\n")
+```
+
+### Model 6A: Z-Score Model (Topic FE)
+
+```{r model6a-nonmil-prob}
+# All covariates
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_non_mil)
+
+model6a_nonmil <- rdrobust(
+  y = data_non_mil$sentiment_z,
+  x = data_non_mil$running_probabilistic,
+  covs = covs_matrix,
+  cluster = data_non_mil$source_domain
+)
+
+summary(model6a_nonmil)
+```
+
+## Non-Nato Models
+
+### Model 7: Non-NATO Countries, Non-Mil Only
+
+```{r non-nato-prob}
+data_non_nato <- data_non_mil %>%
+  filter(!country %in% NATO_COUNTRIES)
+
+covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_non_nato)
+
+model7_nonnato <- rdrobust(
+  y = data_non_nato$sentiment_clean,
+  x = data_non_nato$running_probabilistic,
+  covs = covs_matrix,
+  cluster = data_non_nato$source_domain
+)
+summary(model7_nonnato)
+```
+
+### Model 7A: Z-Score Model (Topic FE)
+
+```{r model7a-nonnato-prob}
+# All covariates
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_non_nato)
+
+model7a_nonnato <- rdrobust(
+  y = data_non_nato$sentiment_z,
+  x = data_non_nato$running_probabilistic,
+  covs = covs_matrix,
+  cluster = data_non_nato$source_domain
+)
+
+summary(model7a_nonnato)
+```
+
+# By Topic RDD
+
+## RDD Sentiment Clean Topics
 
 ```{r topic-subsets-prob}
 # Create by topic data
+
 optimal_bandwidth_data_pol <- optimal_bandwidth_data %>%
   filter(topic_clean == "Political")
 
@@ -256,9 +357,10 @@ optimal_bandwidth_data_oth <- optimal_bandwidth_data %>%
   filter(topic_clean == "Other")
 ```
 
-## Political Model
+### Political Model
 
 ```{r model4-optimal-pol-prob}
+# All covariates
 covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_pol)
 
 model4_opt_pol <- rdrobust(
@@ -271,9 +373,10 @@ model4_opt_pol <- rdrobust(
 summary(model4_opt_pol)
 ```
 
-## Military Model
+### Military Model
 
 ```{r model4-optimal-mil-prob}
+# All covariates
 covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_mil)
 
 model4_opt_mil <- rdrobust(
@@ -286,9 +389,10 @@ model4_opt_mil <- rdrobust(
 summary(model4_opt_mil)
 ```
 
-## Economic Model
+### Economic Model
 
 ```{r model4-optimal-econ-prob}
+# All covariates
 covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_econ)
 
 model4_opt_econ <- rdrobust(
@@ -301,9 +405,10 @@ model4_opt_econ <- rdrobust(
 summary(model4_opt_econ)
 ```
 
-## Cultural Model
+### Cultural Model
 
 ```{r model4-optimal-cult-prob}
+# All covariates
 covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_cult)
 
 model4_opt_cult <- rdrobust(
@@ -316,9 +421,10 @@ model4_opt_cult <- rdrobust(
 summary(model4_opt_cult)
 ```
 
-## Other Model
+### Other Model
 
 ```{r model4-optimal-other-prob}
+# All covariates
 covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_oth)
 
 model4_opt_oth <- rdrobust(
@@ -331,11 +437,98 @@ model4_opt_oth <- rdrobust(
 summary(model4_opt_oth)
 ```
 
+## RDD Z-Score Topics
+
+```{r topic-subsets-z-prob}
+# Create by topic data
+
+optimal_bandwidth_data_pol <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Political")
+
+optimal_bandwidth_data_mil <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Military")
+
+optimal_bandwidth_data_econ <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Economic")
+
+optimal_bandwidth_data_cult <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Culture")
+
+optimal_bandwidth_data_oth <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Other")
+```
+
+### Political Model
+
+```{r model5-optimal-pol-prob}
+model5_opt_pol <- rdrobust(
+  y = optimal_bandwidth_data_pol$sentiment_z,
+  x = optimal_bandwidth_data_pol$running_probabilistic,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_pol$source_domain
+)
+
+summary(model5_opt_pol)
+```
+
+### Military Model
+
+```{r model5-optimal-mil-prob}
+model5_opt_mil <- rdrobust(
+  y = optimal_bandwidth_data_mil$sentiment_z,
+  x = optimal_bandwidth_data_mil$running_probabilistic,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_mil$source_domain
+)
+
+summary(model5_opt_mil)
+```
+
+### Economic Model
+
+```{r model5-optimal-econ-prob}
+model5_opt_econ <- rdrobust(
+  y = optimal_bandwidth_data_econ$sentiment_z,
+  x = optimal_bandwidth_data_econ$running_probabilistic,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_econ$source_domain
+)
+
+summary(model5_opt_econ)
+```
+
+### Cultural Model
+
+```{r model5-optimal-cult-prob}
+model5_opt_cult <- rdrobust(
+  y = optimal_bandwidth_data_cult$sentiment_z,
+  x = optimal_bandwidth_data_cult$running_probabilistic,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_cult$source_domain
+)
+
+summary(model5_opt_cult)
+```
+
+### Other Model
+
+```{r model5-optimal-other-prob}
+model5_opt_oth <- rdrobust(
+  y = optimal_bandwidth_data_oth$sentiment_z,
+  x = optimal_bandwidth_data_oth$running_probabilistic,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_oth$source_domain
+)
+
+summary(model5_opt_oth)
+```
+
+
 # Visualizations
 
 ## Main RDD Plot
 
-```{r rdd-plot-cont-prob, fig.width=10, fig.height=7}
+```{r rdd-plot-prob, fig.width=10, fig.height=7}
 # Aggregate data for points
 agg_data <- data_non_ukraine %>%
   group_by(running_probabilistic) %>%
@@ -357,7 +550,7 @@ invasion_on_sentiment_graph <- data_non_ukraine %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    title = "Effect of Invasion on Sentiment (Probabilistic)",
     subtitle = "All Sources and Topics",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -366,13 +559,13 @@ invasion_on_sentiment_graph <- data_non_ukraine %>%
 invasion_on_sentiment_graph
 
 ggsave(plot = invasion_on_sentiment_graph,
-       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_cont_prob.png"),
+       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment.png"),
        width = 10, height = 7)
 ```
 
 ## GAM Smoothed Version (Appendix)
 
-```{r rdd-gam-cont-prob, fig.width=10, fig.height=7}
+```{r rdd-gam-prob, fig.width=10, fig.height=7}
 invasion_on_sentiment_graph_smooth <- data_non_ukraine %>%
   mutate(treatment = as.factor(treatment)) %>%
   ggplot(aes(x = running_probabilistic, y = sentiment_clean, group = treatment, color = treatment)) +
@@ -385,7 +578,7 @@ invasion_on_sentiment_graph_smooth <- data_non_ukraine %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Figure 2 Appendix: Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    title = "Figure 2 Appendix: Effect of Invasion on Sentiment (Probabilistic)",
     subtitle = "All Sources and Topics (GAM Smoothed)",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -394,16 +587,16 @@ invasion_on_sentiment_graph_smooth <- data_non_ukraine %>%
 invasion_on_sentiment_graph_smooth
 
 ggsave(plot = invasion_on_sentiment_graph_smooth,
-       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_smooth_cont_prob.png"),
+       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_smooth.png"),
        width = 10, height = 7)
 ```
 
 ## RD Plot
 
-```{r rd-plot-cont-prob}
+```{r rd-plot-prob}
 rdplot(y = data_non_ukraine$sentiment_clean,
        x = data_non_ukraine$running_probabilistic,
-       title = "RD Plot: Sentiment around Invasion (Probabilistic Time Assignment)",
+       title = "RD Plot: Sentiment around Invasion (Probabilistic)",
        x.label = "Hours from Invasion",
        y.label = "Sentiment")
 ```
@@ -412,7 +605,8 @@ rdplot(y = data_non_ukraine$sentiment_clean,
 
 ### Political
 
-```{r rdd-plot-pol-cont-prob, fig.width=10, fig.height=7}
+```{r rdd-plot-pol-prob, fig.width=10, fig.height=7}
+# Aggregate data for points
 agg_data <- optimal_bandwidth_data_pol %>%
   group_by(running_probabilistic) %>%
   summarize(
@@ -433,7 +627,7 @@ invasion_on_sentiment_graph_pol <- optimal_bandwidth_data_pol %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    title = "Effect of Invasion on Sentiment (Probabilistic)",
     subtitle = "Political Articles",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -442,13 +636,14 @@ invasion_on_sentiment_graph_pol <- optimal_bandwidth_data_pol %>%
 invasion_on_sentiment_graph_pol
 
 ggsave(plot = invasion_on_sentiment_graph_pol,
-       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_pol_cont_prob.png"),
+       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_pol.png"),
        width = 10, height = 7)
 ```
 
 ### Military
 
-```{r rdd-plot-mil-cont-prob, fig.width=10, fig.height=7}
+```{r rdd-plot-mil-prob, fig.width=10, fig.height=7}
+# Aggregate data for points
 agg_data <- optimal_bandwidth_data_mil %>%
   group_by(running_probabilistic) %>%
   summarize(
@@ -469,7 +664,7 @@ invasion_on_sentiment_graph_mil <- optimal_bandwidth_data_mil %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    title = "Effect of Invasion on Sentiment (Probabilistic)",
     subtitle = "Military Articles",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -478,13 +673,14 @@ invasion_on_sentiment_graph_mil <- optimal_bandwidth_data_mil %>%
 invasion_on_sentiment_graph_mil
 
 ggsave(plot = invasion_on_sentiment_graph_mil,
-       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_mil_cont_prob.png"),
+       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_mil.png"),
        width = 10, height = 7)
 ```
 
 ### Economic
 
-```{r rdd-plot-econ-cont-prob, fig.width=10, fig.height=7}
+```{r rdd-plot-econ-prob, fig.width=10, fig.height=7}
+# Aggregate data for points
 agg_data <- optimal_bandwidth_data_econ %>%
   group_by(running_probabilistic) %>%
   summarize(
@@ -505,7 +701,7 @@ invasion_on_sentiment_graph_econ <- optimal_bandwidth_data_econ %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    title = "Effect of Invasion on Sentiment (Probabilistic)",
     subtitle = "Economic Articles",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -514,13 +710,14 @@ invasion_on_sentiment_graph_econ <- optimal_bandwidth_data_econ %>%
 invasion_on_sentiment_graph_econ
 
 ggsave(plot = invasion_on_sentiment_graph_econ,
-       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_econ_cont_prob.png"),
+       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_econ.png"),
        width = 10, height = 7)
 ```
 
 ### Cultural
 
-```{r rdd-plot-cult-cont-prob, fig.width=10, fig.height=7}
+```{r rdd-plot-cult-prob, fig.width=10, fig.height=7}
+# Aggregate data for points
 agg_data <- optimal_bandwidth_data_cult %>%
   group_by(running_probabilistic) %>%
   summarize(
@@ -541,7 +738,7 @@ invasion_on_sentiment_graph_cult <- optimal_bandwidth_data_cult %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    title = "Effect of Invasion on Sentiment (Probabilistic)",
     subtitle = "Cultural Articles",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -550,13 +747,14 @@ invasion_on_sentiment_graph_cult <- optimal_bandwidth_data_cult %>%
 invasion_on_sentiment_graph_cult
 
 ggsave(plot = invasion_on_sentiment_graph_cult,
-       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_cult_cont_prob.png"),
+       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_cult.png"),
        width = 10, height = 7)
 ```
 
 ### Other
 
-```{r rdd-plot-oth-cont-prob, fig.width=10, fig.height=7}
+```{r rdd-plot-oth-prob, fig.width=10, fig.height=7}
+# Aggregate data for points
 agg_data <- optimal_bandwidth_data_oth %>%
   group_by(running_probabilistic) %>%
   summarize(
@@ -577,7 +775,7 @@ invasion_on_sentiment_graph_oth <- optimal_bandwidth_data_oth %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    title = "Effect of Invasion on Sentiment (Probabilistic)",
     subtitle = "Other Articles",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -586,42 +784,13 @@ invasion_on_sentiment_graph_oth <- optimal_bandwidth_data_oth %>%
 invasion_on_sentiment_graph_oth
 
 ggsave(plot = invasion_on_sentiment_graph_oth,
-       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_oth_cont_prob.png"),
+       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_oth.png"),
        width = 10, height = 7)
-```
-
-# Robustness: Non-Military Topics Only
-
-```{r non-military-prob}
-data_non_mil <- optimal_bandwidth_data %>%
-  filter(topic_clean != "Military")
-
-cat("Non-military sample:", nrow(data_non_mil), "articles\n")
-
-covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_non_mil)
-
-model4_opt_nonmil <- rdrobust(
-  y = data_non_mil$sentiment_clean,
-  x = data_non_mil$running_probabilistic,
-  covs = covs_matrix,
-  cluster = data_non_mil$source_domain
-)
-
-summary(model4_opt_nonmil)
-```
-
-## Effect Size (Non-Military)
-
-```{r effect-non-mil-prob}
-sd_sentiment_non_mil <- sd(data_non_mil$sentiment_clean)
-coef_model4_opt_nonmil <- model4_opt_nonmil$coef[1]
-
-cat("Effect size (non-military, in SD units):", round(coef_model4_opt_nonmil / sd_sentiment_non_mil, 3), "\n")
 ```
 
 ## Visualization (Non-Military)
 
-```{r plot-non-mil-cont-prob, fig.width=10, fig.height=7}
+```{r plot-non-mil-prob, fig.width=10, fig.height=7}
 agg_data_non_mil <- data_non_mil %>%
   group_by(running_probabilistic) %>%
   summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
@@ -638,7 +807,7 @@ invasion_on_sentiment_non_mil_graph <- data_non_mil %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
+    title = "Effect of Invasion on Sentiment (Probabilistic)",
     subtitle = "Non-Military Topics",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -647,29 +816,14 @@ invasion_on_sentiment_non_mil_graph <- data_non_mil %>%
 invasion_on_sentiment_non_mil_graph
 
 ggsave(plot = invasion_on_sentiment_non_mil_graph,
-       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_non_mil_cont_prob.png"),
+       file.path(FIGURES_RDD_PROB, "invasion_on_sentiment_non_mil.png"),
        width = 10, height = 7)
 ```
 
-# Robustness: Non-NATO Countries Only
-
-```{r non-nato-prob}
-data_non_nato <- data_non_ukraine %>%
-  filter(!country %in% NATO_COUNTRIES)
-
-covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_non_nato)
-
-model4_opt_nonnato <- rdrobust(
-  y = data_non_nato$sentiment_clean,
-  x = data_non_nato$running_probabilistic,
-  covs = covs_matrix,
-  cluster = data_non_nato$source_domain
-)
-
-summary(model4_opt_nonnato)
-```
 
 # Placebo Test: December 7th Announcement
+
+## FE Model, Non Mil
 
 ```{r placebo-dec-prob}
 data_dec <- data_non_ukraine %>%
@@ -677,7 +831,8 @@ data_dec <- data_non_ukraine %>%
   mutate(
     running_probabilistic = as.numeric(difftime(date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
     treatment = ifelse(date_publish_probabilistic < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
-  )
+  ) %>%
+  filter(topic_clean != "Military")
 
 # Full model specification using rdrobust (matches model4_opt)
 covs_matrix_dec <- model.matrix(~ country + source_domain + topic_clean - 1,
@@ -694,28 +849,234 @@ summary(model_placebo)
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
 ```
 
+## Z-Score Model
+
+```{r placebo-dec-z-prob}
+data_dec <- data_non_ukraine %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running_probabilistic = as.numeric(difftime(date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    treatment = ifelse(date_publish_probabilistic < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+  )
+
+# Full model specification using rdrobust (matches model5_opt)
+covs_matrix_dec <- model.matrix(~ topic_clean - 1,
+                                data = data_dec)
+
+model_placebo_z <- rdrobust(
+  y = data_dec$sentiment_z,
+  x = data_dec$running_probabilistic,
+  covs = covs_matrix_dec,
+  cluster = data_dec$source_domain
+)
+
+summary(model_placebo_z)
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
+
+# Robustness: Heavily Saturated Full Model with Re-Optimized Bandwidth
+
+## Using Rbrobust
+
+```{r saturated-robustness-prob}
+# Computationally impossible
+## Fully saturated fixed effects
+#covs_matrix_saturated <- model.matrix(
+#  ~ country:source_domain:topic_clean - 1,
+#  data = optimal_bandwidth_data
+#)
+
+#model4_fully_saturated <- rdrobust(
+#  y = optimal_bandwidth_data$sentiment_clean,
+#  x = optimal_bandwidth_data$running_probabilistic,
+#  covs = covs_matrix_saturated,
+#  cluster = optimal_bandwidth_data$source_domain
+#)
+
+#summary(model4_fully_saturated)
+
+optimal_bw <- model4_opt$bws[1, 1]
+```
+
+
+## Using FELM
+
+```{r saturated-felm-prob}
+# Using optimal bandwidth from fully saturated rdrobust
+optimal_bandwidth_data_filtered <- optimal_bandwidth_data %>%
+  filter(abs(running_probabilistic) <= optimal_bw) %>%
+  mutate(post = ifelse(running_probabilistic >= 0, 1, 0))
+
+# Fully saturated feols RDD model
+model4_felm_saturated <- feols(
+  sentiment_clean ~ post + running_probabilistic + running_probabilistic:post |
+    source_domain^topic_clean,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_filtered
+)
+
+summary(model4_felm_saturated)
+```
+
+
+# Robustness: Non-Parametric Saturation Check
+
+```{r nonparam-check-prob}
+country_name <- "Kosovo"
+
+country_data <- optimal_bandwidth_data %>%
+  filter(country == country_name)
+
+bw_select <- rdbwselect(y = country_data$sentiment_clean,
+                        x = country_data$running_probabilistic,
+                        cluster = country_data$source_domain,
+                        kernel = "triangular",
+                        p = 1,
+                        bwselect = "mserd")
+
+# Extract bandwidth
+optimal_bw <- bw_select$bws[1, 1]
+cat("\nOptimal bandwidth:", round(optimal_bw, 1), "hours\n")
+
+# Filter to optimal bandwidth
+country_data <- country_data %>%
+  filter(running_probabilistic < optimal_bw) %>%
+  filter(running_probabilistic > -optimal_bw)
+
+cat("Observations within optimal bandwidth:", nrow(country_data), "\n")
+
+# Step 1: Source-topic level - calculate average sentiment just before and after discontinuity
+source_topic_rd <- country_data %>%
+  mutate(post = ifelse(running_probabilistic >= 0, 1, 0)) %>%
+  group_by(source_domain, topic_clean, post) %>%
+  summarize(
+    mean_sentiment = mean(sentiment_clean, na.rm = TRUE),
+    n_articles = n(),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = post,
+    values_from = c(mean_sentiment, n_articles)
+  ) %>%
+  mutate(
+    # Discontinuity for this source-topic
+    rd_effect = mean_sentiment_1 - mean_sentiment_0,
+    total_articles = n_articles_0 + n_articles_1
+  )
+
+# Step 2: Source level - weighted average across topics
+source_rd <- source_topic_rd %>%
+  group_by(source_domain) %>%
+  summarize(
+    source_rd_effect = weighted.mean(rd_effect, w = total_articles, na.rm = TRUE),
+    total_articles = sum(total_articles, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 3: Country level - weighted average across sources
+country_rd <- source_rd %>%
+  summarize(
+    country_rd_effect = weighted.mean(source_rd_effect, w = total_articles, na.rm = TRUE)
+  )
+
+print(paste("Non-parametric RD estimate for", country_name, ":", country_rd$country_rd_effect))
+```
+
+```{r nonparam-compare-prob}
+# RD robust versions
+# Version 1: Local constant (p=0), uniform kernel, no covariates
+# This should match the non-parametric estimate most closely
+model_rd_v1 <- rdrobust(
+  y = country_data$sentiment_clean,
+  x = country_data$running_probabilistic,
+  cluster = country_data$source_domain,
+  h = optimal_bw,
+  kernel = "uniform",
+  p = 0
+)
+
+# Version 2: Local constant, uniform kernel, with covariates
+covs_matrix_country <- model.matrix(~ source_domain + topic_clean - 1, data = country_data)
+model_rd_v2 <- rdrobust(
+  y = country_data$sentiment_clean,
+  x = country_data$running_probabilistic,
+  covs = covs_matrix_country,
+  cluster = country_data$source_domain,
+  h = optimal_bw,
+  kernel = "uniform",
+  p = 0
+)
+
+# Version 3: Your original spec - local linear, triangular kernel, with covariates
+model_rd_v3 <- rdrobust(
+  y = country_data$sentiment_clean,
+  x = country_data$running_probabilistic,
+  covs = covs_matrix_country,
+  cluster = country_data$source_domain,
+  h = optimal_bw  # Using same bandwidth for fair comparison
+)
+
+# Compare
+comparison <- data.frame(
+  Method = c(
+    "Non-parametric",
+    "rdrobust (p=0, uniform, no covs)",
+    "rdrobust (p=0, uniform, with covs)",
+    "rdrobust (p=1, triangular, with covs)"
+  ),
+  Estimate = c(
+    country_rd$country_rd_effect,
+    model_rd_v1$coef[1],
+    model_rd_v2$coef[1],
+    model_rd_v3$coef[1]
+  )
+)
+
+print(comparison)
+```
+
+```{r nonparam-coef-prob}
+print("Model 1 coef:")
+print(model_rd_v1$coef)
+print(length(model_rd_v1$coef))
+
+print("Model 2 coef:")
+print(model_rd_v2$coef)
+print(length(model_rd_v2$coef))
+
+print("Model 3 coef:")
+print(model_rd_v3$coef)
+print(length(model_rd_v3$coef))
+
+print("Non-parametric:")
+print(country_rd$country_discontinuity)
+print(length(country_rd$country_discontinuity))
+```
+
 # Summary Table (Table 1F)
 
 ```{r table1f-prob}
 rows <- tibble::tribble(
   ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
-  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X'
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X',
+  'State FEs', '-', 'X', 'X', 'X', '-', '-', '-',
+  'Source FEs', '-', '-', 'X', 'X', '-', '-', '-',
+  'Source Z-Score', '-', '-', '-', '-', 'X', 'X', 'X'
 )
-attr(rows, 'position') <- c(3, 4, 5)
+attr(rows, 'position') <- c(3, 4, 5, 6)
 
-note_text <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies."
+note_text <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Models 5-7 uses a Z-Score adjustment instead of fixed effects. Model 6 omits Military Topics. Model 7 omits NATO allies."
 note_wrapped <- str_wrap(note_text, width = 80)
 
 table_1f <- modelsummary(
-  list(model1_opt, model2_opt, model3_opt, model4_opt, model1_full_linear, model4_opt_nonmil, model4_opt_nonnato),
+  list(model1_opt, model2_opt, model3_opt, model4_opt, model5_opt, model6a_nonmil, model7a_nonnato),
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Hypothesis 1: RDD Analysis with Probabilistic Time Assignment Running Variable",
+  title = "Hypothesis 1: RDD Analysis with Probabilistic Running Variable",
   add_rows = rows,
   notes = note_wrapped
 )
@@ -732,20 +1093,30 @@ results_h1_prob <- list(
   model1_country_fe = model1_country_fe,
   model1_country_source_fe = model1_country_source_fe,
   model1_full_linear = model1_full_linear,
+  model1_z = model1_z,
   model1_opt = model1_opt,
   model2_opt = model2_opt,
   model3_opt = model3_opt,
   model4_opt = model4_opt,
-  model4_non_nato = model4_opt_nonnato,
-  model4_non_mil = model4_opt_nonmil,
+  model5_opt = model5_opt,
+  model7_non_nato = model7_nonnato,
+  model7a_nonnato = model7a_nonnato,
+  model6_non_mil = model6_nonmil,
+  model6a_nonmil = model6a_nonmil,
   model4_felm_saturated = model4_felm_saturated,
   model4_opt_pol = model4_opt_pol,
   model4_opt_mil = model4_opt_mil,
   model4_opt_econ = model4_opt_econ,
   model4_opt_cult = model4_opt_cult,
   model4_opt_oth = model4_opt_oth,
+  model5_opt_pol = model5_opt_pol,
+  model5_opt_mil = model5_opt_mil,
+  model5_opt_econ = model5_opt_econ,
+  model5_opt_cult = model5_opt_cult,
+  model5_opt_oth = model5_opt_oth,
   optimal_bandwidth = optimal_bw,
-  model_placebo = model_placebo
+  model_placebo = model_placebo,
+  model_placebo_z = model_placebo_z
 )
 
 saveRDS(results_h1_prob, file.path(DATA_INTERMEDIATE, "04_h1_results_prob.rds"))

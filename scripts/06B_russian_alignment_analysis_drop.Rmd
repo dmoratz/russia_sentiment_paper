@@ -11,45 +11,25 @@ output:
 
 # Overview
 
-This script examines heterogeneous treatment effects by Russian alignment (CSTO vs Neutral) only, using time as a continuous running variable, after dropping articles without publication times.
+This script examines heterogeneous treatment effects by Russian alignment (CSTO vs Neutral) only, using time as a continuous running variable, after dropping articles without exact publication times.
 
 **Inputs:**
 - `data/intermediate/02_cleaned_data.rds`
 - `data/intermediate/02_data_non_ukraine.rds`
 
 **Outputs:**
-- Russian alignment analysis results (continuous, drop no-time articles)
 - Table 3F (Russian Alignment)
-- Additional visualizations
 
 ```{r setup-drop, include=FALSE}
 source("00_setup.R")
 knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_DROP, "/"))
-```
+options(digits = 10)
 
-# Load Data
-
-```{r load-drop}
+# Load fwildclusterboot for wild cluster bootstrap
+p_load(fwildclusterboot, MatchIt, cobalt, rbounds, sensemakr)
 library(fwildclusterboot)
-p_load(MatchIt, cobalt, rbounds, sensemakr)
 
 set.seed(3184)
-
-data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
-data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
-
-cat("Full data before filtering:", nrow(data), "articles\n")
-cat("Non-Ukraine data before filtering:", nrow(data_non_ukraine), "articles\n")
-
-# Drop articles without publication times
-data <- data %>% filter(has_time == TRUE)
-data_non_ukraine <- data_non_ukraine %>% filter(has_time == TRUE)
-
-cat("Full data after dropping no-time articles:", nrow(data), "articles\n")
-cat("Non-Ukraine data after dropping no-time articles:", nrow(data_non_ukraine), "articles\n")
-
-data <- data %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
-data_non_ukraine <- data_non_ukraine %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
 
 # Helper function for wild cluster bootstrap
 run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999) {
@@ -71,6 +51,22 @@ run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999
     t_stat = boot_result$teststat
   )
 }
+```
+
+# Load Data
+
+```{r load-drop}
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+
+data <- data %>% filter(has_time == TRUE)
+data_non_ukraine <- data_non_ukraine %>% filter(has_time == TRUE)
+
+cat("Full data after dropping no-time articles:", nrow(data), "articles\n")
+cat("Non-Ukraine data after dropping:", nrow(data_non_ukraine), "articles\n")
+
+data <- data %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
+data_non_ukraine <- data_non_ukraine %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
 ```
 
 # Russian Alignment Analysis (CSTO vs Neutral)
@@ -105,7 +101,7 @@ cat("Neutral:", sum(data_align$csto == 0), "\n")
 
 ## Visualization: Independent Media by Alignment
 
-```{r align-ind-plot-cont-drop, fig.width=10, fig.height=7}
+```{r align-ind-plot-drop, fig.width=10, fig.height=7}
 agg_data_align_ind <- data_align %>%
   filter(state_owned == 0) %>%
   group_by(running_continuous, csto) %>%
@@ -123,7 +119,7 @@ data_align %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on Independent Media Sentiment (Continuous, Drop No-Time)",
+    title = "Effect of Invasion on Independent Media Sentiment (Drop No-Time)",
     subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -132,7 +128,7 @@ data_align %>%
 
 ## Visualization: State Media by Alignment
 
-```{r align-state-plot-cont-drop, fig.width=10, fig.height=7}
+```{r align-state-plot-drop, fig.width=10, fig.height=7}
 agg_data_align_state <- data_align %>%
   filter(state_owned == 1) %>%
   group_by(running_continuous, csto) %>%
@@ -150,7 +146,7 @@ state_align_discs_graph <- data_align %>%
   geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
   theme_classic() +
   labs(
-    title = "Effect of Invasion on State Media Sentiment (Continuous, Drop No-Time)",
+    title = "Effect of Invasion on State Media Sentiment (Drop No-Time)",
     subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
@@ -159,7 +155,7 @@ state_align_discs_graph <- data_align %>%
 state_align_discs_graph
 
 ggsave(plot = state_align_discs_graph,
-       file.path(FIGURES_HETEROGENEITY_DROP, "state_align_discs_cont_drop.png"),
+       file.path(FIGURES_HETEROGENEITY_DROP, "state_align_discs_drop.png"),
        width = 10, height = 7)
 ```
 
@@ -172,23 +168,9 @@ ggsave(plot = state_align_discs_graph,
 data_align_state_csto <- data_align %>%
   filter(state_owned == 1, csto == 1) %>%
   filter(!topic_clean %in% "Military") %>%
-  mutate(running_continuous = running_continuous / 86400)
+  mutate(running_continuous = running_continuous / 86400.0)
 
-# Create manual country dummies for countries with 2+ sources
-source_counts <- data_align_state_csto %>%
-  group_by(country) %>%
-  summarize(n_sources = n_distinct(source_domain)) %>%
-  filter(n_sources >= 2)
-
-# Create dummies
-data_align_state_csto <- data_align_state_csto %>%
-  mutate(
-    has_multi_sources = country %in% source_counts$country,
-    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
-    country_dummy = factor(country_multi)
-  )
-
-covs_matrix <- model.matrix(~ country_dummy + source_domain + topic_clean - 1, data = data_align_state_csto)
+covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_csto)
 
 model5a_csto <- rdrobust(
   y = data_align_state_csto$sentiment_clean,
@@ -200,6 +182,27 @@ model5a_csto <- rdrobust(
 summary(model5a_csto)
 ```
 
+```{r align-csto-z-drop}
+# Applying a Z-Score Transformation
+data_align_state_csto <- data_align_state_csto %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_align_state_csto)
+
+model5a_csto_z <- rdrobust(
+  y = data_align_state_csto$sentiment_z,
+  x = data_align_state_csto$running_continuous,
+  covs = covs_matrix,
+  cluster = data_align_state_csto$source_domain
+)
+
+summary(model5a_csto_z)
+```
+
+
 ### Neutral Countries Only
 
 ```{r align-neutral-drop}
@@ -209,23 +212,7 @@ data_align_state_neutral <- data_align %>%
   filter(!topic_clean %in% "Military") %>%
   mutate(running_continuous = running_continuous / 86400)
 
-# Create manual country dummies for countries with 2+ sources
-source_counts <- data_align_state_neutral %>%
-  group_by(country) %>%
-  summarize(n_sources = n_distinct(source_domain)) %>%
-  filter(n_sources >= 2)
-
-# Create dummies
-data_align_state_neutral <- data_align_state_neutral %>%
-  mutate(
-    has_multi_sources = country %in% source_counts$country,
-    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
-    country_dummy = factor(country_multi)
-  )
-
 covs_matrix <- model.matrix(~ source_domain + topic_clean - 1, data = data_align_state_neutral)
-
-# Doesn't need country fixed effects since each country has only a single source
 
 model5a_neutral <- rdrobust(
   y = data_align_state_neutral$sentiment_clean,
@@ -237,10 +224,32 @@ model5a_neutral <- rdrobust(
 summary(model5a_neutral)
 ```
 
+```{r align-neutral-z-drop}
+# Applying a Z-Score Transformation
+data_align_state_neutral <- data_align_state_neutral %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_align_state_neutral)
+
+model5a_neutral_z <- rdrobust(
+  y = data_align_state_neutral$sentiment_z,
+  x = data_align_state_neutral$running_continuous,
+  covs = covs_matrix,
+  cluster = data_align_state_neutral$source_domain
+)
+
+summary(model5a_neutral_z)
+```
 
 # Diff-in-Disc Analysis
 
-## Diff-in-Disc: CSTO vs Neutral (State Media)
+## Full Data
+
+### Full Data, Topic FEs
+Diff-in-Disc: CSTO vs Neutral (State Media)
 
 ```{r align-diff-drop}
 data_align_state <- data_align %>%
@@ -248,14 +257,7 @@ data_align_state <- data_align %>%
   mutate(source_domain = droplevels(source_domain)) %>%
   mutate(running_continuous = running_continuous / 86400)
 
-# Create sentiment z-score by source domain
-data_align_state <- data_align_state %>%
-  group_by(source_domain) %>%
-  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
-                   sd(sentiment_clean, na.rm = TRUE)) %>%
-  ungroup()
-
-model5a <- feols(sentiment_clean ~ running_continuous * treatment * csto,
+model5a <- feols(sentiment_clean ~ running_continuous * treatment * csto | topic_clean,
                  cluster = ~source_domain,
                  data = data_align_state)
 
@@ -267,10 +269,14 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a$se, "\n")
 cat("Bootstrap p-value:", boot_model5a$p_val, "\n")
 ```
 
-## Full Data with Topic FEs
+
+### Full Data with FEs
 
 ```{r align-full-drop}
-model5a_full <- feols(sentiment_clean ~ running_continuous * treatment * csto | topic_clean,
+
+model5a_full <- feols(sentiment_clean ~ running_continuous *
+                        treatment * csto
+                        | topic_clean + source_domain,
                       cluster = ~source_domain,
                       data = data_align_state)
 
@@ -282,22 +288,31 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_full$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_full$p_val, "\n")
 ```
 
-### Sentiment Z-Score
+### Sentiment Z
 
-```{r align-z-drop}
+```{r align-diff-z-drop}
+data_align_state <- data_align_state %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
 model5a_z <- feols(sentiment_z ~ running_continuous * treatment * csto | topic_clean,
                  cluster = ~source_domain,
                  data = data_align_state)
 
 summary(model5a_z)
 
-# Wild cluster bootstrap for model5a_z
+# Wild cluster bootstrap for model5a
 boot_model5a_z <- run_wild_bootstrap(model5a_z, "treatment:csto")
 cat("Bootstrap SE for treatment:csto:", boot_model5a_z$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_z$p_val, "\n")
 ```
 
+
 ## Optimal Bandwidth
+
+### Optimal Bandwidth, Topic FEs
 
 ```{r align-optimal-drop}
 # Residualize the dependent variable for fixed effects to do bandwidth selection
@@ -329,46 +344,21 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_opt$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt$p_val, "\n")
 ```
 
-### Effect Size
 
-```{r align-effect-drop}
-sd_state_owned <- sd(data_align_state$sentiment_clean)
-cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
+### Optimal Bandwidth Full FE
 
-coef_csto_int <- model5a_opt$coeftable["treatment:csto", "Estimate"]
-cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
-```
-
-
-## Optimal Bandwidth Full FE
-
-```{r align-optimal-prob}
-# Create manual country dummies for countries with 2+ sources
-source_counts <- optimal_bandwidth_data_state %>%
-  group_by(country) %>%
-  summarize(n_sources = n_distinct(source_domain)) %>%
-  filter(n_sources >= 2)
-
-# Create dummies
-optimal_bandwidth_data_state <- optimal_bandwidth_data_state %>%
-  mutate(
-    has_multi_sources = country %in% source_counts$country,
-    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
-    country_dummy = factor(country_multi)
-  )
-
+```{r align-optimal-full-fe-drop}
 
 model5a_opt_full_fe <- feols(sentiment_clean ~ running_continuous
-                                     * treatment * csto + 
-                                       i(country_dummy, ref = "single_source") |
-                                       topic_clean + source_domain,
+                                     * treatment * csto
+                                       | topic_clean + source_domain,
                                      cluster = ~source_domain,
                                      data = optimal_bandwidth_data_state
                                      )
 
 summary(model5a_opt_full_fe)
 
-# Wild cluster bootstrap for model5a_opt_full_fe
+# Wild cluster bootstrap for model5a_opt
 boot_model5a_opt_full_fe <- run_wild_bootstrap(model5a_opt_full_fe, "treatment:csto")
 cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_full_fe$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt_full_fe$p_val, "\n")
@@ -377,46 +367,48 @@ cat("Bootstrap p-value:", boot_model5a_opt_full_fe$p_val, "\n")
 ### Optimal Bandwidth Sentiment Z
 
 ```{r align-optimal-z-drop}
-# Residualize the z-score DV for bandwidth selection
-resid_y_z <- feols(sentiment_z ~ 1 | topic_clean + csto,
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto,
                  data = data_align_state)$residuals
 
-bw_align_z <- rdbwselect(y = resid_y_z,
+bw_align <- rdbwselect(y = resid_y,
                        x = data_align_state$running_continuous,
                        kernel = "triangular",
                        cluster = data_align_state$source_domain,
                        p = 1,
                        bwselect = "mserd")
 
-optimal_bw_align_z <- bw_align_z$bws[1, 1]
-cat("Optimal bandwidth (z-score):", round(optimal_bw_align_z, 1), "days\n")
+optimal_bw_align <- bw_align$bws[1, 1]
+cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
 
-optimal_bandwidth_data_state_z <- data_align_state %>%
-  filter(running_continuous < optimal_bw_align_z, running_continuous > -optimal_bw_align_z)
+optimal_bandwidth_data_state <- data_align_state %>%
+  filter(running_continuous < optimal_bw_align, running_continuous > -optimal_bw_align)
 
 model5a_opt_z <- feols(sentiment_z ~ running_continuous * treatment * csto | topic_clean,
                      cluster = ~source_domain,
-                     data = optimal_bandwidth_data_state_z)
+                     data = optimal_bandwidth_data_state)
 
 summary(model5a_opt_z)
 
-# Wild cluster bootstrap for model5a_opt_z
+# Wild cluster bootstrap for model5a_opt
 boot_model5a_opt_z <- run_wild_bootstrap(model5a_opt_z, "treatment:csto")
 cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_z$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt_z$p_val, "\n")
 ```
 
-## Non-Military Topics
+## Non-Military
+
+### Non-Military Topics
 
 ```{r align-non-mil-drop}
 data_align_state_non_mil <- data_align_state %>%
   filter(!topic_clean %in% "Military")
 
 # Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y_non_mil <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + csto,
+resid_y <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + csto,
                  data = data_align_state_non_mil)$residuals
 
-bw_align_non_mil <- rdbwselect(y = resid_y_non_mil,
+bw_align_non_mil <- rdbwselect(y = resid_y,
                                x = data_align_state_non_mil$running_continuous,
                                kernel = "triangular",
                                cluster = data_align_state_non_mil$source_domain,
@@ -429,7 +421,7 @@ cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "days\n"
 optimal_bandwidth_data_state_non_mil <- data_align_state_non_mil %>%
   filter(running_continuous < optimal_bw_align_non_mil, running_continuous > -optimal_bw_align_non_mil)
 
-model5a_opt_non_mil <- feols(sentiment_clean ~ running_continuous 
+model5a_opt_non_mil <- feols(sentiment_clean ~ running_continuous
                              * treatment * csto | topic_clean,
                              cluster = ~source_domain,
                              data = optimal_bandwidth_data_state_non_mil)
@@ -442,28 +434,13 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil$se, "\n")
 cat("Bootstrap p-value:", boot_model5a_opt_non_mil$p_val, "\n")
 ```
 
+### Non-Military Topics, Full FE
 
-## Non-Military Topics, Full FE
-
-```{r align-non-mil-prob-full-fe}
-# Create manual country dummies for countries with 2+ sources
-source_counts <- optimal_bandwidth_data_state_non_mil %>%
-  group_by(country) %>%
-  summarize(n_sources = n_distinct(source_domain)) %>%
-  filter(n_sources >= 2)
-
-# Create dummies
-optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
-  mutate(
-    has_multi_sources = country %in% source_counts$country,
-    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
-    country_dummy = factor(country_multi)
-  )
+```{r align-non-mil-full-fe-drop}
 
 model5a_opt_non_mil_full_fe <- feols(sentiment_clean ~ running_continuous
-                                     * treatment * csto +
-                                       i(country_dummy, ref = "single_source") |
-                                       topic_clean + source_domain,
+                                     * treatment * csto
+                                       | topic_clean + source_domain,
                                      cluster = ~source_domain,
                                      data = optimal_bandwidth_data_state_non_mil
                                      )
@@ -476,9 +453,710 @@ cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil_full_fe$se, "\n
 cat("Bootstrap p-value:", boot_model5a_opt_non_mil_full_fe$p_val, "\n")
 ```
 
-## Robustness: Heavily Saturated Non-Mil Model
+### Effect Size
 
-```{r}
+```{r align-effect-drop}
+sd_state_owned <- sd(data_align_state$sentiment_clean)
+cat("SD of sentiment (state media):", round(sd_state_owned, 3), "\n")
+
+coef_csto_int <- model5a_opt_non_mil_full_fe$coeftable["treatment:csto", "Estimate"]
+cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_state_owned, 3), "\n")
+```
+
+
+
+### Non-Military, Sentiment Z
+
+```{r align-non-mil-z-drop}
+# Create New z score
+data_align_state_non_mil <- data_align_state_non_mil %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto,
+                 data = data_align_state_non_mil)$residuals
+
+bw_align_non_mil <- rdbwselect(y = resid_y,
+                               x = data_align_state_non_mil$running_continuous,
+                               kernel = "triangular",
+                               cluster = data_align_state_non_mil$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "days\n")
+
+optimal_bandwidth_data_state_non_mil <- data_align_state_non_mil %>%
+  filter(running_continuous < optimal_bw_align_non_mil, running_continuous > -optimal_bw_align_non_mil)
+
+model5a_opt_non_mil_z <- feols(sentiment_z ~ running_continuous
+                             * treatment * csto | topic_clean,
+                             cluster = ~source_domain,
+                             data = optimal_bandwidth_data_state_non_mil)
+
+summary(model5a_opt_non_mil_z)
+
+# Wild cluster bootstrap for model5a_opt_non_mil
+boot_model5a_opt_non_mil_z <- run_wild_bootstrap(model5a_opt_non_mil_z, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil_z$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt_non_mil_z$p_val, "\n")
+```
+
+
+```{r ggridges-viz-drop}
+
+library(ggridges)
+
+# Prepare the data for plotting
+plot_data <- optimal_bandwidth_data_state_non_mil %>%
+  group_by(source_domain) %>%
+  mutate(
+    # Recalculate Local Z-score
+    sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  select(source_domain, sentiment_clean, sentiment_z) %>%
+  pivot_longer(cols = c(sentiment_clean, sentiment_z),
+               names_to = "Type", values_to = "Value")
+
+# Plotting the comparison
+ggplot(plot_data, aes(x = Value, y = source_domain, fill = Type)) +
+  geom_density_ridges(alpha = 0.5, scale = 0.9) +
+  facet_wrap(~Type, scales = "free_x") +
+  theme_minimal() +
+  labs(title = "Ternary Sentiment vs. Z-Scored Sentiment by Source",
+       subtitle = "Local Z-scoring centers each source and adjusts for their specific volatility",
+       x = "Sentiment Value",
+       y = "Media Outlet") +
+  scale_fill_manual(values = c("sentiment_clean" = "#69b3a2", "sentiment_z" = "#404080"))
+
+ggsave(plot = last_plot(),
+       file.path(FIGURES_HETEROGENEITY_DROP, "sentiment_zscore_comparison_drop.png"),
+       width = 10, height = 7)
+```
+
+
+## Russian Only
+
+### Russian-Related Articles Only
+
+```{r align-russian-drop}
+data_align_state_russian <- data_align_state %>%
+  filter(!topic_clean %in% "Military") %>%
+  filter(!Russian.Involvement == "Not")
+
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + csto,
+                 data = data_align_state_russian)$residuals
+
+bw_align_russian <- rdbwselect(y = resid_y,
+                               x = data_align_state_russian$running_continuous,
+                               kernel = "triangular",
+                               cluster = data_align_state_russian$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
+cat("Optimal bandwidth (russian):", round(optimal_bw_align_russian, 1), "days\n")
+
+optimal_bandwidth_data_state_russian <- data_align_state_russian %>%
+  filter(running_continuous < optimal_bw_align_russian, running_continuous > -optimal_bw_align_russian)
+
+model5a_opt_russian <- feols(sentiment_clean ~ running_continuous *
+                               treatment * csto | topic_clean,
+                             cluster = ~source_domain,
+                             data = optimal_bandwidth_data_state_russian)
+
+summary(model5a_opt_russian)
+
+# Wild cluster bootstrap for model5a_opt_russian
+boot_model5a_opt_russian <- run_wild_bootstrap(model5a_opt_russian, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_russian$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt_russian$p_val, "\n")
+```
+
+### Russia Only, Full FE
+
+```{r align-russian-full-fe-drop}
+
+model5a_opt_rus_full_fe <- feols(sentiment_clean ~ running_continuous
+                                    * treatment * csto
+                                       | topic_clean + source_domain,
+                                     cluster = ~source_domain,
+                                     data = optimal_bandwidth_data_state_russian
+                                     )
+
+summary(model5a_opt_rus_full_fe)
+
+# Wild cluster bootstrap for model5a_opt_non_mil
+boot_model5a_opt_rus_full_fe <- run_wild_bootstrap(model5a_opt_rus_full_fe, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_rus_full_fe$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt_rus_full_fe$p_val, "\n")
+```
+
+
+### Russia Only, Sentiment Z
+
+```{r align-russian-z-drop}
+# Create New z score
+data_align_state_russian <- data_align_state_russian %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto,
+                 data = data_align_state_russian)$residuals
+
+bw_align_non_mil <- rdbwselect(y = resid_y,
+                               x = data_align_state_russian$running_continuous,
+                               kernel = "triangular",
+                               cluster = data_align_state_russian$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_russian, 1), "days\n")
+
+optimal_bandwidth_data_state_russian <- data_align_state_russian %>%
+  filter(running_continuous < optimal_bw_align_russian, running_continuous > -optimal_bw_align_russian)
+
+model5a_opt_russian_z <- feols(sentiment_z ~ running_continuous
+                             * treatment * csto | topic_clean,
+                             cluster = ~source_domain,
+                             data = optimal_bandwidth_data_state_russian)
+
+summary(model5a_opt_russian_z)
+
+# Wild cluster bootstrap for model5a_opt_non_mil
+boot_model5a_opt_russian_z <- run_wild_bootstrap(model5a_opt_russian_z, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_russian_z$se, "\n")
+cat("Bootstrap p-value:", boot_model5a_opt_russian_z$p_val, "\n")
+```
+
+# By Topic
+
+## By-Topic Models: Full Data
+
+```{r topic-full-het-drop}
+data_align_state_pol <- data_align_state %>% filter(topic_clean == "Political")
+data_align_state_mil <- data_align_state %>% filter(topic_clean == "Military")
+data_align_state_econ <- data_align_state %>% filter(topic_clean == "Economic")
+data_align_state_cult <- data_align_state %>% filter(topic_clean == "Culture")
+data_align_state_oth <- data_align_state %>% filter(topic_clean == "Other")
+
+model5a_full_pol <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                          cluster = ~source_domain,
+                          data = data_align_state_pol)
+model5a_full_mil <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                          cluster = ~source_domain,
+                          data = data_align_state_mil)
+model5a_full_econ <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                           cluster = ~source_domain,
+                           data = data_align_state_econ)
+model5a_full_cult <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                           cluster = ~source_domain,
+                           data = data_align_state_cult)
+model5a_full_oth <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                          cluster = ~source_domain,
+                          data = data_align_state_oth)
+
+# Wild cluster bootstrap for topic-specific model5a (full data)
+boot_model5a_full_pol <- run_wild_bootstrap(model5a_full_pol, "treatment:csto")
+boot_model5a_full_mil <- run_wild_bootstrap(model5a_full_mil, "treatment:csto")
+boot_model5a_full_econ <- run_wild_bootstrap(model5a_full_econ, "treatment:csto")
+boot_model5a_full_cult <- run_wild_bootstrap(model5a_full_cult, "treatment:csto")
+boot_model5a_full_oth <- run_wild_bootstrap(model5a_full_oth, "treatment:csto")
+```
+
+## By-Topic Models: Per-Topic Optimal Bandwidth
+
+```{r topic-opt-het-drop}
+# Political
+bw_align_pol <- rdbwselect(y = data_align_state_pol$sentiment_z,
+                           x = data_align_state_pol$running_continuous,
+                           kernel = "triangular",
+                           cluster = data_align_state_pol$source_domain,
+                           p = 1,
+                           bwselect = "mserd")
+
+optimal_bw_align_pol <- bw_align_pol$bws[1, 1]
+
+cat("Political optimal bandwidth:", round(optimal_bw_align_pol, 1), "days\n")
+
+opt_align_pol <- data_align_state_pol %>% filter(running_continuous < optimal_bw_align_pol,
+                                                 running_continuous > -optimal_bw_align_pol)
+
+# Military
+bw_align_mil <- rdbwselect(y = data_align_state_mil$sentiment_z,
+                           x = data_align_state_mil$running_continuous,
+                           kernel = "triangular",
+                           cluster = data_align_state_mil$source_domain,
+                           p = 1,
+                           bwselect = "mserd")
+
+optimal_bw_align_mil <- bw_align_mil$bws[1, 1]
+
+cat("Military optimal bandwidth:", round(optimal_bw_align_mil, 1), "days\n")
+
+opt_align_mil <- data_align_state_mil %>% filter(running_continuous < optimal_bw_align_mil,
+                                                 running_continuous > -optimal_bw_align_mil)
+
+# Economic
+bw_align_econ <- rdbwselect(y = data_align_state_econ$sentiment_z,
+                            x = data_align_state_econ$running_continuous,
+                            kernel = "triangular",
+                            cluster = data_align_state_econ$source_domain,
+                            p = 1,
+                            bwselect = "mserd")
+
+optimal_bw_align_econ <- bw_align_econ$bws[1, 1]
+
+cat("Economic optimal bandwidth:", round(optimal_bw_align_econ, 1), "days\n")
+
+opt_align_econ <- data_align_state_econ %>% filter(running_continuous < optimal_bw_align_econ,
+                                                   running_continuous > -optimal_bw_align_econ)
+
+# Culture
+bw_align_cult <- rdbwselect(y = data_align_state_cult$sentiment_z,
+                            x = data_align_state_cult$running_continuous,
+                            kernel = "triangular",
+                            cluster = data_align_state_cult$source_domain,
+                            p = 1,
+                            bwselect = "mserd")
+
+optimal_bw_align_cult <- bw_align_cult$bws[1, 1]
+
+cat("Culture optimal bandwidth:", round(optimal_bw_align_cult, 1), "days\n")
+
+opt_align_cult <- data_align_state_cult %>% filter(running_continuous < optimal_bw_align_cult,
+                                                   running_continuous > -optimal_bw_align_cult)
+
+# Other
+bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_clean,
+                           x = data_align_state_oth$running_continuous,
+                           kernel = "triangular",
+                           cluster = data_align_state_oth$source_domain,
+                           p = 1,
+                           bwselect = "mserd")
+
+optimal_bw_align_oth <- bw_align_oth$bws[1, 1]
+
+cat("Other optimal bandwidth:", round(optimal_bw_align_oth, 1), "days\n")
+
+opt_align_oth <- data_align_state_oth %>% filter(running_continuous < optimal_bw_align_oth,
+                                                 running_continuous > -optimal_bw_align_oth)
+
+# Models
+model5a_opt_pol <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                         cluster = ~source_domain,
+                         data = opt_align_pol)
+model5a_opt_mil <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                         cluster = ~source_domain,
+                         data = opt_align_mil)
+model5a_opt_econ <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                          cluster = ~source_domain,
+                          data = opt_align_econ)
+model5a_opt_cult <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                          cluster = ~source_domain,
+                          data = opt_align_cult)
+model5a_opt_oth <- feols(sentiment_z ~ running_continuous * treatment * csto,
+                         cluster = ~source_domain,
+                         data = opt_align_oth)
+
+# Wild cluster bootstrap for topic-specific model5a (optimal BW)
+boot_model5a_opt_pol <- run_wild_bootstrap(model5a_opt_pol, "treatment:csto")
+boot_model5a_opt_mil <- run_wild_bootstrap(model5a_opt_mil, "treatment:csto")
+boot_model5a_opt_econ <- run_wild_bootstrap(model5a_opt_econ, "treatment:csto")
+boot_model5a_opt_cult <- run_wild_bootstrap(model5a_opt_cult, "treatment:csto")
+boot_model5a_opt_oth <- run_wild_bootstrap(model5a_opt_oth, "treatment:csto")
+```
+
+# Robustness
+
+## Leave-One-Out Country Robustness
+
+```{r loo-country-drop}
+countries <- unique(data_align_state_non_mil$country)
+loo_results <- list()
+
+for (cntry in countries) {
+  data_loo <- data_align_state_non_mil %>%
+    filter(country != cntry)
+
+  # Re-calculate optimal bandwidth for LOO data
+  resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto,
+                 data = data_loo)$residuals
+
+  bw_loo <- rdbwselect(y = data_loo$sentiment_z,
+                       x = data_loo$running_continuous,
+                       kernel = "triangular",
+                       cluster = data_loo$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
+
+  optimal_bw_loo <- bw_loo$bws[1, 1]
+
+  data_loo_bw <- data_loo %>%
+    filter(running_continuous < optimal_bw_loo, running_continuous > -optimal_bw_loo)
+
+  model_loo <- feols(sentiment_z ~ running_continuous * treatment * csto | topic_clean,
+                     cluster = ~source_domain,
+                     data = data_loo_bw)
+
+  boot_loo <- tryCatch(
+    run_wild_bootstrap(model_loo, "treatment:csto", B = 4999),
+    error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
+  )
+  loo_results[[cntry]] <- list(
+    model = model_loo,
+    bandwidth = optimal_bw_loo,
+    n = nrow(data_loo_bw),
+    country_dropped = cntry,
+    boot_p_val = boot_loo$p_val,
+    boot_se = boot_loo$se
+  )
+}
+
+# Extract key coefficient (treatment:csto interaction)
+loo_summary <- map_df(names(loo_results), function(cntry) {
+  mod <- loo_results[[cntry]]$model
+  tibble(
+    country_dropped = cntry,
+    estimate = coef(mod)["treatment:csto"],
+    std_error = se(mod)["treatment:csto"],
+    p_value = pvalue(mod)["treatment:csto"],
+    n_obs = loo_results[[cntry]]$n,
+    bandwidth = loo_results[[cntry]]$bandwidth
+  )
+})
+
+print(loo_summary)
+```
+
+## Placebo Test: December 7th Announcement (Non-Military Topics)
+
+```{r placebo-dec-nonmil-drop}
+data_dec_align <- data_align_state_non_mil %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running_continuous = as.numeric(difftime(date_publish_continuous, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    treatment = ifelse(date_publish_continuous < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+  )
+
+# Find optimal bandwidth for placebo
+bw_placebo_nonmil <- rdbwselect(y = data_dec_align$sentiment_z,
+                                x = data_dec_align$running_continuous,
+                                kernel = "triangular",
+                                cluster = data_dec_align$source_domain,
+                                p = 1,
+                                bwselect = "mserd")
+
+optimal_bw_placebo_nonmil <- bw_placebo_nonmil$bws[1, 1]
+cat("Placebo optimal bandwidth (non-mil):", round(optimal_bw_placebo_nonmil, 1), "seconds\n")
+
+data_dec_align_bw <- data_dec_align %>%
+  filter(running_continuous < optimal_bw_placebo_nonmil, running_continuous > -optimal_bw_placebo_nonmil)
+
+model_placebo_nonmil <- feols(sentiment_z ~ running_continuous * treatment * csto | topic_clean,
+                               cluster = ~source_domain,
+                               data = data_dec_align_bw)
+
+summary(model_placebo_nonmil)
+boot_model_placebo_nonmil <- run_wild_bootstrap(model_placebo_nonmil, "treatment:csto")
+cat("Bootstrap SE for treatment:csto (placebo):", boot_model_placebo_nonmil$se, "\n")
+cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
+## Matching
+
+### Initial Match
+
+```{r matching-analysis-drop}
+# Subset to data of interest
+
+matching_data <- optimal_bandwidth_data_state_non_mil %>%
+  select(sentiment_z, running, running_continuous, treatment, csto,
+         topic_clean, source_domain, country)
+
+# Match on topic and publication day (using integer day from running_continuous)
+matching_data <- matching_data %>%
+  mutate(running_day = floor(running_continuous / 86400))
+
+ps_model <- matchit(
+  csto ~ running_day + topic_clean,
+  data = matching_data,
+  method = "exact",
+  ratio = 1,
+)
+
+summary(ps_model)
+```
+
+### Assess Balance
+
+```{r matching-balance-drop}
+# Numerical balance check (better)
+bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
+# Want: all standardized mean differences < 0.1 after matching
+
+# Love plot (publication quality)
+love <- love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
+love
+ggsave(plot = love,
+       file.path(FIGURES_HETEROGENEITY_DROP, "love_plot_drop.png"),
+       width = 10, height = 7)
+```
+
+### Matching analysis
+
+```{r matching-model-drop}
+# Extract matched data and calculate treatment effects
+matched_data <- match.data(ps_model)
+
+matched_model <- feols(sentiment_z ~ running_continuous
+                                     * treatment * csto |
+                                       topic_clean,
+                                     cluster = ~source_domain,
+                                     data = matched_data
+                                     )
+
+summary(matched_model)
+
+
+# Wild cluster bootstrap for matched model
+boot_matched_model <- run_wild_bootstrap(matched_model, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_matched_model$se, "\n")
+cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
+```
+
+
+
+### Sensitivity of OVB
+
+```{r sensitivity-ovb-drop}
+# Save the bootstrapped p-val
+bootstrapped_se <- boot_matched_model$p_val
+
+# Respecify the model using lm
+lm_model <- lm(sentiment_z ~ running_continuous * treatment * csto +
+                 factor(topic_clean),
+               data = matched_data)
+
+
+# Sensitivity analysis
+sensitivity <- sensemakr(
+  model = lm_model,
+  treatment = "treatment:csto",
+  benchmark_covariates = c("running_continuous:treatment"),
+  kd = 1,
+  ky = 1,
+  reduce = TRUE
+)
+
+summary(sensitivity)
+```
+
+
+```{r sensitivity-partialr2-drop}
+partial_r2(lm_model, covariates = c("running_continuous:treatment",
+                                     "running_continuous:csto",
+                                     "treatment",
+                                     "csto"))
+
+treatment_r2 <- partial_r2(lm_model, covariates = c("treatment"))
+```
+
+
+```{r sensitivity-plot-drop}
+# Manually recompute the CI bound using the bootstrapped SE
+coef_interest <- coef(lm_model)["treatment:csto"]
+rv_ci <- coef_interest / bootstrapped_se  # your corrected t-stat for reference
+
+plot(sensitivity,
+     xlab = "Partial R² of confounder with CSTO membership",
+     ylab = "Partial R² of confounder with sentiment",
+     main = "Sensitivity to Unobserved Confounding",
+     lim.x = .1,
+     lim.y = .1,
+     col.contour = "grey60",
+     label.text = FALSE)   # turn off the ugly overlapping label first
+text(x = 0.01, y = 0.00005,
+     labels = "running:treatment",
+     cex = 0.8, pos = 4)
+```
+
+
+```{r sensitivity-contour-drop}
+# Sensitivity Plot
+
+# Extract the data sensemakr uses for the plot
+ovb_contour_data <- function(sensitivity, lim = 0.005) {
+
+  # Grid of r2dz.x and r2yz.dx values
+  r2dz <- seq(0, lim, length.out = 400)
+  r2yz <- seq(0, lim, length.out = 400)
+  grid <- expand.grid(r2dz.x = r2dz, r2yz.dx = r2yz)
+
+  # Extract key stats
+  estimate <- sensitivity$sensitivity_stats$estimate
+  se <- sensitivity$sensitivity_stats$se
+  df <- sensitivity$sensitivity_stats$dof
+
+  # Compute adjusted estimate across grid
+  grid$adjusted <- mapply(function(r2dz, r2yz) {
+    sensemakr::adjusted_estimate(
+      estimate = estimate,
+      se = se,
+      dof = df,
+      r2dz.x = r2dz,
+      r2yz.dx = r2yz
+    )
+  }, grid$r2dz.x, grid$r2yz.dx)
+
+  return(grid)
+}
+
+# Extract benchmark points
+benchmark_df <- data.frame(
+  r2dz.x = sensitivity$bounds$r2dz.x,
+  r2yz.dx = sensitivity$bounds$r2yz.dx,
+  label = sensitivity$bounds$bound_label
+)
+
+# Build contour data
+# Rebuild with wider x limit
+contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
+
+ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
+  geom_contour(colour = "grey60",
+               breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
+  geom_contour(breaks = 0,
+               colour = "red",
+               linetype = "dashed",
+               linewidth = 0.8) +
+  geom_point(data = benchmark_df,
+             aes(x = r2dz.x, y = r2yz.dx),
+             shape = 18, colour = "red", size = 3,
+             inherit.aes = FALSE) +
+  annotate("point", x = 0, y = 0, shape = 17, size = 3) +
+  annotate("text", x = 0.002, y = 0.003,
+           label = "Unadjusted\n(-0.146)",
+           size = 5, hjust = 0) +
+  annotate("text", x = 0.047, y = 0.003,
+           label = "running:treatment",
+           size = 5, hjust = 0) +
+  coord_cartesian(xlim = c(0, 0.1), ylim = c(0, 0.1)) +
+  scale_x_continuous(breaks = seq(0, 0.1, by = 0.02),
+                     labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
+                     labels = scales::number_format(accuracy = 0.01)) +
+  labs(
+    x = "Partial R² of confounder with CSTO membership",
+    y = "Partial R² of confounder with sentiment",
+    title = "Sensitivity to Unobserved Confounding, CSTO Affiliation",
+    subtitle = "Red dashed line indicates where estimate = 0"
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold"),
+    legend.position = "none"
+  )
+
+ggsave(plot = last_plot(),
+       file.path(FIGURES_HETEROGENEITY_DROP, "sensitivity_ovb_csto_drop.png"),
+       width = 10, height = 7)
+```
+
+
+## Leave One Out Matching
+
+```{r loo-matching-drop}
+countries <- unique(data_align_state_non_mil$country)
+matched_loo_results <- list()
+
+for (cntry in countries) {
+  data_loo <- data_align_state_non_mil %>%
+    filter(country != cntry)
+
+  # Re-calculate optimal bandwidth for LOO data
+  resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto,
+                 data = data_loo)$residuals
+
+  bw_loo <- rdbwselect(y = data_loo$sentiment_z,
+                       x = data_loo$running_continuous,
+                       kernel = "triangular",
+                       cluster = data_loo$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
+
+  optimal_bw_loo <- bw_loo$bws[1, 1]
+
+  data_loo_bw <- data_loo %>%
+    filter(running_continuous < optimal_bw_loo, running_continuous > -optimal_bw_loo)
+
+  data_loo_bw <- data_loo_bw %>%
+    mutate(running_day = floor(running_continuous / 86400))
+
+  ps_model <- matchit(
+    csto ~ running_day + topic_clean,
+    data = data_loo_bw,
+    method = "exact",
+    ratio = 1,
+  )
+
+  matched_data_loo <- match.data(ps_model)
+
+  matched_model_loo <- feols(sentiment_z ~ running_continuous
+                                     * treatment * csto |
+                                       topic_clean,
+                                     cluster = ~source_domain,
+                                     data = matched_data_loo
+                                     )
+
+  matched_boot_loo <- tryCatch(
+    run_wild_bootstrap(matched_model_loo, "treatment:csto", B = 4999),
+    error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
+  )
+  matched_loo_results[[cntry]] <- list(
+    model = matched_model_loo,
+    bandwidth = optimal_bw_loo,
+    n = nrow(matched_data_loo),
+    country_dropped = cntry,
+    boot_p_val = matched_boot_loo$p_val,
+    boot_se = matched_boot_loo$se
+  )
+}
+
+# Extract key coefficient (treatment:csto interaction)
+matched_loo_summary <- map_df(names(matched_loo_results), function(cntry) {
+  mod <- matched_loo_results[[cntry]]$model
+  tibble(
+    country_dropped = cntry,
+    estimate = coef(mod)["treatment:csto"],
+    std_error = se(mod)["treatment:csto"],
+    p_value = pvalue(mod)["treatment:csto"],
+    n_obs = matched_loo_results[[cntry]]$n,
+    bandwidth = matched_loo_results[[cntry]]$bandwidth
+  )
+})
+
+print(matched_loo_summary)
+```
+
+
+## Heavily Saturated Non-Mil Model
+
+```{r saturated-model-drop}
 # Change source and topic to factor
 optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
   mutate(
@@ -499,7 +1177,7 @@ summary(model5a_fully_saturated)
 
 ### Manual Wild Bootstrap Standard Errors
 
-```{r}
+```{r saturated-bootstrap-drop}
 set.seed(3184)
 B <- 99
 
@@ -588,554 +1266,11 @@ boot_model5a_fully_saturated <- list(
 cat("Saturated model bootstrap results extracted\n")
 ```
 
-### Non-Military, Sentiment Z
-
-```{r align-non-mil-z-drop}
-# Residualize the z-score DV for bandwidth selection
-resid_y_non_mil_z <- feols(sentiment_z ~ 1 | topic_clean + csto,
-                 data = data_align_state_non_mil)$residuals
-
-bw_align_non_mil_z <- rdbwselect(y = resid_y_non_mil_z,
-                               x = data_align_state_non_mil$running_continuous,
-                               kernel = "triangular",
-                               cluster = data_align_state_non_mil$source_domain,
-                               p = 1,
-                               bwselect = "mserd")
-
-optimal_bw_align_non_mil_z <- bw_align_non_mil_z$bws[1, 1]
-cat("Optimal bandwidth (non-mil z):", round(optimal_bw_align_non_mil_z, 1), "days\n")
-
-optimal_bandwidth_data_state_non_mil_z <- data_align_state_non_mil %>%
-  filter(running_continuous < optimal_bw_align_non_mil_z, running_continuous > -optimal_bw_align_non_mil_z)
-
-model5a_opt_non_mil_z <- feols(sentiment_z ~ running_continuous * treatment * csto | topic_clean,
-                             cluster = ~source_domain,
-                             data = optimal_bandwidth_data_state_non_mil_z)
-
-summary(model5a_opt_non_mil_z)
-
-# Wild cluster bootstrap for model5a_opt_non_mil_z
-boot_model5a_opt_non_mil_z <- run_wild_bootstrap(model5a_opt_non_mil_z, "treatment:csto")
-cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_non_mil_z$se, "\n")
-cat("Bootstrap p-value:", boot_model5a_opt_non_mil_z$p_val, "\n")
-```
-
-### Z-Score vs Raw Sentiment Comparison
-
-```{r ggridges-viz-drop}
-library(ggridges)
-
-# Prepare the data for plotting
-plot_data <- optimal_bandwidth_data_state_non_mil %>%
-  select(source_domain, sentiment_clean, sentiment_z) %>%
-  pivot_longer(cols = c(sentiment_clean, sentiment_z),
-               names_to = "Type", values_to = "Value")
-
-# Plotting the comparison
-ggplot(plot_data, aes(x = Value, y = source_domain, fill = Type)) +
-  geom_density_ridges(alpha = 0.5, scale = 0.9) +
-  facet_wrap(~Type, scales = "free_x") +
-  theme_minimal() +
-  labs(title = "Ternary Sentiment vs. Z-Scored Sentiment by Source",
-       subtitle = "Local Z-scoring centers each source and adjusts for their specific volatility",
-       x = "Sentiment Value",
-       y = "Media Outlet") +
-  scale_fill_manual(values = c("sentiment_clean" = "#69b3a2", "sentiment_z" = "#404080"))
-
-ggsave(plot = last_plot(),
-       file.path(FIGURES_HETEROGENEITY_DROP, "sentiment_zscore_comparison_drop.png"),
-       width = 10, height = 7)
-```
-
-## Russian-Related Articles Only
-
-```{r align-russian-drop}
-data_align_state_russian <- data_align_state %>%
-  filter(!topic_clean %in% "Military") %>%
-  filter(!Russian.Involvement == "Not")
-
-# Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y_russian <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + csto,
-                 data = data_align_state_russian)$residuals
-
-bw_align_russian <- rdbwselect(y = resid_y_russian,
-                               x = data_align_state_russian$running_continuous,
-                               kernel = "triangular",
-                               cluster = data_align_state_russian$source_domain,
-                               p = 1,
-                               bwselect = "mserd")
-
-optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
-cat("Optimal bandwidth (russian):", round(optimal_bw_align_russian, 1), "days\n")
-
-optimal_bandwidth_data_state_russian <- data_align_state_russian %>%
-  filter(running_continuous < optimal_bw_align_russian, running_continuous > -optimal_bw_align_russian)
-
-model5a_opt_russian <- feols(sentiment_clean ~ running_continuous * treatment * csto | topic_clean,
-                             cluster = ~source_domain,
-                             data = optimal_bandwidth_data_state_russian)
-
-summary(model5a_opt_russian)
-
-# Wild cluster bootstrap for model5a_opt_russian
-boot_model5a_opt_russian <- run_wild_bootstrap(model5a_opt_russian, "treatment:csto")
-cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_russian$se, "\n")
-cat("Bootstrap p-value:", boot_model5a_opt_russian$p_val, "\n")
-```
-
-### Russia Only, Full FE
-
-```{r align-russian-full-fe-drop}
-# Create manual country dummies for countries with 2+ sources
-source_counts_russian <- optimal_bandwidth_data_state_russian %>%
-  group_by(country) %>%
-  summarize(n_sources = n_distinct(source_domain)) %>%
-  filter(n_sources >= 2)
-
-# Create dummies
-optimal_bandwidth_data_state_russian <- optimal_bandwidth_data_state_russian %>%
-  mutate(
-    has_multi_sources = country %in% source_counts_russian$country,
-    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
-    country_dummy = factor(country_multi)
-  )
-
-model5a_opt_rus_full_fe <- feols(sentiment_clean ~ running_continuous
-                                    * treatment * csto +
-                                      i(country_dummy, ref = "single_source") |
-                                      topic_clean + source_domain,
-                                    cluster = ~source_domain,
-                                    data = optimal_bandwidth_data_state_russian
-                                    )
-
-summary(model5a_opt_rus_full_fe)
-
-# Wild cluster bootstrap for model5a_opt_rus_full_fe
-boot_model5a_opt_rus_full_fe <- run_wild_bootstrap(model5a_opt_rus_full_fe, "treatment:csto")
-cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_rus_full_fe$se, "\n")
-cat("Bootstrap p-value:", boot_model5a_opt_rus_full_fe$p_val, "\n")
-```
-
-### Russia Only, Sentiment Z
-
-```{r align-russian-z-drop}
-# Residualize the z-score DV for bandwidth selection
-resid_y_russian_z <- feols(sentiment_z ~ 1 | topic_clean + csto,
-                 data = data_align_state_russian)$residuals
-
-bw_align_russian_z <- rdbwselect(y = resid_y_russian_z,
-                               x = data_align_state_russian$running_continuous,
-                               kernel = "triangular",
-                               cluster = data_align_state_russian$source_domain,
-                               p = 1,
-                               bwselect = "mserd")
-
-optimal_bw_align_russian_z <- bw_align_russian_z$bws[1, 1]
-cat("Optimal bandwidth (russian z):", round(optimal_bw_align_russian_z, 1), "days\n")
-
-optimal_bandwidth_data_state_russian_z <- data_align_state_russian %>%
-  filter(running_continuous < optimal_bw_align_russian_z, running_continuous > -optimal_bw_align_russian_z)
-
-model5a_opt_russian_z <- feols(sentiment_z ~ running_continuous * treatment * csto | topic_clean,
-                             cluster = ~source_domain,
-                             data = optimal_bandwidth_data_state_russian_z)
-
-summary(model5a_opt_russian_z)
-
-# Wild cluster bootstrap for model5a_opt_russian_z
-boot_model5a_opt_russian_z <- run_wild_bootstrap(model5a_opt_russian_z, "treatment:csto")
-cat("Bootstrap SE for treatment:csto:", boot_model5a_opt_russian_z$se, "\n")
-cat("Bootstrap p-value:", boot_model5a_opt_russian_z$p_val, "\n")
-```
-
-# By Topic
-
-## By-Topic Models: Full Data
-
-```{r topic-full-het-drop}
-data_align_state_pol <- data_align_state %>% filter(topic_clean == "Political")
-data_align_state_mil <- data_align_state %>% filter(topic_clean == "Military")
-data_align_state_econ <- data_align_state %>% filter(topic_clean == "Economic")
-data_align_state_cult <- data_align_state %>% filter(topic_clean == "Culture")
-data_align_state_oth <- data_align_state %>% filter(topic_clean == "Other")
-
-model5a_full_pol <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                          cluster = ~source_domain,
-                          data = data_align_state_pol)
-model5a_full_mil <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                          cluster = ~source_domain,
-                          data = data_align_state_mil)
-model5a_full_econ <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                           cluster = ~source_domain,
-                           data = data_align_state_econ)
-model5a_full_cult <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                           cluster = ~source_domain,
-                           data = data_align_state_cult)
-model5a_full_oth <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                          cluster = ~source_domain,
-                          data = data_align_state_oth)
-```
-
-## By-Topic Models: Per-Topic Optimal Bandwidth
-
-```{r topic-opt-het-drop}
-# Political
-bw_align_pol <- rdbwselect(y = data_align_state_pol$sentiment_clean, x = data_align_state_pol$running_continuous,
-                           kernel = "triangular", cluster = data_align_state_pol$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_align_pol <- bw_align_pol$bws[1, 1]
-cat("Political optimal bandwidth:", round(optimal_bw_align_pol, 1), "seconds\n")
-opt_align_pol <- data_align_state_pol %>% filter(running_continuous < optimal_bw_align_pol, running_continuous > -optimal_bw_align_pol)
-
-# Military
-bw_align_mil <- rdbwselect(y = data_align_state_mil$sentiment_clean, x = data_align_state_mil$running_continuous,
-                           kernel = "triangular", cluster = data_align_state_mil$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_align_mil <- bw_align_mil$bws[1, 1]
-cat("Military optimal bandwidth:", round(optimal_bw_align_mil, 1), "seconds\n")
-opt_align_mil <- data_align_state_mil %>% filter(running_continuous < optimal_bw_align_mil, running_continuous > -optimal_bw_align_mil)
-
-# Economic
-bw_align_econ <- rdbwselect(y = data_align_state_econ$sentiment_clean, x = data_align_state_econ$running_continuous,
-                            kernel = "triangular", cluster = data_align_state_econ$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_align_econ <- bw_align_econ$bws[1, 1]
-cat("Economic optimal bandwidth:", round(optimal_bw_align_econ, 1), "seconds\n")
-opt_align_econ <- data_align_state_econ %>% filter(running_continuous < optimal_bw_align_econ, running_continuous > -optimal_bw_align_econ)
-
-# Culture
-bw_align_cult <- rdbwselect(y = data_align_state_cult$sentiment_clean, x = data_align_state_cult$running_continuous,
-                            kernel = "triangular", cluster = data_align_state_cult$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_align_cult <- bw_align_cult$bws[1, 1]
-cat("Culture optimal bandwidth:", round(optimal_bw_align_cult, 1), "seconds\n")
-opt_align_cult <- data_align_state_cult %>% filter(running_continuous < optimal_bw_align_cult, running_continuous > -optimal_bw_align_cult)
-
-# Other
-bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_clean, x = data_align_state_oth$running_continuous,
-                           kernel = "triangular", cluster = data_align_state_oth$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_align_oth <- bw_align_oth$bws[1, 1]
-cat("Other optimal bandwidth:", round(optimal_bw_align_oth, 1), "seconds\n")
-opt_align_oth <- data_align_state_oth %>% filter(running_continuous < optimal_bw_align_oth, running_continuous > -optimal_bw_align_oth)
-
-model5a_opt_pol <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                         cluster = ~source_domain,
-                         data = opt_align_pol)
-model5a_opt_mil <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                         cluster = ~source_domain,
-                         data = opt_align_mil)
-model5a_opt_econ <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                          cluster = ~source_domain,
-                          data = opt_align_econ)
-model5a_opt_cult <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                          cluster = ~source_domain,
-                          data = opt_align_cult)
-model5a_opt_oth <- feols(sentiment_clean ~ running_continuous * treatment * csto,
-                         cluster = ~source_domain,
-                         data = opt_align_oth)
-
-# Wild cluster bootstrap for topic-specific models (optimal BW)
-boot_model5a_opt_pol <- run_wild_bootstrap(model5a_opt_pol, "treatment:csto")
-boot_model5a_opt_mil <- run_wild_bootstrap(model5a_opt_mil, "treatment:csto")
-boot_model5a_opt_econ <- run_wild_bootstrap(model5a_opt_econ, "treatment:csto")
-boot_model5a_opt_cult <- run_wild_bootstrap(model5a_opt_cult, "treatment:csto")
-boot_model5a_opt_oth <- run_wild_bootstrap(model5a_opt_oth, "treatment:csto")
-
-# Wild cluster bootstrap for topic-specific models (full data)
-boot_model5a_full_pol <- run_wild_bootstrap(model5a_full_pol, "treatment:csto")
-boot_model5a_full_mil <- run_wild_bootstrap(model5a_full_mil, "treatment:csto")
-boot_model5a_full_econ <- run_wild_bootstrap(model5a_full_econ, "treatment:csto")
-boot_model5a_full_cult <- run_wild_bootstrap(model5a_full_cult, "treatment:csto")
-boot_model5a_full_oth <- run_wild_bootstrap(model5a_full_oth, "treatment:csto")
-
-cat("Bootstrap completed for all model5a topic-specific variants\n")
-```
-
-# Robustness Checks
-
-## Leave-One-Out Country Robustness
-
-```{r loo-country-drop}
-countries <- unique(data_align_state_non_mil$country)
-loo_results <- list()
-
-for (cntry in countries) {
-  data_loo <- data_align_state_non_mil %>%
-    filter(country != cntry)
-
-  # Re-calculate optimal bandwidth for LOO data
-  bw_loo <- rdbwselect(y = data_loo$sentiment_clean,
-                       x = data_loo$running_continuous,
-                       kernel = "triangular",
-                       cluster = data_loo$source_domain,
-                       p = 1,
-                       bwselect = "mserd")
-
-  optimal_bw_loo <- bw_loo$bws[1, 1]
-
-  data_loo_bw <- data_loo %>%
-    filter(running_continuous < optimal_bw_loo, running_continuous > -optimal_bw_loo)
-
-  model_loo <- feols(sentiment_clean ~ running_continuous * treatment * csto | topic_clean,
-                     cluster = ~source_domain,
-                     data = data_loo_bw)
-
-  boot_loo <- tryCatch(
-    run_wild_bootstrap(model_loo, "treatment:csto", B = 999),
-    error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
-  )
-  loo_results[[cntry]] <- list(
-    model = model_loo,
-    bandwidth = optimal_bw_loo,
-    n = nrow(data_loo_bw),
-    country_dropped = cntry,
-    boot_p_val = boot_loo$p_val,
-    boot_se = boot_loo$se
-  )
-}
-
-# Extract key coefficient (treatment:csto interaction)
-loo_summary <- map_df(names(loo_results), function(cntry) {
-  mod <- loo_results[[cntry]]$model
-  tibble(
-    country_dropped = cntry,
-    estimate = coef(mod)["treatment:csto"],
-    std_error = se(mod)["treatment:csto"],
-    p_value = pvalue(mod)["treatment:csto"],
-    n_obs = loo_results[[cntry]]$n,
-    bandwidth = loo_results[[cntry]]$bandwidth
-  )
-})
-
-print(loo_summary)
-```
-
-## Placebo Test: December 7th Announcement (Non-Military Topics)
-
-```{r placebo-dec-nonmil-drop}
-data_dec_align <- data_align_state_non_mil %>%
-  filter(date_publish < "2022-02-19") %>%
-  mutate(
-    running_continuous = as.numeric(difftime(date_publish_continuous, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
-    treatment = ifelse(date_publish_continuous < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
-  )
-
-# Find optimal bandwidth for placebo
-bw_placebo_nonmil <- rdbwselect(y = data_dec_align$sentiment_clean,
-                                x = data_dec_align$running_continuous,
-                                kernel = "triangular",
-                                cluster = data_dec_align$source_domain,
-                                p = 1,
-                                bwselect = "mserd")
-
-optimal_bw_placebo_nonmil <- bw_placebo_nonmil$bws[1, 1]
-cat("Placebo optimal bandwidth (non-mil):", round(optimal_bw_placebo_nonmil, 1), "seconds\n")
-
-data_dec_align_bw <- data_dec_align %>%
-  filter(running_continuous < optimal_bw_placebo_nonmil, running_continuous > -optimal_bw_placebo_nonmil)
-
-model_placebo_nonmil <- feols(sentiment_clean ~ running_continuous * treatment * csto | topic_clean,
-                               cluster = ~source_domain,
-                               data = data_dec_align_bw)
-
-summary(model_placebo_nonmil)
-boot_model_placebo_nonmil <- run_wild_bootstrap(model_placebo_nonmil, "treatment:csto")
-cat("Bootstrap SE for treatment:csto (placebo):", boot_model_placebo_nonmil$se, "\n")
-cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
-cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
-```
-
-## Matching
-
-### Initial Match
-
-```{r matching-analysis-drop}
-# Subset to data of interest - need running (days) for matching and running_continuous for model
-# First get running from original data before the /86400 transformation
-data_for_matching <- data_align %>%
-  filter(state_owned == 1) %>%
-  filter(!topic_clean %in% "Military") %>%
-  mutate(source_domain = droplevels(source_domain))
-
-# Get optimal bandwidth filtered data with both running variables
-optimal_bandwidth_data_matching <- data_for_matching %>%
-  mutate(running_continuous_scaled = running_continuous / 86400) %>%
-  filter(running_continuous_scaled < optimal_bw_align_non_mil,
-         running_continuous_scaled > -optimal_bw_align_non_mil)
-
-# Create country dummies
-source_counts_match <- optimal_bandwidth_data_matching %>%
-  group_by(country) %>%
-  summarize(n_sources = n_distinct(source_domain)) %>%
-  filter(n_sources >= 2)
-
-optimal_bandwidth_data_matching <- optimal_bandwidth_data_matching %>%
-  mutate(
-    has_multi_sources = country %in% source_counts_match$country,
-    country_multi = ifelse(has_multi_sources, as.character(country), "single_source"),
-    country_dummy = factor(country_multi)
-  )
-
-matching_data <- optimal_bandwidth_data_matching %>%
-  select(sentiment_clean, running, running_continuous_scaled, treatment, csto,
-         topic_clean, source_domain, country, country_dummy)
-
-# Match on topic and publication day (using running in days)
-ps_model <- matchit(
-  csto ~ running + topic_clean,
-  data = matching_data,
-  method = "exact",
-  ratio = 1,
-)
-
-summary(ps_model)
-```
-
-### Assess Balance
-
-```{r matching-balance-drop}
-# Visual balance check
-plot(ps_model, type = "jitter", interactive = FALSE)
-plot(ps_model, type = "density", interactive = FALSE)
-
-# Numerical balance check (better)
-bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
-# Want: all standardized mean differences < 0.1 after matching
-
-# Love plot (publication quality)
-love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
-```
-
-### Matching analysis
-
-```{r matching-model-drop}
-# Extract matched data and calculate treatment effects
-matched_data <- match.data(ps_model)
-
-# Use running_continuous_scaled for the model
-matched_model <- feols(sentiment_clean ~ running_continuous_scaled
-                                     * treatment * csto +
-                                       i(country_dummy, ref = "single_source") |
-                                       topic_clean + source_domain,
-                                     cluster = ~source_domain,
-                                     data = matched_data
-                                     )
-
-summary(matched_model)
-
-# Wild cluster bootstrap for matched model
-boot_matched_model <- run_wild_bootstrap(matched_model, "treatment:csto")
-cat("Bootstrap SE for treatment:csto:", boot_matched_model$se, "\n")
-cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
-```
-
-### Sensitivity of OVB
-
-```{r sensitivity-ovb-drop}
-# Save the bootstrapped p-val
-bootstrapped_se <- boot_matched_model$p_val
-
-# Respecify the model using lm
-lm_model <- lm(sentiment_clean ~ running_continuous_scaled * treatment * csto +
-                 i(country_dummy, ref = "single_source") +
-                 factor(topic_clean) + factor(source_domain),
-               data = matched_data)
-
-# Sensitivity analysis
-sensitivity <- sensemakr(
-  model = lm_model,
-  treatment = "treatment:csto",
-  benchmark_covariates = c("running_continuous_scaled:treatment"),
-  kd = 1,
-  ky = 1,
-  reduce = TRUE
-)
-
-summary(sensitivity)
-```
-
-```{r sensitivity-plot-drop}
-# Sensitivity Plot
-
-# Extract the data sensemakr uses for the plot
-ovb_contour_data <- function(sensitivity, lim = 0.005) {
-
-  # Grid of r2dz.x and r2yz.dx values
-  r2dz <- seq(0, lim, length.out = 400)
-  r2yz <- seq(0, lim, length.out = 400)
-  grid <- expand.grid(r2dz.x = r2dz, r2yz.dx = r2yz)
-
-  # Extract key stats
-  estimate <- sensitivity$sensitivity_stats$estimate
-  se <- sensitivity$sensitivity_stats$se
-  df <- sensitivity$sensitivity_stats$dof
-
-  # Compute adjusted estimate across grid
-  grid$adjusted <- mapply(function(r2dz, r2yz) {
-    sensemakr::adjusted_estimate(
-      estimate = estimate,
-      se = se,
-      dof = df,
-      r2dz.x = r2dz,
-      r2yz.dx = r2yz
-    )
-  }, grid$r2dz.x, grid$r2yz.dx)
-
-  return(grid)
-}
-
-# Extract benchmark points
-benchmark_df <- data.frame(
-  r2dz.x = sensitivity$bounds$r2dz.x,
-  r2yz.dx = sensitivity$bounds$r2yz.dx,
-  label = sensitivity$bounds$bound_label
-)
-
-# Build contour data
-contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
-
-ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
-  geom_contour(colour = "grey60",
-               breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
-  geom_contour(breaks = 0,
-               colour = "red",
-               linetype = "dashed",
-               linewidth = 0.8) +
-  geom_point(data = benchmark_df,
-             aes(x = r2dz.x, y = r2yz.dx),
-             shape = 18, colour = "red", size = 3,
-             inherit.aes = FALSE) +
-  annotate("point", x = 0, y = 0, shape = 17, size = 3) +
-  annotate("text", x = 0.002, y = 0.003,
-           label = "Unadjusted\n(-0.146)",
-           size = 5, hjust = 0) +
-  annotate("text", x = 0.047, y = 0.003,
-           label = "running:treatment",
-           size = 5, hjust = 0) +
-  coord_cartesian(xlim = c(0, 0.1), ylim = c(0, 0.1)) +
-  scale_x_continuous(breaks = seq(0, 0.1, by = 0.02),
-                     labels = scales::number_format(accuracy = 0.01)) +
-  scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
-                     labels = scales::number_format(accuracy = 0.01)) +
-  labs(
-    x = "Partial R² of confounder with CSTO membership",
-    y = "Partial R² of confounder with sentiment",
-    title = "Sensitivity to Unobserved Confounding, CSTO Affiliation",
-    subtitle = "Red dashed line indicates where estimate = 0"
-  ) +
-  theme_bw() +
-  theme(
-    panel.grid.minor = element_blank(),
-    plot.title = element_text(face = "bold"),
-    legend.position = "none"
-  )
-
-ggsave(plot = last_plot(),
-       file.path(FIGURES_HETEROGENEITY_DROP, "sensitivity_ovb_csto_drop.png"),
-       width = 10, height = 7)
-```
-
 # Country-Level Analysis
 
 ## State Media by Country and Alliance
 
-```{r country-facet-cont-drop, fig.width=12, fig.height=8}
+```{r country-facet-drop, fig.width=12, fig.height=8}
 # Create alliance for faceting
 data_long <- data %>%
   pivot_longer(cols = c(nato, csto, neutral),
@@ -1155,20 +1290,19 @@ data_long %>%
   theme_classic() +
   facet_wrap(~alliance, nrow = 2) +
   labs(
-    title = "Effect of Invasion on State Media Sentiment by Country (Continuous, Drop No-Time)",
+    title = "Effect of Invasion on State Media Sentiment by Country (Drop No-Time)",
     subtitle = "Faceted by Alliance",
     x = "Hours Pre/Post Invasion",
     y = "Sentiment"
   )
 ```
 
-
 # Summary Tables
 
 ## Summary Table (Table 3F)
 
 ```{r table3f-drop}
-note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 6 uses optimal bandwidth with full FEs (topic + source + country dummies). Model 7 uses non-military subset with full FEs. Model 8 uses full saturation (source-topic and topic-treatment FEs). Articles without publication times are dropped."
+note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 6 uses optimal bandwidth with full FEs (topic + source). Model 7 uses non-military subset with full FEs. Model 8 uses full saturation (source-topic and topic-treatment FEs). Articles without publication times are dropped."
 note_wrapped <- str_wrap(note_text, width = 80)
 
 table_3f <- modelsummary(
@@ -1184,7 +1318,7 @@ table_3f <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Russian Alignment: Difference in Discontinuity Analysis (Continuous Running Variable, Drop No-Time Articles)",
+  title = "Russian Alignment: Difference in Discontinuity Analysis (Drop No-Time Articles)",
   notes = note_wrapped
 )
 
@@ -1208,7 +1342,7 @@ table_3f_topic_opt <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Russian Alignment By Topic (Per-Topic Optimal Bandwidth, Continuous, Drop No-Time Articles)",
+  title = "Russian Alignment By Topic (Per-Topic Optimal Bandwidth, Drop No-Time Articles)",
   notes = note_topic_opt_wrapped
 )
 
@@ -1232,7 +1366,7 @@ table_3f_topic_full <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Russian Alignment By Topic (Full Data, Continuous, Drop No-Time Articles)",
+  title = "Russian Alignment By Topic (Full Data, Drop No-Time Articles)",
   notes = note_topic_full_wrapped
 )
 
@@ -1242,8 +1376,8 @@ table_3f_topic_full
 # Save Results
 
 ```{r save-drop}
-results_alignment_drop <- list(
-  # Model5a variants
+results_het_drop <- list(
+  # Main models
   model5a = model5a,
   model5a_full = model5a_full,
   model5a_opt = model5a_opt,
@@ -1251,19 +1385,23 @@ results_alignment_drop <- list(
   model5a_opt_russian = model5a_opt_russian,
   model5a_csto = model5a_csto,
   model5a_neutral = model5a_neutral,
-  matched_model = matched_model,
   model5a_opt_full_fe = model5a_opt_full_fe,
   model5a_opt_non_mil_full_fe = model5a_opt_non_mil_full_fe,
-  model5a_opt_rus_full_fe = model5a_opt_rus_full_fe,
   model5a_fully_saturated = model5a_fully_saturated,
+  matched_model = matched_model,
 
   # Z-score models
   model5a_z = model5a_z,
+  model5a_csto_z = model5a_csto_z,
+  model5a_neutral_z = model5a_neutral_z,
   model5a_opt_z = model5a_opt_z,
   model5a_opt_non_mil_z = model5a_opt_non_mil_z,
   model5a_opt_russian_z = model5a_opt_russian_z,
 
-  # Topic models
+  # Russian Full FE
+  model5a_opt_rus_full_fe = model5a_opt_rus_full_fe,
+
+  # Topic-specific models
   model5a_opt_pol = model5a_opt_pol,
   model5a_opt_mil = model5a_opt_mil,
   model5a_opt_econ = model5a_opt_econ,
@@ -1285,15 +1423,17 @@ results_alignment_drop <- list(
     model5a_opt_russian = boot_model5a_opt_russian,
     model5a_opt_full_fe = boot_model5a_opt_full_fe,
     model5a_opt_non_mil_full_fe = boot_model5a_opt_non_mil_full_fe,
-    model5a_opt_rus_full_fe = boot_model5a_opt_rus_full_fe,
     model5a_fully_saturated = boot_model5a_fully_saturated,
     matched_model = boot_matched_model,
 
-    # Z-score models
+    # Z-score bootstrap SEs
     model5a_z = boot_model5a_z,
     model5a_opt_z = boot_model5a_opt_z,
     model5a_opt_non_mil_z = boot_model5a_opt_non_mil_z,
     model5a_opt_russian_z = boot_model5a_opt_russian_z,
+
+    # Russian Full FE bootstrap
+    model5a_opt_rus_full_fe = boot_model5a_opt_rus_full_fe,
 
     # Topic-specific model5a (optimal BW)
     model5a_opt_pol = boot_model5a_opt_pol,
@@ -1313,25 +1453,21 @@ results_alignment_drop <- list(
     model_placebo_nonmil = boot_model_placebo_nonmil
   ),
 
-  # Bandwidths
   optimal_bandwidth_align = optimal_bw_align,
-  optimal_bw_align_z = optimal_bw_align_z,
-  optimal_bw_align_non_mil_z = optimal_bw_align_non_mil_z,
-  optimal_bw_align_russian_z = optimal_bw_align_russian_z,
   optimal_bw_align_pol = optimal_bw_align_pol,
   optimal_bw_align_mil = optimal_bw_align_mil,
   optimal_bw_align_econ = optimal_bw_align_econ,
   optimal_bw_align_cult = optimal_bw_align_cult,
   optimal_bw_align_oth = optimal_bw_align_oth,
-
-  # Other results
   loo_results = loo_results,
   loo_summary = loo_summary,
+  matched_loo_results = matched_loo_results,
+  matched_loo_summary = matched_loo_summary,
   model_placebo_nonmil = model_placebo_nonmil,
   optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil
 )
 
-saveRDS(results_alignment_drop, file.path(DATA_INTERMEDIATE, "06_alignment_results_drop.rds"))
+saveRDS(results_het_drop, file.path(DATA_INTERMEDIATE, "06_alignment_results_drop.rds"))
 cat("Results saved to:", file.path(DATA_INTERMEDIATE, "06_alignment_results_drop.rds"), "\n")
 ```
 

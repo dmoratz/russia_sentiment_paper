@@ -69,6 +69,19 @@ data_non_ukraine <- data_non_ukraine %>%
   mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
 data <- data %>%
   mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+
+# Compute z-scored sentiment within source_domain
+data_non_ukraine <- data_non_ukraine %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                       sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+data <- data %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                       sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
 ```
 
 # State-Owned vs Independent Media Analysis
@@ -86,7 +99,7 @@ data_state_only <- data_non_ukraine %>%
   filter(state_owned == 1) %>%
   filter(!topic_clean %in% "Military")
 
-covs_state <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_state_only)
+covs_state <- model.matrix(~ source_domain + topic_clean - 1, data = data_state_only)
 
 model2_state_rdd <- rdrobust(
   y = data_state_only$sentiment_clean,
@@ -109,7 +122,7 @@ data_ind_only <- data_non_ukraine %>%
   filter(state_owned == 0) %>%
   filter(!topic_clean %in% "Military")
 
-covs_ind <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_ind_only)
+covs_ind <- model.matrix(~ source_domain + topic_clean - 1, data = data_ind_only)
 
 model2_ind_rdd <- rdrobust(
   y = data_ind_only$sentiment_clean,
@@ -130,7 +143,7 @@ cat("Unique clusters:", length(unique(data_ind_only$source_domain)), "\n")
 ## Diff-in-Disc: State-Owned vs Independent
 
 ```{r model2a-prob}
-model2a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+model2a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_non_ukraine)
 
@@ -225,7 +238,7 @@ cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ### Model with Optimal Bandwidth
 
 ```{r model2a-opt-prob}
-model2a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+model2a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                      cluster = ~source_domain,
                      data = optimal_bandwidth_data)
 
@@ -245,7 +258,7 @@ cat("Bootstrap p-value:", boot_model2a_opt$p_val, "\n")
 data_non_mil <- data_non_ukraine %>%
   filter(!topic_clean %in% c("Military"))
 
-model2b <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+model2b <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_non_mil)
 
@@ -301,7 +314,7 @@ ggsave(plot = invasion_discs_non_mil_graph,
 data_non_nato <- data_non_ukraine %>%
   filter(!country %in% NATO_COUNTRIES)
 
-model2d <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+model2d <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_non_nato)
 
@@ -313,6 +326,36 @@ cat("Bootstrap SE for treatment:state_owned:", boot_model2d$se, "\n")
 cat("Bootstrap p-value:", boot_model2d$p_val, "\n")
 ```
 
+## Z-Score Models (Parallel Analysis)
+
+```{r z-score-models-prob}
+# Z-score versions (parallel analysis)
+model2a_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_non_ukraine)
+boot_model2a_z <- run_wild_bootstrap(model2a_z, "treatment:state_owned")
+
+model2a_opt_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                       cluster = ~source_domain,
+                       data = optimal_bandwidth_data)
+boot_model2a_opt_z <- run_wild_bootstrap(model2a_opt_z, "treatment:state_owned")
+
+model2b_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_non_mil)
+boot_model2b_z <- run_wild_bootstrap(model2b_z, "treatment:state_owned")
+
+model2d_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_non_nato)
+boot_model2d_z <- run_wild_bootstrap(model2d_z, "treatment:state_owned")
+
+cat("Z-score model2a — Bootstrap p-value:", boot_model2a_z$p_val, "\n")
+cat("Z-score model2a_opt — Bootstrap p-value:", boot_model2a_opt_z$p_val, "\n")
+cat("Z-score model2b — Bootstrap p-value:", boot_model2b_z$p_val, "\n")
+cat("Z-score model2d — Bootstrap p-value:", boot_model2d_z$p_val, "\n")
+```
+
 ## Russian-Related Articles Only
 
 ```{r russian-related-prob}
@@ -321,7 +364,7 @@ data_russian_related <- data %>%
   filter(!country %in% c("Ukraine")) %>%
   filter(!topic_clean %in% c("Military"))
 
-model3a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+model3a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_russian_related)
 
@@ -331,6 +374,19 @@ summary(model3a)
 boot_model3a <- run_wild_bootstrap(model3a, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model3a$se, "\n")
 cat("Bootstrap p-value:", boot_model3a$p_val, "\n")
+
+# Add z-scored sentiment to Russian-related data
+data_russian_related <- data_russian_related %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                       sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+model3a_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_russian_related)
+boot_model3a_z <- run_wild_bootstrap(model3a_z, "treatment:state_owned")
+cat("Z-score model3a — Bootstrap p-value:", boot_model3a_z$p_val, "\n")
 ```
 
 ## Combined Filter with Re-Optimized Bandwidth
@@ -366,7 +422,14 @@ optimal_bw_combined_data <- data_combined_filtered %>%
 
 cat("Observations within bandwidth:", nrow(optimal_bw_combined_data), "\n")
 
-model3a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+# Add z-scored sentiment to combined-filtered bandwidth data
+optimal_bw_combined_data <- optimal_bw_combined_data %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                       sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+model3a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                      cluster = ~source_domain,
                      data = optimal_bw_combined_data)
 
@@ -376,13 +439,20 @@ summary(model3a_opt)
 boot_model3a_opt <- run_wild_bootstrap(model3a_opt, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt$se, "\n")
 cat("Bootstrap p-value:", boot_model3a_opt$p_val, "\n")
+
+# Z-score version
+model3a_opt_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                       cluster = ~source_domain,
+                       data = optimal_bw_combined_data)
+boot_model3a_opt_z <- run_wild_bootstrap(model3a_opt_z, "treatment:state_owned")
+cat("Z-score model3a_opt — Bootstrap p-value:", boot_model3a_opt_z$p_val, "\n")
 ```
 
 ## Saturated Model
 
 ```{r saturated-model-prob}
 model3a_opt_saturated <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
-                          source_domain^topic_clean + country^state_owned + country^topic_clean^treatment,
+                          source_domain^topic_clean + topic_clean^treatment,
                           cluster = ~source_domain,
                           data = optimal_bw_combined_data)
 
@@ -405,19 +475,19 @@ data_econ <- data_non_ukraine %>% filter(topic_clean == "Economic")
 data_cult <- data_non_ukraine %>% filter(topic_clean == "Culture")
 data_oth <- data_non_ukraine %>% filter(topic_clean == "Other")
 
-model2a_full_pol <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_full_pol <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                           cluster = ~source_domain,
                           data = data_pol)
-model2a_full_mil <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_full_mil <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                           cluster = ~source_domain,
                           data = data_mil)
-model2a_full_econ <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_full_econ <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                            cluster = ~source_domain,
                            data = data_econ)
-model2a_full_cult <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_full_cult <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                            cluster = ~source_domain,
                            data = data_cult)
-model2a_full_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_full_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                           cluster = ~source_domain,
                           data = data_oth)
 
@@ -471,27 +541,27 @@ opt_data_oth <- data_oth %>% filter(running_probabilistic < optimal_bw_oth, runn
 ## Topic Models with Per-Topic Optimal Bandwidth
 
 ```{r topic-opt-models-prob}
-model2a_opt_pol <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_opt_pol <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                          cluster = ~source_domain,
                          data = opt_data_pol)
 summary(model2a_opt_pol)
 
-model2a_opt_mil <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_opt_mil <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                          cluster = ~source_domain,
                          data = opt_data_mil)
 summary(model2a_opt_mil)
 
-model2a_opt_econ <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_opt_econ <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                           cluster = ~source_domain,
                           data = opt_data_econ)
 summary(model2a_opt_econ)
 
-model2a_opt_cult <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_opt_cult <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                           cluster = ~source_domain,
                           data = opt_data_cult)
 summary(model2a_opt_cult)
 
-model2a_opt_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country,
+model2a_opt_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned,
                          cluster = ~source_domain,
                          data = opt_data_oth)
 summary(model2a_opt_oth)
@@ -591,7 +661,7 @@ cat("Placebo optimal bandwidth:", round(optimal_bw_placebo, 1), "seconds\n")
 data_dec_bw <- data_dec %>%
   filter(running_probabilistic < optimal_bw_placebo, running_probabilistic > -optimal_bw_placebo)
 
-model4a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | country + topic_clean,
+model4a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_dec_bw)
 
@@ -685,7 +755,7 @@ matched_data <- match.data(ps_model)
 
 matched_model <- feols(sentiment_clean ~ running_probabilistic
                                      * treatment * state_owned |
-                                       topic_clean + source_domain + country,
+                                       topic_clean + source_domain,
                                      cluster = ~source_domain,
                                      data = matched_data
                                      )
@@ -705,7 +775,7 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 ```{r sensitivity-h2-prob}
 # Respecify the model using lm for sensemakr
 lm_model <- lm(sentiment_clean ~ running_probabilistic * treatment * state_owned +
-                 factor(topic_clean) + factor(source_domain) + factor(country),
+                 factor(topic_clean) + factor(source_domain),
                data = matched_data)
 
 # Sensitivity analysis
@@ -818,7 +888,7 @@ ggsave(plot = last_plot(),
 ## Diff-in-Diff (Within Bandwidth)
 
 ```{r did-prob}
-model_did <- feols(sentiment_clean ~ treatment * state_owned | country + topic_clean,
+model_did <- feols(sentiment_clean ~ treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
                    data = optimal_bandwidth_data)
 
@@ -959,6 +1029,14 @@ results_h2_prob <- list(
   model2a_full_cult = model2a_full_cult,
   model2a_full_oth = model2a_full_oth,
 
+  # Z-score models
+  model2a_z = model2a_z,
+  model2a_opt_z = model2a_opt_z,
+  model2b_z = model2b_z,
+  model2d_z = model2d_z,
+  model3a_z = model3a_z,
+  model3a_opt_z = model3a_opt_z,
+
   # Matching
   matched_model = matched_model,
 
@@ -989,7 +1067,14 @@ results_h2_prob <- list(
     model2a_full_mil = boot_model2a_full_mil,
     model2a_full_econ = boot_model2a_full_econ,
     model2a_full_cult = boot_model2a_full_cult,
-    model2a_full_oth = boot_model2a_full_oth
+    model2a_full_oth = boot_model2a_full_oth,
+    # Z-score models
+    model2a_z = boot_model2a_z,
+    model2a_opt_z = boot_model2a_opt_z,
+    model2b_z = boot_model2b_z,
+    model2d_z = boot_model2d_z,
+    model3a_z = boot_model3a_z,
+    model3a_opt_z = boot_model3a_opt_z
   ),
 
   # Sensitivity

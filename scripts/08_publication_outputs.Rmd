@@ -173,6 +173,28 @@ table_1
 save_table(table_1, "table_01_rdd_main")
 ```
 
+## Table 1-Z: RDD Z-Score Results (Days)
+
+```{r table1z}
+models_1z <- list(
+  "Basic" = results_h1$model1_z,
+  "Z-Score Opt" = results_h1$model5_opt,
+  "Non-Mil Z" = results_h1$model6a_nonmil,
+  "Non-NATO Z" = results_h1$model7a_nonnato
+)
+tbl_1z <- modelsummary(
+  models_1z,
+  output = "gt",
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 1-Z: RDD Z-Score Results (Days)"
+)
+tbl_1z
+save_table(tbl_1z, "table_01z_rdd_zscore_days")
+```
+
 ## Table 1 A: Continuous Running Variable
 
 ```{r table1a}
@@ -218,6 +240,28 @@ table_1_cont
 save_table(table_1_cont, "table_01a_rdd_continuous")
 ```
 
+## Table 1A-Z: RDD Z-Score Results (Continuous)
+
+```{r table1az}
+models_1az <- list(
+  "Basic" = results_h1_cont$model1_z,
+  "Z-Score Opt" = results_h1_cont$model5_opt,
+  "Non-Mil Z" = results_h1_cont$model6a_nonmil,
+  "Non-NATO Z" = results_h1_cont$model7a_nonnato
+)
+tbl_1az <- modelsummary(
+  models_1az,
+  output = "gt",
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 1A-Z: RDD Z-Score Results (Continuous)"
+)
+tbl_1az
+save_table(tbl_1az, "table_01az_rdd_zscore_continuous")
+```
+
 ## Table 1B: RDD By Topic (Day)
 
 ```{r table1b}
@@ -258,6 +302,29 @@ table_1b
 save_table(table_1b, "table_01b_rdd_by_topic_day")
 ```
 
+## Table 1B-Z: RDD Z-Score By Topic (Days)
+
+```{r table1bz}
+models_1bz <- list(
+  "Political" = results_h1$model5_opt_pol,
+  "Military" = results_h1$model5_opt_mil,
+  "Economic" = results_h1$model5_opt_econ,
+  "Cultural" = results_h1$model5_opt_cult,
+  "Other" = results_h1$model5_opt_oth
+)
+tbl_1bz <- modelsummary(
+  models_1bz,
+  output = "gt",
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 1B-Z: RDD Z-Score By Topic (Days)"
+)
+tbl_1bz
+save_table(tbl_1bz, "table_01bz_rdd_zscore_by_topic_days")
+```
+
 ## Table 1C: RDD By Topic (Continuous)
 
 ```{r table1c}
@@ -296,6 +363,29 @@ table_1c <- modelsummary(
 table_1c
 
 save_table(table_1c, "table_01c_rdd_by_topic_continuous")
+```
+
+## Table 1C-Z: RDD Z-Score By Topic (Continuous)
+
+```{r table1cz}
+models_1cz <- list(
+  "Political" = results_h1_cont$model5_opt_pol,
+  "Military" = results_h1_cont$model5_opt_mil,
+  "Economic" = results_h1_cont$model5_opt_econ,
+  "Cultural" = results_h1_cont$model5_opt_cult,
+  "Other" = results_h1_cont$model5_opt_oth
+)
+tbl_1cz <- modelsummary(
+  models_1cz,
+  output = "gt",
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 1C-Z: RDD Z-Score By Topic (Continuous)"
+)
+tbl_1cz
+save_table(tbl_1cz, "table_01cz_rdd_zscore_by_topic_continuous")
 ```
 
 # Table 2: Diff-in-Disc Results
@@ -342,6 +432,34 @@ table_2
 save_table(table_2, "table_02_diff_disc_main")
 ```
 
+## Table 2-Z: H2 Z-Score Results (Days)
+
+```{r table2z}
+# NOTE: Z-score models use default modelsummary SEs (no bootstrap vcov stored for these variants)
+models_2z <- list(
+  "Main Z" = results_h2$model2a_z,
+  "Opt BW Z" = results_h2$model2a_opt_z,
+  "Non-Mil Z" = results_h2$model2b_z,
+  "Non-NATO Z" = results_h2$model2d_z,
+  "Russian Z" = results_h2$model3a_z,
+  "Russian Opt Z" = results_h2$model3a_opt_z
+)
+tbl_2z <- modelsummary(
+  models_2z,
+  output = "gt",
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 2-Z: H2 Z-Score Results (Days)"
+)
+tbl_2z
+save_table(tbl_2z, "table_02z_h2_zscore_days")
+```
+
 ## Table 2A: Diff-in-Disc (Continuous)
 
 ```{r table2a}
@@ -386,6 +504,34 @@ table_2a <- modelsummary(
 table_2a
 
 save_table(table_2a, "table_02a_diff_disc_continuous")
+```
+
+## Table 2A-Z: H2 Z-Score Results (Continuous)
+
+```{r table2az}
+# NOTE: Z-score models use default modelsummary SEs (no bootstrap vcov stored for these variants)
+models_2az <- list(
+  "Main Z" = results_h2_cont$model2a_z,
+  "Opt BW Z" = results_h2_cont$model2a_opt_z,
+  "Non-Mil Z" = results_h2_cont$model2b_z,
+  "Non-NATO Z" = results_h2_cont$model2d_z,
+  "Russian Z" = results_h2_cont$model3a_z,
+  "Russian Opt Z" = results_h2_cont$model3a_opt_z
+)
+tbl_2az <- modelsummary(
+  models_2az,
+  output = "gt",
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 2A-Z: H2 Z-Score Results (Continuous)"
+)
+tbl_2az
+save_table(tbl_2az, "table_02az_h2_zscore_continuous")
 ```
 
 ## Table 2B: Diff-in-Disc By Topic (Day)
@@ -626,6 +772,34 @@ table_3
 save_table(table_3, "table_03_alignment_main")
 ```
 
+## Table 3-Z: Alignment Z-Score Results (Days)
+
+```{r table3z}
+# NOTE: Z-score models use default modelsummary SEs; bootstrap vcov is not stored for these variants
+models_3z <- list(
+  "Main Z" = results_align$model5a_z,
+  "CSTO Z" = results_align$model5a_csto_z,
+  "Neutral Z" = results_align$model5a_neutral_z,
+  "Opt BW Z" = results_align$model5a_opt_z,
+  "Non-Mil Z" = results_align$model5a_opt_non_mil_z,
+  "Russian Z" = results_align$model5a_opt_russian_z
+)
+tbl_3z <- modelsummary(
+  models_3z,
+  output = "gt",
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 3-Z: Alignment Z-Score Results (Days)"
+)
+tbl_3z
+save_table(tbl_3z, "table_03z_alignment_zscore_days")
+```
+
 
 ## Table 3A: Heterogeneity (Continuous)
 
@@ -692,6 +866,34 @@ table_3a <- modelsummary(
 table_3a
 
 save_table(table_3a, "table_03a_alignment_continuous")
+```
+
+## Table 3A-Z: Alignment Z-Score Results (Continuous)
+
+```{r table3az}
+# NOTE: Z-score models use default modelsummary SEs; bootstrap vcov is not stored for these variants
+models_3az <- list(
+  "Main Z" = results_align_cont$model5a_z,
+  "CSTO Z" = results_align_cont$model5a_csto_z,
+  "Neutral Z" = results_align_cont$model5a_neutral_z,
+  "Opt BW Z" = results_align_cont$model5a_opt_z,
+  "Non-Mil Z" = results_align_cont$model5a_opt_non_mil_z,
+  "Russian Z" = results_align_cont$model5a_opt_russian_z
+)
+tbl_3az <- modelsummary(
+  models_3az,
+  output = "gt",
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 3A-Z: Alignment Z-Score Results (Continuous)"
+)
+tbl_3az
+save_table(tbl_3az, "table_03az_alignment_zscore_continuous")
 ```
 
 ## Table 3B: Heterogeneity By Topic Optimal BW (Day)
@@ -1267,6 +1469,28 @@ table_1d
 save_table(table_1d, "table_01d_rdd_drop_notime")
 ```
 
+## Table 1D-Z: RDD Z-Score Results (Drop No-Time)
+
+```{r table1dz}
+models_1dz <- list(
+  "Basic" = results_h1_drop$model1_z,
+  "Z-Score Opt" = results_h1_drop$model5_opt,
+  "Non-Mil Z" = results_h1_drop$model6a_nonmil,
+  "Non-NATO Z" = results_h1_drop$model7a_nonnato
+)
+tbl_1dz <- modelsummary(
+  models_1dz,
+  output = "gt",
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 1D-Z: RDD Z-Score Results (Drop No-Time)"
+)
+tbl_1dz
+save_table(tbl_1dz, "table_01dz_rdd_zscore_drop")
+```
+
 ## Table 1E: RDD By Topic (Drop No-Time)
 
 ```{r table1e}
@@ -1305,6 +1529,29 @@ table_1e <- modelsummary(
 table_1e
 
 save_table(table_1e, "table_01e_rdd_by_topic_drop_notime")
+```
+
+## Table 1E-Z: RDD Z-Score By Topic (Drop No-Time)
+
+```{r table1ez}
+models_1ez <- list(
+  "Political" = results_h1_drop$model5_opt_pol,
+  "Military" = results_h1_drop$model5_opt_mil,
+  "Economic" = results_h1_drop$model5_opt_econ,
+  "Cultural" = results_h1_drop$model5_opt_cult,
+  "Other" = results_h1_drop$model5_opt_oth
+)
+tbl_1ez <- modelsummary(
+  models_1ez,
+  output = "gt",
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 1E-Z: RDD Z-Score By Topic (Drop No-Time)"
+)
+tbl_1ez
+save_table(tbl_1ez, "table_01ez_rdd_zscore_by_topic_drop")
 ```
 
 ## Table 2F: Diff-in-Disc Main (Drop No-Time)
@@ -1351,6 +1598,34 @@ table_2f <- modelsummary(
 table_2f
 
 save_table(table_2f, "table_02f_diff_disc_drop_notime")
+```
+
+## Table 2F-Z: H2 Z-Score Results (Drop No-Time)
+
+```{r table2fz}
+# NOTE: Z-score models use default modelsummary SEs (no bootstrap vcov stored for these variants)
+models_2fz <- list(
+  "Main Z" = results_h2_drop$model2a_z,
+  "Opt BW Z" = results_h2_drop$model2a_opt_z,
+  "Non-Mil Z" = results_h2_drop$model2b_z,
+  "Non-NATO Z" = results_h2_drop$model2d_z,
+  "Russian Z" = results_h2_drop$model3a_z,
+  "Russian Opt Z" = results_h2_drop$model3a_opt_z
+)
+tbl_2fz <- modelsummary(
+  models_2fz,
+  output = "gt",
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 2F-Z: H2 Z-Score Results (Drop No-Time)"
+)
+tbl_2fz
+save_table(tbl_2fz, "table_02fz_h2_zscore_drop")
 ```
 
 ## Table 2G: Diff-in-Disc By Topic Optimal BW (Drop No-Time)
@@ -1504,6 +1779,34 @@ table_3f <- modelsummary(
 table_3f
 
 save_table(table_3f, "table_03f_alignment_drop_notime")
+```
+
+## Table 3F-Z: Alignment Z-Score Results (Drop No-Time)
+
+```{r table3fz}
+# NOTE: Z-score models use default modelsummary SEs; bootstrap vcov is not stored for these variants
+models_3fz <- list(
+  "Main Z" = results_align_drop$model5a_z,
+  "CSTO Z" = results_align_drop$model5a_csto_z,
+  "Neutral Z" = results_align_drop$model5a_neutral_z,
+  "Opt BW Z" = results_align_drop$model5a_opt_z,
+  "Non-Mil Z" = results_align_drop$model5a_opt_non_mil_z,
+  "Russian Z" = results_align_drop$model5a_opt_russian_z
+)
+tbl_3fz <- modelsummary(
+  models_3fz,
+  output = "gt",
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 3F-Z: Alignment Z-Score Results (Drop No-Time)"
+)
+tbl_3fz
+save_table(tbl_3fz, "table_03fz_alignment_zscore_drop")
 ```
 
 ## Table 3G: Alignment By Topic Optimal BW (Drop No-Time)
@@ -1776,6 +2079,28 @@ table_1f
 save_table(table_1f, "table_01f_rdd_probabilistic")
 ```
 
+## Table 1F-Z: RDD Z-Score Results (Probabilistic)
+
+```{r table1fz}
+models_1fz <- list(
+  "Basic" = results_h1_prob$model1_z,
+  "Z-Score Opt" = results_h1_prob$model5_opt,
+  "Non-Mil Z" = results_h1_prob$model6a_nonmil,
+  "Non-NATO Z" = results_h1_prob$model7a_nonnato
+)
+tbl_1fz <- modelsummary(
+  models_1fz,
+  output = "gt",
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 1F-Z: RDD Z-Score Results (Probabilistic)"
+)
+tbl_1fz
+save_table(tbl_1fz, "table_01fz_rdd_zscore_prob")
+```
+
 ## Table 1G: RDD By Topic (Probabilistic Time)
 
 ```{r table1g}
@@ -1814,6 +2139,29 @@ table_1g <- modelsummary(
 table_1g
 
 save_table(table_1g, "table_01g_rdd_by_topic_probabilistic")
+```
+
+## Table 1G-Z: RDD Z-Score By Topic (Probabilistic)
+
+```{r table1gz}
+models_1gz <- list(
+  "Political" = results_h1_prob$model5_opt_pol,
+  "Military" = results_h1_prob$model5_opt_mil,
+  "Economic" = results_h1_prob$model5_opt_econ,
+  "Cultural" = results_h1_prob$model5_opt_cult,
+  "Other" = results_h1_prob$model5_opt_oth
+)
+tbl_1gz <- modelsummary(
+  models_1gz,
+  output = "gt",
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 1G-Z: RDD Z-Score By Topic (Probabilistic)"
+)
+tbl_1gz
+save_table(tbl_1gz, "table_01gz_rdd_zscore_by_topic_prob")
 ```
 
 ## Table 2I: Diff-in-Disc Main (Probabilistic Time)
@@ -1860,6 +2208,34 @@ table_2i <- modelsummary(
 table_2i
 
 save_table(table_2i, "table_02i_diff_disc_probabilistic")
+```
+
+## Table 2I-Z: H2 Z-Score Results (Probabilistic)
+
+```{r table2iz}
+# NOTE: Z-score models use default modelsummary SEs (no bootstrap vcov stored for these variants)
+models_2iz <- list(
+  "Main Z" = results_h2_prob$model2a_z,
+  "Opt BW Z" = results_h2_prob$model2a_opt_z,
+  "Non-Mil Z" = results_h2_prob$model2b_z,
+  "Non-NATO Z" = results_h2_prob$model2d_z,
+  "Russian Z" = results_h2_prob$model3a_z,
+  "Russian Opt Z" = results_h2_prob$model3a_opt_z
+)
+tbl_2iz <- modelsummary(
+  models_2iz,
+  output = "gt",
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 2I-Z: H2 Z-Score Results (Probabilistic)"
+)
+tbl_2iz
+save_table(tbl_2iz, "table_02iz_h2_zscore_prob")
 ```
 
 ## Table 2J: Diff-in-Disc By Topic Optimal BW (Probabilistic Time)
@@ -2037,6 +2413,34 @@ table_3i <- modelsummary(
 table_3i
 
 save_table(table_3i, "table_03i_alignment_probabilistic")
+```
+
+## Table 3I-Z: Alignment Z-Score Results (Probabilistic)
+
+```{r table3iz}
+# NOTE: Z-score models use default modelsummary SEs; bootstrap vcov is not stored for these variants
+models_3iz <- list(
+  "Main Z" = results_align_prob$model5a_z,
+  "CSTO Z" = results_align_prob$model5a_csto_z,
+  "Neutral Z" = results_align_prob$model5a_neutral_z,
+  "Opt BW Z" = results_align_prob$model5a_opt_z,
+  "Non-Mil Z" = results_align_prob$model5a_opt_non_mil_z,
+  "Russian Z" = results_align_prob$model5a_opt_russian_z
+)
+tbl_3iz <- modelsummary(
+  models_3iz,
+  output = "gt",
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  stars = c('*' = .05, '**' = .01, '***' = .001),
+  fmt = 3,
+  title = "Table 3I-Z: Alignment Z-Score Results (Probabilistic)"
+)
+tbl_3iz
+save_table(tbl_3iz, "table_03iz_alignment_zscore_prob")
 ```
 
 ## Table 3J: Alignment By Topic Optimal BW (Probabilistic Time)
