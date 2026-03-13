@@ -753,7 +753,7 @@ data_dec <- data %>%
   filter(date_publish < "2022-02-19") %>%
   filter(!topic_clean %in% c("Military")) %>%
   mutate(
-    running_probabilistic = as.numeric(difftime(date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
+    running_probabilistic = as.numeric(difftime(date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")/86400),
     treatment = ifelse(date_publish_probabilistic < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
   )
 
@@ -1000,7 +1000,6 @@ for (cntry in countries_match) {
   data_loo_m <- data_non_mil %>%
     filter(running_probabilistic < optimal_bw, running_probabilistic > -optimal_bw) %>%
     filter(country != cntry) %>%
-    mutate(running = floor(running_probabilistic / 86400)) %>%
     select(sentiment_clean, sentiment_z, running, running_probabilistic, treatment, state_owned,
            topic_clean, source_domain, country)
 
