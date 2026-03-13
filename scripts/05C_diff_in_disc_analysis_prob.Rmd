@@ -281,13 +281,6 @@ summary(model2a_opt)
 boot_model2a_opt <- run_wild_bootstrap(model2a_opt, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model2a_opt$se, "\n")
 cat("Bootstrap p-value:", boot_model2a_opt$p_val, "\n")
-
-# Z-score version
-model2a_opt_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
-                       cluster = ~source_domain,
-                       data = optimal_bandwidth_data)
-boot_model2a_opt_z <- run_wild_bootstrap(model2a_opt_z, "treatment:state_owned")
-cat("Z-score model2a_opt — Bootstrap p-value:", boot_model2a_opt_z$p_val, "\n")
 ```
 
 ### Optimal BW, Full FEs
@@ -300,6 +293,36 @@ boot_model2a_opt_full_fe <- run_wild_bootstrap(model2a_opt_full_fe, "treatment:s
 cat("Bootstrap SE for treatment:state_owned:", boot_model2a_opt_full_fe$se, "\n")
 cat("Bootstrap p-value:", boot_model2a_opt_full_fe$p_val, "\n")
 ```
+
+### Optimal BW, Z-Score
+
+```{r model2a-opt-prob-z}
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
+                 data = data_non_ukraine)$residuals
+
+bw_select <- rdbwselect(y = resid_y,
+                        x = data_non_ukraine$running_probabilistic,
+                        kernel = "triangular",
+                        cluster = data_non_ukraine$source_domain,
+                        p = 1,
+                        bwselect = "mserd")
+
+optimal_bw_align <- bw_align$bws[1, 1]
+cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
+
+optimal_bandwidth_data_z <- data_non_ukraine %>%
+  filter(running_probabilistic < optimal_bw_align, running_probabilistic > -optimal_bw_align)
+
+
+# Z-score version
+model2a_opt_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                       cluster = ~source_domain,
+                       data = optimal_bandwidth_data_z)
+boot_model2a_opt_z <- run_wild_bootstrap(model2a_opt_z, "treatment:state_owned")
+cat("Z-score model2a_opt — Bootstrap p-value:", boot_model2a_opt_z$p_val, "\n")
+```
+
 
 ### DID Within Bandwidth
 
@@ -324,9 +347,26 @@ cat("Bootstrap p-value:", boot_model_did$p_val, "\n")
 data_non_mil <- data_non_ukraine %>%
   filter(!topic_clean %in% c("Military"))
 
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + csto, 
+                 data = data_non_mil)$residuals
+
+bw_align_non_mil <- rdbwselect(y = resid_y,
+                               x = data_align_state_non_mil$running_probabilistic,
+                               kernel = "triangular",
+                               cluster = data_non_mil$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "days\n")
+
+optimal_bandwidth_data_non_mil <- data_non_mil %>%
+  filter(running_probabilistic < optimal_bw_align_non_mil, running_probabilistic > -optimal_bw_align_non_mil)
+
 model2b <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
-                 data = data_non_mil)
+                 data = optimal_bandwidth_data_non_mil)
 
 summary(model2b)
 
@@ -334,13 +374,6 @@ summary(model2b)
 boot_model2b <- run_wild_bootstrap(model2b, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model2b$se, "\n")
 cat("Bootstrap p-value:", boot_model2b$p_val, "\n")
-
-# Z-score version
-model2b_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
-                   cluster = ~source_domain,
-                   data = data_non_mil)
-boot_model2b_z <- run_wild_bootstrap(model2b_z, "treatment:state_owned")
-cat("Z-score model2b — Bootstrap p-value:", boot_model2b_z$p_val, "\n")
 ```
 
 ### Non-Military, Full FEs
@@ -348,11 +381,49 @@ cat("Z-score model2b — Bootstrap p-value:", boot_model2b_z$p_val, "\n")
 ```{r model2b-full-fe-prob}
 model2b_full_fe <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
                           topic_clean + source_domain,
-                          cluster = ~source_domain, data = data_non_mil)
+                          cluster = ~source_domain, data = optimal_bandwidth_data_non_mil)
+
 boot_model2b_full_fe <- run_wild_bootstrap(model2b_full_fe, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model2b_full_fe$se, "\n")
 cat("Bootstrap p-value:", boot_model2b_full_fe$p_val, "\n")
 ```
+
+### Non-Military, Z-Score
+
+```{r non-mil-prob-z}
+# Z-score version
+
+# Create New z score
+data_non_mil <- data_non_mil %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) / 
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_z~ 1 | topic_clean + csto, 
+                 data = data_non_mil)$residuals
+
+bw_align_non_mil <- rdbwselect(y = resid_y,
+                               x = data_non_mil$running_probabilistic,
+                               kernel = "triangular",
+                               cluster = data_non_mil$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
+cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "days\n")
+
+optimal_bandwidth_data_non_mil <- data_non_mil %>%
+  filter(running_probabilistic < optimal_bw_align_non_mil, running_probabilistic > -optimal_bw_align_non_mil)
+
+model2b_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = data_non_mil)
+boot_model2b_z <- run_wild_bootstrap(model2b_z, "treatment:state_owned")
+cat("Z-score model2b — Bootstrap p-value:", boot_model2b_z$p_val, "\n")
+```
+
 
 ### Visualization (Non-Military)
 
@@ -394,13 +465,32 @@ ggsave(plot = invasion_discs_non_mil_graph,
 
 ## Non-NATO Countries
 
+### Non-Nato, Topic FE
+
 ```{r non-nato-prob}
-data_non_nato <- data_non_ukraine %>%
+data_non_nato <- data_non_mil %>%
   filter(!country %in% NATO_COUNTRIES)
+
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_clean~ 1 | topic_clean + csto, 
+                 data = data_non_nato)$residuals
+
+bw_align_non_nato <- rdbwselect(y = resid_y,
+                               x = data_non_nato$running_probabilistic,
+                               kernel = "triangular",
+                               cluster = data_non_nato$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_non_nato <- bw_align_non_nato$bws[1, 1]
+cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_non_nato, 1), "days\n")
+
+optimal_bandwidth_data_non_nato <- data_non_nato %>%
+  filter(running_probabilistic < optimal_bw_align_non_nato, running_probabilistic > -optimal_bw_align_non_nato)
 
 model2d <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
-                 data = data_non_nato)
+                 data = optimal_bandwidth_data__non_nato)
 
 summary(model2d)
 
@@ -408,11 +498,47 @@ summary(model2d)
 boot_model2d <- run_wild_bootstrap(model2d, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model2d$se, "\n")
 cat("Bootstrap p-value:", boot_model2d$p_val, "\n")
+```
 
+```{r}
+model2d_fullfe <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | 
+                          topic_clean + source_domain,
+                 cluster = ~source_domain,
+                 data = optimal_bandwidth_data_non_nato)
+
+summary(model2d_fullfe)
+
+# Wild cluster bootstrap
+boot_model2d_fullfe <- run_wild_bootstrap(model2d_fullfe, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model2d_fullfe$se, "\n")
+cat("Bootstrap p-value:", boot_model2d_fullfe$p_val, "\n")
+```
+
+```{r non-nato-prob-z}
 # Z-score version
+
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_z~ 1 | topic_clean + csto, 
+                 data = data_non_nato)$residuals
+
+bw_align_non_nato <- rdbwselect(y = resid_y,
+                               x = data_non_nato$running_probabilistic,
+                               kernel = "triangular",
+                               cluster = data_non_nato$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_non_nato <- bw_align_non_nato$bws[1, 1]
+cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_non_nato, 1), "days\n")
+
+optimal_bandwidth_data_non_nato <- data_non_nato %>%
+  filter(running_probabilistic < optimal_bw_align_non_nato, running_probabilistic > -optimal_bw_align_non_nato)
+
+
 model2d_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
                    data = data_non_nato)
+
 boot_model2d_z <- run_wild_bootstrap(model2d_z, "treatment:state_owned")
 cat("Z-score model2d — Bootstrap p-value:", boot_model2d_z$p_val, "\n")
 ```
@@ -422,10 +548,8 @@ cat("Z-score model2d — Bootstrap p-value:", boot_model2d_z$p_val, "\n")
 ### Russian-Related, Topic FEs
 
 ```{r russian-related-prob}
-data_russian_related <- data %>%
-  filter(!Russian.Involvement == "Not") %>%
-  filter(!country %in% c("Ukraine")) %>%
-  filter(!topic_clean %in% c("Military"))
+data_russian_related <- data_non_nato %>%
+  filter(!Russian.Involvement == "Not")
 
 # Z-score for Russian-related data
 data_russian_related <- data_russian_related %>%
@@ -434,9 +558,26 @@ data_russian_related <- data_russian_related %>%
                        sd(sentiment_clean, na.rm = TRUE)) %>%
   ungroup()
 
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_clean~ 1 | topic_clean + csto, 
+                 data = data_russian_related)$residuals
+
+bw_align_russian <- rdbwselect(y = resid_y,
+                               x = data_russian_related$running_probabilistic,
+                               kernel = "triangular",
+                               cluster = data_russian_related$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
+cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_russian, 1), "days\n")
+
+optimal_bandwidth_data_russian <- data_russian_related %>%
+  filter(running_probabilistic < optimal_bw_align_russian, running_probabilistic > -optimal_bw_align_russian)
+
 model3a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
-                 data = data_russian_related)
+                 data = optimal_bandwidth_data_russian)
 
 summary(model3a)
 
@@ -444,77 +585,6 @@ summary(model3a)
 boot_model3a <- run_wild_bootstrap(model3a, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model3a$se, "\n")
 cat("Bootstrap p-value:", boot_model3a$p_val, "\n")
-
-model3a_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
-                   cluster = ~source_domain,
-                   data = data_russian_related)
-boot_model3a_z <- run_wild_bootstrap(model3a_z, "treatment:state_owned")
-cat("Z-score model3a — Bootstrap p-value:", boot_model3a_z$p_val, "\n")
-```
-
-### Russian-Related + Combined BW
-
-```{r combined-robust-prob}
-data_combined_filtered <- data %>%
-  filter(!Russian.Involvement == "Not") %>%
-  filter(!country %in% c("Ukraine")) %>%
-  filter(!country %in% NATO_COUNTRIES) %>%
-  filter(!topic_clean %in% c("Military"))
-
-data_combined_filtered <- data_combined_filtered %>%
-  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
-
-resid_y <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + state_owned,
-                 data = data_combined_filtered)$residuals
-
-bw_select_combined <- rdbwselect(y = resid_y,
-                                  x = data_combined_filtered$running_probabilistic,
-                                  kernel = "triangular",
-                                  cluster = data_combined_filtered$source_domain,
-                                  p = 1,
-                                  bwselect = "mserd")
-
-summary(bw_select_combined)
-
-optimal_bw_combined <- bw_select_combined$bws[1, 1]
-```
-
-```{r combined-robust-model-prob}
-cat("Optimal bandwidth (combined filter):", round(optimal_bw_combined, 1), "days\n")
-
-data_russian_combined_bw <- data_combined_filtered %>%
-  filter(running_probabilistic < optimal_bw_combined) %>%
-  filter(running_probabilistic > -optimal_bw_combined)
-
-cat("Observations within bandwidth:", nrow(data_russian_combined_bw), "\n")
-
-# Z-score for combined-filtered bandwidth data
-data_russian_combined_bw <- data_russian_combined_bw %>%
-  group_by(source_domain) %>%
-  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
-                       sd(sentiment_clean, na.rm = TRUE)) %>%
-  ungroup()
-
-# Keep old name for backward-compat with any code that references optimal_bw_combined_data
-optimal_bw_combined_data <- data_russian_combined_bw
-
-model3a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
-                     cluster = ~source_domain,
-                     data = data_russian_combined_bw)
-
-summary(model3a_opt)
-
-# Wild cluster bootstrap
-boot_model3a_opt <- run_wild_bootstrap(model3a_opt, "treatment:state_owned")
-cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt$se, "\n")
-cat("Bootstrap p-value:", boot_model3a_opt$p_val, "\n")
-
-# Z-score version
-model3a_opt_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
-                       cluster = ~source_domain,
-                       data = data_russian_combined_bw)
-boot_model3a_opt_z <- run_wild_bootstrap(model3a_opt_z, "treatment:state_owned")
-cat("Z-score model3a_opt — Bootstrap p-value:", boot_model3a_opt_z$p_val, "\n")
 ```
 
 ### Russian-Related Full FEs
@@ -522,26 +592,41 @@ cat("Z-score model3a_opt — Bootstrap p-value:", boot_model3a_opt_z$p_val, "\n"
 ```{r model3a-opt-full-fe-prob}
 model3a_opt_full_fe <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
                               topic_clean + source_domain,
-                              cluster = ~source_domain, data = data_russian_combined_bw)
+                              cluster = ~source_domain, 
+                             data = optimal_bandwidth_data_russian)
+
 boot_model3a_opt_full_fe <- run_wild_bootstrap(model3a_opt_full_fe, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt_full_fe$se, "\n")
 cat("Bootstrap p-value:", boot_model3a_opt_full_fe$p_val, "\n")
 ```
 
-### Saturated Model
 
-```{r saturated-model-prob}
-model3a_opt_saturated <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
-                          source_domain^topic_clean + topic_clean^treatment,
-                          cluster = ~source_domain,
-                          data = data_russian_combined_bw)
+### Russian-Related, Z-score
 
-summary(model3a_opt_saturated)
+```{r russian-related-prob-z}
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_z~ 1 | topic_clean + csto, 
+                 data = data_russian_related)$residuals
 
-# Wild cluster bootstrap for saturated model
-boot_model3a_opt_saturated <- run_wild_bootstrap(model3a_opt_saturated, "treatment:state_owned")
-cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt_saturated$se, "\n")
-cat("Bootstrap p-value:", boot_model3a_opt_saturated$p_val, "\n")
+bw_align_russian <- rdbwselect(y = resid_y,
+                               x = data_russian_related$running_probabilistic,
+                               kernel = "triangular",
+                               cluster = data_russian_related$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
+cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_russian, 1), "days\n")
+
+optimal_bandwidth_data_russian_z <- data_russian_related %>%
+  filter(running_probabilistic < optimal_bw_align_russian, running_probabilistic > -optimal_bw_align_russian)
+
+
+model3a_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                   cluster = ~source_domain,
+                   data = optimal_bandwidth_data_russian_z)
+boot_model3a_z <- run_wild_bootstrap(model3a_z, "treatment:state_owned")
+cat("Z-score model3a — Bootstrap p-value:", boot_model3a_z$p_val, "\n")
 ```
 
 # By-Topic Analysis
@@ -1073,6 +1158,25 @@ matched_loo_summary <- map_df(names(matched_loo_results), function(cntry) {
 
 print(matched_loo_summary)
 ```
+
+
+### Saturated Model
+
+```{r saturated-model-prob}
+model3a_opt_saturated <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
+                          source_domain^topic_clean + topic_clean^treatment,
+                          cluster = ~source_domain,
+                          data = optimal_bandwidth_data_russian)
+
+summary(model3a_opt_saturated)
+
+# Wild cluster bootstrap for saturated model
+boot_model3a_opt_saturated <- run_wild_bootstrap(model3a_opt_saturated, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt_saturated$se, "\n")
+cat("Bootstrap p-value:", boot_model3a_opt_saturated$p_val, "\n")
+```
+
+
 
 # Summary Tables
 
