@@ -51,7 +51,8 @@ data_non_ukraine <- data_non_ukraine %>% mutate(across(c(topic_clean, country, s
 ```{r alignment-data-drop}
 # Filter to non-NATO countries for alignment analysis
 data_align <- data %>%
-  filter(nato == 0)
+  filter(nato == 0)%>%
+  drop_na()
 
 # Create alignment indicator
 data_align <- data_align %>%

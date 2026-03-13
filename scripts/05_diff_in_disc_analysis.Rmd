@@ -41,13 +41,15 @@ cat("Independent:", sum(data_non_ukraine$state_owned == 0), "\n")
 
 # Convert factors
 data_non_ukraine <- data_non_ukraine %>%
-  mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor)) %>%
+  drop_na()
 data <- data %>%
   mutate(across(c("country", "source_domain", "topic_clean"), as.factor))
 
 # Compute z-scored sentiment within source_domain
 data_non_ukraine <- data_non_ukraine %>%
   group_by(source_domain) %>%
+  filter(sd(sentiment_clean, na.rm = TRUE) > 0) %>%
   mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
                        sd(sentiment_clean, na.rm = TRUE)) %>%
   ungroup()
@@ -155,6 +157,7 @@ cat("Bootstrap p-value:", boot_model2a$p_val, "\n")
 model2a_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
                    data = data_non_ukraine)
+
 boot_model2a_z <- run_wild_bootstrap(model2a_z, "treatment:state_owned")
 cat("Z-score model2a — Bootstrap p-value:", boot_model2a_z$p_val, "\n")
 ```

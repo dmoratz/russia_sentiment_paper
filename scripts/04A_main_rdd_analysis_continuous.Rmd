@@ -465,7 +465,6 @@ optimal_bandwidth_data_oth <- optimal_bandwidth_data %>%
 model5_opt_pol <- rdrobust(
   y = optimal_bandwidth_data_pol$sentiment_z,
   x = optimal_bandwidth_data_pol$running_continuous,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_pol$source_domain
 )
 
@@ -478,7 +477,6 @@ summary(model5_opt_pol)
 model5_opt_mil <- rdrobust(
   y = optimal_bandwidth_data_mil$sentiment_z,
   x = optimal_bandwidth_data_mil$running_continuous,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_mil$source_domain
 )
 
@@ -491,7 +489,6 @@ summary(model5_opt_mil)
 model5_opt_econ <- rdrobust(
   y = optimal_bandwidth_data_econ$sentiment_z,
   x = optimal_bandwidth_data_econ$running_continuous,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_econ$source_domain
 )
 
@@ -504,7 +501,6 @@ summary(model5_opt_econ)
 model5_opt_cult <- rdrobust(
   y = optimal_bandwidth_data_cult$sentiment_z,
   x = optimal_bandwidth_data_cult$running_continuous,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_cult$source_domain
 )
 
@@ -517,7 +513,6 @@ summary(model5_opt_cult)
 model5_opt_oth <- rdrobust(
   y = optimal_bandwidth_data_oth$sentiment_z,
   x = optimal_bandwidth_data_oth$running_continuous,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_oth$source_domain
 )
 
