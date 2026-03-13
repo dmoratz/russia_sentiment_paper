@@ -1099,6 +1099,141 @@ matched_loo_summary <- map_df(names(matched_loo_results), function(cntry) {
 print(matched_loo_summary)
 ```
 
+
+## Non-Parametric Saturation Check
+
+```{r}
+country_name <- "Kosovo"
+country_data <- optimal_bw_combined_data %>%
+  filter(country == country_name)
+
+# Filter to only source-topic combinations with both pre and post data
+balanced_data <- country_data %>%
+  group_by(source_domain, topic_clean) %>%
+  mutate(
+    has_pre = any(treatment == 0),
+    has_post = any(treatment == 1)
+  ) %>%
+  filter(has_pre & has_post) %>%
+  select(-has_pre, -has_post) %>%
+  ungroup()
+
+# Step 1: Source-topic level - pre vs post difference in means
+source_topic_effects <- balanced_data %>%
+  group_by(source_domain, topic_clean, treatment) %>%
+  summarize(
+    mean_sentiment = mean(sentiment_clean, na.rm = TRUE),
+    n_articles = n(),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = c(mean_sentiment, n_articles)
+  ) %>%
+  mutate(
+    # Pre-post difference for this source-topic
+    diff = mean_sentiment_1 - mean_sentiment_0,
+    # Total articles for this source-topic (for weighting)
+    total_articles = n_articles_0 + n_articles_1
+  )
+
+# Step 2: Source level - weighted average across topics
+source_effects <- source_topic_effects %>%
+  group_by(source_domain) %>%
+  summarize(
+    source_effect = weighted.mean(diff, w = total_articles, na.rm = TRUE),
+    total_articles = sum(total_articles, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  left_join(
+    country_data %>% distinct(source_domain, state_owned),
+    by = "source_domain"
+  )
+
+# Step 3: Country-state_owned level - weighted average within state ownership
+state_owned_effects <- source_effects %>%
+  group_by(state_owned) %>%
+  summarize(
+    state_owned_effect = weighted.mean(source_effect, w = total_articles, na.rm = TRUE),
+    total_articles = sum(total_articles, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+print("State-owned effects:")
+print(state_owned_effects)
+
+# Step 4: The treatment effect of state ownership - do it manually
+effect_independent <- state_owned_effects$state_owned_effect[state_owned_effects$state_owned == 0]
+effect_state_owned <- state_owned_effects$state_owned_effect[state_owned_effects$state_owned == 1]
+
+treatment_effect <- effect_state_owned - effect_independent
+
+print(paste("Non-parametric treatment effect of state ownership:", treatment_effect))
+
+
+```
+
+```{r}
+# Now run the regression comparisons
+model_simple <- feols(
+  sentiment_clean ~ treatment * state_owned |
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
+  data = balanced_data
+)
+
+model_full <- feols(
+  sentiment_clean ~ running * treatment * state_owned |
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
+  data = balanced_data
+)
+
+# Model WITHOUT topic:treatment FE
+model_exact <- feols(
+  sentiment_clean ~ treatment * state_owned |
+    source_domain^topic_clean,
+  cluster = ~source_domain,
+  data = balanced_data
+)
+
+# Compare
+comparison <- data.frame(
+  Method = c("Non-parametric", 
+             "Regression (without topic:treatment FE)", 
+             "Regression (Simple - with topic:treatment FE)", 
+             "Regression (Full)"),
+  Estimate = c(
+    treatment_effect,
+    coef(model_exact)["treatment:state_owned"],
+    coef(model_simple)["treatment:state_owned"],
+    coef(model_full)["treatment:state_owned"]
+  )
+)
+
+print(comparison)
+```
+
+```{r}
+# Check the distribution of articles
+print("Distribution of articles by source-topic-treatment:")
+distribution_check <- country_data %>%
+  group_by(source_domain, topic_clean, treatment) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  summary()
+print(distribution_check)
+
+# Check if any source-topic combinations are missing pre or post data
+missing_check <- country_data %>%
+  group_by(source_domain, topic_clean, treatment) %>%
+  summarize(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = treatment, values_from = n, names_prefix = "treatment_") %>%
+  filter(is.na(treatment_0) | is.na(treatment_1))
+
+print("Source-topic combinations missing pre or post data:")
+print(missing_check)
+```
+
 # Summary Tables
 
 ## Table 2: Main Results (8 columns)
