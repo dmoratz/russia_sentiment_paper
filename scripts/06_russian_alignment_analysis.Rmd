@@ -1232,6 +1232,94 @@ boot_model5a_fully_saturated <- list(
 cat("Saturated model bootstrap results extracted\n")
 ```
 
+
+## Non-Parametric Saturation Check
+
+```{r}
+# Select one CSTO country and one non-CSTO country
+csto_country <- "Armenia"  # Replace with actual CSTO country
+non_csto_country <- "Kosovo"  # Replace with actual non-CSTO country
+
+two_country_data <- optimal_bandwidth_data_state_non_mil %>%
+  filter(country %in% c(csto_country, non_csto_country))
+
+# Check the structure
+table(two_country_data$country, two_country_data$csto)
+
+# Step 1: Source-topic level - pre vs post difference
+source_topic_effects <- two_country_data %>%
+  group_by(source_domain, topic_clean, treatment, csto, country) %>%
+  summarize(
+    mean_sentiment = mean(sentiment_clean, na.rm = TRUE),
+    n_articles = n(),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = c(mean_sentiment, n_articles)
+  ) %>%
+  mutate(
+    diff = mean_sentiment_1 - mean_sentiment_0,
+    total_articles = n_articles_0 + n_articles_1
+  )
+
+# Step 2: Source level - weighted average across topics
+source_effects <- source_topic_effects %>%
+  group_by(source_domain, csto, country) %>%
+  summarize(
+    source_effect = weighted.mean(diff, w = total_articles, na.rm = TRUE),
+    total_articles = sum(total_articles, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 3: Country level - weighted average across sources (if multiple sources per country)
+country_effects <- source_effects %>%
+  group_by(country, csto) %>%
+  summarize(
+    country_effect = weighted.mean(source_effect, w = total_articles, na.rm = TRUE),
+    total_articles = sum(total_articles, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 4: CSTO vs non-CSTO difference
+csto_effect <- country_effects %>%
+  filter(csto == 1) %>%
+  pull(country_effect)
+
+non_csto_effect <- country_effects %>%
+  filter(csto == 0) %>%
+  pull(country_effect)
+
+treatment_effect_csto <- csto_effect - non_csto_effect
+
+print(paste("Non-parametric treatment effect of CSTO:", treatment_effect_csto))
+
+```
+
+
+```{r}
+# Now run the regression on just these two countries
+model_two_countries <- feols(
+  sentiment_clean ~ treatment * csto |
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
+  data = two_country_data
+)
+
+print("Regression estimate:")
+print(coef(model_two_countries)["treatment:csto"])
+
+# Compare
+comparison <- data.frame(
+  Method = c("Non-parametric", "Regression"),
+  Estimate = c(treatment_effect_csto, coef(model_two_countries)["treatment:csto"])
+)
+
+print(comparison)
+```
+
+
+
 # Country-Level Analysis
 
 ## State Media by Country and Alliance
