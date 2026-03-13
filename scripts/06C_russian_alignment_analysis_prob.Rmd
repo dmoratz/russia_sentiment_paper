@@ -437,9 +437,9 @@ cat("CSTO x Treatment interaction effect (in SD):", round(coef_csto_int / sd_sta
 
 
 
-### Non-Military, Sentiment Z
+### Non-Military, Z-Score
 
-```{r align-non-mil-prob}
+```{r align-non-mil-prob-z}
 # Create New z score
 data_align_state_non_mil <- data_align_state_non_mil %>%
   group_by(source_domain) %>%
