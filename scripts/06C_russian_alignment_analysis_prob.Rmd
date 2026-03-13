@@ -649,19 +649,19 @@ data_align_state_econ <- data_align_state %>% filter(topic_clean == "Economic")
 data_align_state_cult <- data_align_state %>% filter(topic_clean == "Culture")
 data_align_state_oth <- data_align_state %>% filter(topic_clean == "Other")
 
-model5a_full_pol <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_full_pol <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                           cluster = ~source_domain,
                           data = data_align_state_pol)
-model5a_full_mil <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_full_mil <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                           cluster = ~source_domain,
                           data = data_align_state_mil)
-model5a_full_econ <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_full_econ <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                            cluster = ~source_domain,
                            data = data_align_state_econ)
-model5a_full_cult <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_full_cult <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                            cluster = ~source_domain,
                            data = data_align_state_cult)
-model5a_full_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_full_oth <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                           cluster = ~source_domain,
                           data = data_align_state_oth)
 
@@ -677,53 +677,94 @@ boot_model5a_full_oth <- run_wild_bootstrap(model5a_full_oth, "treatment:csto")
 
 ```{r topic-opt-het-prob}
 # Political
-bw_align_pol <- rdbwselect(y = data_align_state_pol$sentiment_clean, x = data_align_state_pol$running_probabilistic,
-                           kernel = "triangular", cluster = data_align_state_pol$source_domain, p = 1, bwselect = "mserd")
+bw_align_pol <- rdbwselect(y = data_align_state_pol$sentiment_z, 
+                           x = data_align_state_pol$running_probabilistic,
+                           kernel = "triangular", 
+                           cluster = data_align_state_pol$source_domain, 
+                           p = 1, 
+                           bwselect = "mserd")
+
 optimal_bw_align_pol <- bw_align_pol$bws[1, 1]
-cat("Political optimal bandwidth:", round(optimal_bw_align_pol, 1), "seconds\n")
-opt_align_pol <- data_align_state_pol %>% filter(running_probabilistic < optimal_bw_align_pol, running_probabilistic > -optimal_bw_align_pol)
+
+cat("Political optimal bandwidth:", round(optimal_bw_align_pol, 1), "days\n")
+
+opt_align_pol <- data_align_state_pol %>% filter(running_probabilistic < optimal_bw_align_pol, 
+                                                 running_probabilistic > -optimal_bw_align_pol)
 
 # Military
-bw_align_mil <- rdbwselect(y = data_align_state_mil$sentiment_clean, x = data_align_state_mil$running_probabilistic,
-                           kernel = "triangular", cluster = data_align_state_mil$source_domain, p = 1, bwselect = "mserd")
+bw_align_mil <- rdbwselect(y = data_align_state_mil$sentiment_z, 
+                           x = data_align_state_mil$running_probabilistic,
+                           kernel = "triangular", 
+                           cluster = data_align_state_mil$source_domain, 
+                           p = 1, 
+                           bwselect = "mserd")
+
 optimal_bw_align_mil <- bw_align_mil$bws[1, 1]
-cat("Military optimal bandwidth:", round(optimal_bw_align_mil, 1), "seconds\n")
-opt_align_mil <- data_align_state_mil %>% filter(running_probabilistic < optimal_bw_align_mil, running_probabilistic > -optimal_bw_align_mil)
+
+cat("Military optimal bandwidth:", round(optimal_bw_align_mil, 1), "days\n")
+
+opt_align_mil <- data_align_state_mil %>% filter(running_probabilistic < optimal_bw_align_mil, 
+                                                 running_probabilistic > -optimal_bw_align_mil)
 
 # Economic
-bw_align_econ <- rdbwselect(y = data_align_state_econ$sentiment_clean, x = data_align_state_econ$running_probabilistic,
-                            kernel = "triangular", cluster = data_align_state_econ$source_domain, p = 1, bwselect = "mserd")
+bw_align_econ <- rdbwselect(y = data_align_state_econ$sentiment_z, 
+                            x = data_align_state_econ$running_probabilistic,
+                            kernel = "triangular", 
+                            cluster = data_align_state_econ$source_domain, 
+                            p = 1, 
+                            bwselect = "mserd")
+
 optimal_bw_align_econ <- bw_align_econ$bws[1, 1]
-cat("Economic optimal bandwidth:", round(optimal_bw_align_econ, 1), "seconds\n")
-opt_align_econ <- data_align_state_econ %>% filter(running_probabilistic < optimal_bw_align_econ, running_probabilistic > -optimal_bw_align_econ)
+
+cat("Economic optimal bandwidth:", round(optimal_bw_align_econ, 1), "days\n")
+
+opt_align_econ <- data_align_state_econ %>% filter(running_probabilistic < optimal_bw_align_econ, 
+                                                   running_probabilistic > -optimal_bw_align_econ)
 
 # Culture
-bw_align_cult <- rdbwselect(y = data_align_state_cult$sentiment_clean, x = data_align_state_cult$running_probabilistic,
-                            kernel = "triangular", cluster = data_align_state_cult$source_domain, p = 1, bwselect = "mserd")
+bw_align_cult <- rdbwselect(y = data_align_state_cult$sentiment_z, 
+                            x = data_align_state_cult$running_probabilistic,
+                            kernel = "triangular", 
+                            cluster = data_align_state_cult$source_domain, 
+                            p = 1, 
+                            bwselect = "mserd")
+
 optimal_bw_align_cult <- bw_align_cult$bws[1, 1]
-cat("Culture optimal bandwidth:", round(optimal_bw_align_cult, 1), "seconds\n")
-opt_align_cult <- data_align_state_cult %>% filter(running_probabilistic < optimal_bw_align_cult, running_probabilistic > -optimal_bw_align_cult)
+
+cat("Culture optimal bandwidth:", round(optimal_bw_align_cult, 1), "days\n")
+
+opt_align_cult <- data_align_state_cult %>% filter(running_probabilistic < optimal_bw_align_cult, 
+                                                   running_probabilistic > -optimal_bw_align_cult)
 
 # Other
-bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_clean, x = data_align_state_oth$running_probabilistic,
-                           kernel = "triangular", cluster = data_align_state_oth$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_align_oth <- bw_align_oth$bws[1, 1]
-cat("Other optimal bandwidth:", round(optimal_bw_align_oth, 1), "seconds\n")
-opt_align_oth <- data_align_state_oth %>% filter(running_probabilistic < optimal_bw_align_oth, running_probabilistic > -optimal_bw_align_oth)
+bw_align_oth <- rdbwselect(y = data_align_state_oth$sentiment_clean, 
+                           x = data_align_state_oth$running_probabilistic,
+                           kernel = "triangular", 
+                           cluster = data_align_state_oth$source_domain, 
+                           p = 1, 
+                           bwselect = "mserd")
 
-model5a_opt_pol <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+optimal_bw_align_oth <- bw_align_oth$bws[1, 1]
+
+cat("Other optimal bandwidth:", round(optimal_bw_align_oth, 1), "seconds\n")
+
+opt_align_oth <- data_align_state_oth %>% filter(running_probabilistic < optimal_bw_align_oth, 
+                                                 running_probabilistic > -optimal_bw_align_oth)
+
+# Models
+model5a_opt_pol <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                          cluster = ~source_domain,
                          data = opt_align_pol)
-model5a_opt_mil <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_opt_mil <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                          cluster = ~source_domain,
                          data = opt_align_mil)
-model5a_opt_econ <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_opt_econ <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                           cluster = ~source_domain,
                           data = opt_align_econ)
-model5a_opt_cult <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_opt_cult <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                           cluster = ~source_domain,
                           data = opt_align_cult)
-model5a_opt_oth <- feols(sentiment_clean ~ running_probabilistic * treatment * csto,
+model5a_opt_oth <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                          cluster = ~source_domain,
                          data = opt_align_oth)
 
@@ -748,7 +789,10 @@ for (cntry in countries) {
     filter(country != cntry)
 
   # Re-calculate optimal bandwidth for LOO data
-  bw_loo <- rdbwselect(y = data_loo$sentiment_clean,
+  resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto, 
+                 data = data_loo)$residuals
+  
+  bw_loo <- rdbwselect(y = data_loo$sentiment_z,
                        x = data_loo$running_probabilistic,
                        kernel = "triangular",
                        cluster = data_loo$source_domain,
@@ -760,12 +804,12 @@ for (cntry in countries) {
   data_loo_bw <- data_loo %>%
     filter(running_probabilistic < optimal_bw_loo, running_probabilistic > -optimal_bw_loo)
 
-  model_loo <- feols(sentiment_clean ~ running_probabilistic * treatment * csto | topic_clean,
+  model_loo <- feols(sentiment_z ~ running_probabilistic * treatment * csto | topic_clean,
                      cluster = ~source_domain,
                      data = data_loo_bw)
 
   boot_loo <- tryCatch(
-    run_wild_bootstrap(model_loo, "treatment:csto", B = 999),
+    run_wild_bootstrap(model_loo, "treatment:csto", B = 4999),
     error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
   )
   loo_results[[cntry]] <- list(
@@ -805,7 +849,7 @@ data_dec_align <- data_align_state_non_mil %>%
   )
 
 # Find optimal bandwidth for placebo
-bw_placebo_nonmil <- rdbwselect(y = data_dec_align$sentiment_clean,
+bw_placebo_nonmil <- rdbwselect(y = data_dec_align$sentiment_z,
                                 x = data_dec_align$running_probabilistic,
                                 kernel = "triangular",
                                 cluster = data_dec_align$source_domain,
@@ -818,7 +862,7 @@ cat("Placebo optimal bandwidth (non-mil):", round(optimal_bw_placebo_nonmil, 1),
 data_dec_align_bw <- data_dec_align %>%
   filter(running_probabilistic < optimal_bw_placebo_nonmil, running_probabilistic > -optimal_bw_placebo_nonmil)
 
-model_placebo_nonmil <- feols(sentiment_clean ~ running_probabilistic * treatment * csto | topic_clean,
+model_placebo_nonmil <- feols(sentiment_z ~ running_probabilistic * treatment * csto | topic_clean,
                                cluster = ~source_domain,
                                data = data_dec_align_bw)
 
@@ -837,8 +881,8 @@ cat("\nNote: Non-significant treatment effect suggests parallel trends assumptio
 # Subset to data of interest
 
 matching_data <- optimal_bandwidth_data_state_non_mil %>%
-  select(sentiment_clean, running, running_probabilistic, treatment, csto, 
-         topic_clean, source_domain, country, country_dummy)
+  select(sentiment_z, running, running_probabilistic, treatment, csto, 
+         topic_clean, source_domain, country)
 
 # Match on topic and publication day
 
@@ -855,16 +899,16 @@ summary(ps_model)
 ### Assess Balance
 
 ```{r}
-# Visual balance check
-plot(ps_model, type = "jitter", interactive = FALSE)
-plot(ps_model, type = "density", interactive = FALSE)
-
 # Numerical balance check (better)
 bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
 # Want: all standardized mean differences < 0.1 after matching
 
 # Love plot (publication quality)
-love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
+love <- love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
+love
+ggsave(plot = love,
+       file.path(FIGURES_HETEROGENEITY_PROB, "love_plot.png"),
+       width = 10, height = 7)
 ```
 
 ### Matching analysis
@@ -873,10 +917,9 @@ love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
 # Extract matched data and calculate treatment effects
 matched_data <-match.data(ps_model)
 
-matched_model <- feols(sentiment_clean ~ running_probabilistic
-                                     * treatment * csto +
-                                       i(country_dummy, ref = "single_source") |
-                                       topic_clean + source_domain,
+matched_model <- feols(sentiment_z ~ running_probabilistic
+                                     * treatment * csto |
+                                       topic_clean,
                                      cluster = ~source_domain,
                                      data = matched_data
                                      )
@@ -899,9 +942,8 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 bootstrapped_se <- boot_matched_model$p_val
 
 # Respecify the model using lm
-lm_model <- lm(sentiment_clean ~ running_probabilistic * treatment * csto +
-                 i(country_dummy, ref = "single_source") +
-                 factor(topic_clean) + factor(source_domain),
+lm_model <- lm(sentiment_z ~ running_probabilistic * treatment * csto +
+                 factor(topic_clean),
                data = matched_data)
 
 
@@ -930,7 +972,7 @@ treatment_r2 <- partial_r2(lm_model, covariates = c("treatment"))
 
 
 ```{r}
-# Then manually recompute the CI bound using your bootstrapped SE
+# Manually recompute the CI bound using the bootstrapped SE
 coef_interest <- coef(lm_model)["treatment:csto"]
 rv_ci <- coef_interest / bootstrapped_se  # your corrected t-stat for reference
 
@@ -1030,9 +1072,83 @@ ggsave(plot = last_plot(),
        width = 10, height = 7)
 ```
 
-The robustness value of 3.2% indicates that an unobserved confounder would need to simultaneously explain 3.2% of residual variance in both CSTO membership and sentiment to explain away our result. To contextualize this threshold, our observed covariates — including treatment assignment (partial R² = 0.021%) and CSTO membership itself (partial R² = 0.001%) — explain a fraction of this amount. We additionally benchmark against temporal proximity to the date of the invasion (partial R² = 4.5% for CSTO membership, 0.001% for sentiment), which represents the strongest observed predictor of group assignment in our model. Despite exceeding the robustness value threshold on the treatment dimension, this benchmark explains essentially no variance in sentiment outcomes — as visible in Figure X, where the benchmark point sits far to the right of the zero contour but hugging the x-axis. An unobserved confounder would therefore need to be approximately 150 times more influential than treatment assignment itself, and simultaneously predict sentiment far more strongly than the timing of the invasion, to overturn our finding. This suggests the result is highly robust to potential confounding.
+The robustness value of 4.38% indicates that an unobserved confounder would need to simultaneously explain 4.38% of residual variance in both CSTO membership and sentiment to explain away our result. To contextualize this threshold, our observed covariates — including treatment assignment (partial R² = 0.0002%) and CSTO membership itself (partial R² = 0.0001%) — explain a fraction of this amount. We additionally benchmark against temporal proximity to the date of the invasion (partial R² = 4.6% for CSTO membership, 0.00001% for sentiment), which represents the strongest observed predictor of group assignment in our model. Despite exceeding the robustness value threshold on the treatment dimension, this benchmark explains essentially no variance in sentiment outcomes — as visible in Figure X, where the benchmark point sits far to the right of the zero contour but hugging the x-axis. An unobserved confounder would therefore need to be approximately 21,900 times more influential than treatment assignment itself, and simultaneously predict sentiment far more strongly than the timing of the invasion, to overturn our finding. This suggests the result is highly robust to potential confounding.
 
 We caution that robustness values should never be interpreted in isolation. The partial R² scale is model and data specific, and a robustness value that appears small in absolute terms may represent an implausibly large confounding requirement relative to the explanatory power of observed covariates. We recommend always reporting benchmark partial R² values alongside the robustness value to allow readers to calibrate the practical significance of the sensitivity result.
+
+
+## Leave One Out Matching
+
+```{r}
+countries <- unique(data_align_state_non_mil$country)
+matched_loo_results <- list()
+
+for (cntry in countries) {
+  data_loo <- data_align_state_non_mil %>%
+    filter(country != cntry)
+
+  # Re-calculate optimal bandwidth for LOO data
+  resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto, 
+                 data = data_loo)$residuals
+  
+  bw_loo <- rdbwselect(y = data_loo$sentiment_z,
+                       x = data_loo$running_probabilistic,
+                       kernel = "triangular",
+                       cluster = data_loo$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
+
+  optimal_bw_loo <- bw_loo$bws[1, 1]
+
+  data_loo_bw <- data_loo %>%
+    filter(running_probabilistic < optimal_bw_loo, running_probabilistic > -optimal_bw_loo)
+  
+  ps_model <- matchit(
+    csto ~ running + topic_clean,
+    data = data_loo_bw,
+    method = "exact",
+    ratio = 1,
+  )
+
+  matched_data_loo <-match.data(ps_model)
+
+  matched_model_loo <- feols(sentiment_z ~ running_probabilistic
+                                     * treatment * csto |
+                                       topic_clean,
+                                     cluster = ~source_domain,
+                                     data = matched_data_loo
+                                     )
+
+  matched_boot_loo <- tryCatch(
+    run_wild_bootstrap(matched_model_loo, "treatment:csto", B = 4999),
+    error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
+  )
+  matched_loo_results[[cntry]] <- list(
+    model = matched_model_loo,
+    bandwidth = optimal_bw_loo,
+    n = nrow(matched_data_loo),
+    country_dropped = cntry,
+    boot_p_val = matched_boot_loo$p_val,
+    boot_se = matched_boot_loo$se
+  )
+}
+
+# Extract key coefficient (treatment:csto interaction)
+matched_loo_summary <- map_df(names(matched_loo_results), function(cntry) {
+  mod <- matched_loo_results[[cntry]]$model
+  tibble(
+    country_dropped = cntry,
+    estimate = coef(mod)["treatment:csto"],
+    std_error = se(mod)["treatment:csto"],
+    p_value = pvalue(mod)["treatment:csto"],
+    n_obs = matched_loo_results[[cntry]]$n,
+    bandwidth = matched_loo_results[[cntry]]$bandwidth
+  )
+})
+
+print(matched_loo_summary)
+```
+
 
 ## Heavily Saturated Non-Mil Model
 
@@ -1341,6 +1457,8 @@ results_het_prob <- list(
   optimal_bw_align_oth = optimal_bw_align_oth,
   loo_results = loo_results,
   loo_summary = loo_summary,
+  matched_loo_results = matched_loo_results,
+  matched_loo_summary = matched_loo_summary,
   model_placebo_nonmil = model_placebo_nonmil,
   optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil
 )
