@@ -9,9 +9,7 @@
       "Bash(cat \"/d/Dropbox/My PC \\(LAPTOP-IKUHQKMA\\)/Documents/GitHub/russia_sentiment_paper/scripts/04_main_rdd_analysis.Rmd\")",
       "Bash(head -350 \"/d/Dropbox/My PC \\(LAPTOP-IKUHQKMA\\)/Documents/GitHub/russia_sentiment_paper/scripts/04_main_rdd_analysis.Rmd\")",
       "Bash(tail -400 \"/d/Dropbox/My PC \\(LAPTOP-IKUHQKMA\\)/Documents/GitHub/russia_sentiment_paper/scripts/04_main_rdd_analysis.Rmd\")",
-      "Bash(cat \"/d/Dropbox/My PC \\(LAPTOP-IKUHQKMA\\)/Documents/GitHub/russia_sentiment_paper/scripts/04A_main_rdd_analysis_continuous.Rmd\")",
-      "Bash(cat \"/d/Dropbox/My PC \\(LAPTOP-IKUHQKMA\\)/Documents/GitHub/russia_sentiment_paper/scripts/04B_main_rdd_analysis_drop.Rmd\")",
-      "Bash(cat \"/d/Dropbox/My PC \\(LAPTOP-IKUHQKMA\\)/Documents/GitHub/russia_sentiment_paper/scripts/04C_main_rdd_analysis_prob.Rmd\")"
+      "Bash(cat \"/d/Dropbox/My PC \\(LAPTOP-IKUHQKMA\\)/Documents/GitHub/russia_sentiment_paper/scripts/04A_main_rdd_analysis_continuous.Rmd\")"
     ]
   }
 }
