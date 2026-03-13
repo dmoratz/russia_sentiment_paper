@@ -278,9 +278,9 @@ summary(model6_nonmil)
 
 ```{r effect-non-mil}
 sd_sentiment_non_mil <- sd(data_non_mil$sentiment_clean)
-coef_model6_opt_nonmil <- model6_opt_nonmil$coef["Conventional", "Coeff"]
+coef_model6_nonmil <- model6_nonmil$coef["Conventional", "Coeff"]
 
-cat("Effect size (non-military, in SD units):", round(coef_model6_opt_nonmil / sd_sentiment_non_mil, 3), "\n")
+cat("Effect size (non-military, in SD units):", round(coef_model6_nonmil / sd_sentiment_non_mil, 3), "\n")
 ```
 
 ### Model 6A: Z-Score Model (Topic FE)
@@ -315,7 +315,7 @@ model7_nonnato <- rdrobust(
   covs = covs_matrix,
   cluster = data_non_nato$source_domain
 )
-summary(model7_opt_nonnato)
+summary(model7_nonnato)
 ```
 
 ### Model 7A: Z-Score Model (Topic FE)
@@ -464,7 +464,6 @@ optimal_bandwidth_data_oth <- optimal_bandwidth_data %>%
 model5_opt_pol <- rdrobust(
   y = optimal_bandwidth_data_pol$sentiment_z, 
   x = optimal_bandwidth_data_pol$running,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_pol$source_domain
 )
 
@@ -477,7 +476,6 @@ summary(model5_opt_pol)
 model5_opt_mil <- rdrobust(
   y = optimal_bandwidth_data_mil$sentiment_z, 
   x = optimal_bandwidth_data_mil$running,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_mil$source_domain
 )
 
@@ -490,7 +488,6 @@ summary(model5_opt_mil)
 model5_opt_econ <- rdrobust(
   y = optimal_bandwidth_data_econ$sentiment_z, 
   x = optimal_bandwidth_data_econ$running,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_econ$source_domain
 )
 
@@ -503,7 +500,6 @@ summary(model5_opt_econ)
 model5_opt_cult <- rdrobust(
   y = optimal_bandwidth_data_cult$sentiment_z, 
   x = optimal_bandwidth_data_cult$running,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_cult$source_domain
 )
 
@@ -516,7 +512,6 @@ summary(model5_opt_cult)
 model5_opt_oth <- rdrobust(
   y = optimal_bandwidth_data_oth$sentiment_z, 
   x = optimal_bandwidth_data_oth$running,
-  covs = covs_matrix,
   cluster = optimal_bandwidth_data_oth$source_domain
 )
 
