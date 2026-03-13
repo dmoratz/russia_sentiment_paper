@@ -822,7 +822,6 @@ data_dec %>%
 # Subset to data of interest (non-military, optimal bandwidth)
 matching_data <- data_non_mil %>%
   filter(running_probabilistic < optimal_bw, running_probabilistic > -optimal_bw) %>%
-  mutate(running = floor(running_probabilistic / 86400)) %>%  # Convert to days for matching
   select(sentiment_clean, sentiment_z, running, running_probabilistic, treatment, state_owned,
          topic_clean, source_domain, country)
 
@@ -840,10 +839,6 @@ summary(ps_model)
 ### Assess Balance
 
 ```{r balance-h2-prob}
-# Visual balance check
-plot(ps_model, type = "jitter", interactive = FALSE)
-plot(ps_model, type = "density", interactive = FALSE)
-
 # Numerical balance check
 bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
 
