@@ -278,14 +278,14 @@ summary(model6_nonmil)
 
 ```{r effect-non-mil}
 sd_sentiment_non_mil <- sd(data_non_mil$sentiment_clean)
-coef_model4_opt_nonmil <- model4_opt_nonmil$coef["Conventional", "Coeff"]
+coef_model6_opt_nonmil <- model6_opt_nonmil$coef["Conventional", "Coeff"]
 
-cat("Effect size (non-military, in SD units):", round(coef_model4_opt_nonmil / sd_sentiment_non_mil, 3), "\n")
+cat("Effect size (non-military, in SD units):", round(coef_model6_opt_nonmil / sd_sentiment_non_mil, 3), "\n")
 ```
 
 ### Model 6A: Z-Score Model (Topic FE)
 
-```{r model6a-nonmil}
+```{r model6a-nonmil-z}
 # All covariates
 covs_matrix <- model.matrix(~ topic_clean - 1, data = data_non_mil)
 
@@ -315,7 +315,7 @@ model7_nonnato <- rdrobust(
   covs = covs_matrix,
   cluster = data_non_nato$source_domain
 )
-summary(model4_opt_nonnato)
+summary(model7_opt_nonnato)
 ```
 
 ### Model 7A: Z-Score Model (Topic FE)
