@@ -67,7 +67,15 @@ pacman::p_load(
   # Other utilities
   here,
   broom,
-  zoo
+  zoo,
+
+  # Matching, sensitivity, and bootstrap
+  fwildclusterboot,
+  MatchIt,
+  cobalt,
+  rbounds,
+  sensemakr,
+  ggridges
 )
 
 # -----------------------------------------------------------------------------
@@ -333,6 +341,27 @@ glance.rdrobust <- function(x, ...) {
     nobs.right = x$N[2],
     bandwidth.left = x$bws[1, 1],
     bandwidth.right = x$bws[1, 2]
+  )
+}
+
+# Wild cluster bootstrap helper (used in 05/06 family)
+run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999) {
+  boot_result <- boottest(
+    object = model,
+    param = param,
+    clustid = clustid,
+    B = B,
+    impose_null = TRUE,
+    bootstrap_type = "fnw11",
+    type = "webb"
+  )
+
+  list(
+    se = boot_result$point_estimate / boot_result$t_stat,
+    p_val = boot_result$p_val,
+    ci_lower = boot_result$conf_int[1],
+    ci_upper = boot_result$conf_int[2],
+    t_stat = boot_result$teststat
   )
 }
 

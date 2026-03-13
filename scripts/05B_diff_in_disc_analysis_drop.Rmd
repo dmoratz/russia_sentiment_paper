@@ -26,32 +26,7 @@ This script performs the Difference-in-Discontinuities analysis comparing state-
 source("00_setup.R")
 knitr::opts_chunk$set(fig.path = paste0(FIGURES_DIFF_DISC_DROP, "/"))
 
-# Load packages for wild cluster bootstrap
-p_load(fwildclusterboot)
-library(fwildclusterboot)
-
 set.seed(3184)
-
-# Helper function for wild cluster bootstrap
-run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999) {
-  boot_result <- boottest(
-    object = model,
-    param = param,
-    clustid = clustid,
-    B = B,
-    impose_null = TRUE,
-    bootstrap_type = "fnw11",
-    type = "webb"
-  )
-
-  list(
-    se = boot_result$point_estimate / boot_result$t_stat,
-    p_val = boot_result$p_val,
-    ci_lower = boot_result$conf_int[1],
-    ci_upper = boot_result$conf_int[2],
-    t_stat = boot_result$teststat
-  )
-}
 ```
 
 # Load Data
