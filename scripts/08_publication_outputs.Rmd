@@ -11,7 +11,30 @@ output:
 
 # Overview
 
-This script generates all publication-quality tables and figures.
+This script generates all publication-quality tables following a standardized
+numbering system.
+
+## Table Numbering System
+
+**Main Paper Tables (Tables 1–4):** One per hypothesis. Each exists in four data variants:
+
+| Suffix | Data variant | Source objects |
+|--------|-------------|---------------|
+| *(no suffix)* | Day running variable | `results_h1`, `results_h2`, `results_align`, `results_ethnic` |
+| *(Prob)* | Probabilistic time assignment | `results_h1_prob`, `results_h2_prob`, `results_align_prob`, `results_ethnic_prob` |
+| *(Cont)* | Continuous (seconds) running variable | `results_h1_cont`, `results_h2_cont`, `results_align_cont`, `results_ethnic_cont` |
+| *(Drop)* | Drop no-time articles | `results_h1_drop`, `results_h2_drop`, `results_align_drop`, `results_ethnic_drop` |
+
+**Supplementary Tables (Tables S1–S22):**
+
+| Range | Content |
+|-------|---------|
+| S1–S4 | FE-based main results (all 4 data variants each) |
+| S5–S8 | By-topic Z-Score (all 4 data variants each) |
+| S9–S12 | By-topic FE, optimal BW (all 4 data variants each) |
+| S13–S15 | By-topic FE, full data (all 4 data variants each) |
+| S16–S17 | Additional robustness (all 4 data variants each) |
+| S18–S22 | Descriptive & diagnostic (standalone, no variants) |
 
 **Inputs:**
 - `data/intermediate/04_h1_results.rds`
@@ -33,8 +56,8 @@ This script generates all publication-quality tables and figures.
 - `data/intermediate/02_cleaned_data.rds`
 
 **Outputs:**
-- Final publication tables (HTML, TeX, PNG)
-- Final publication figures
+- Main paper tables: Tables 1–4, all four data variants each (saved as .tex and .html)
+- Supplementary tables: Tables S1–S22 (saved as .tex and .html)
 
 ```{r setup, include=FALSE}
 source("00_setup.R")
@@ -71,6 +94,51 @@ results_ethnic_prob <- readRDS(file.path(DATA_INTERMEDIATE, "07_ethnic_results_p
 data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 
 cat("Results loaded successfully.\n")
+```
+
+# Model Verification
+
+```{r verify-models}
+check_model <- function(obj, name, label) {
+  if (is.null(obj[[name]])) {
+    cat(sprintf("WARNING: %s$%s not found — table will be skipped\n", label, name))
+  } else {
+    cat(sprintf("OK: %s$%s\n", label, name))
+  }
+}
+
+# H2 Z-score separate RDD models (needed for main Table 2)
+check_model(results_h2, "model2_state_rdd_z", "results_h2")
+check_model(results_h2, "model2_ind_rdd_z",   "results_h2")
+
+# H1 Z-score by-topic models (needed for Table S5)
+check_model(results_h1, "model5_opt_pol",  "results_h1")
+check_model(results_h1, "model5_opt_mil",  "results_h1")
+check_model(results_h1, "model5_opt_econ", "results_h1")
+check_model(results_h1, "model5_opt_cult", "results_h1")
+check_model(results_h1, "model5_opt_oth",  "results_h1")
+
+# H2 Z-score by-topic models (needed for Table S6)
+check_model(results_h2, "model2a_opt_z_pol",  "results_h2")
+check_model(results_h2, "model2a_opt_z_mil",  "results_h2")
+check_model(results_h2, "model2a_opt_z_econ", "results_h2")
+check_model(results_h2, "model2a_opt_z_cult", "results_h2")
+check_model(results_h2, "model2a_opt_z_oth",  "results_h2")
+
+# H3a Z-score by-topic models (needed for Table S7)
+check_model(results_align, "model5a_opt_z_pol",  "results_align")
+check_model(results_align, "model5a_opt_z_mil",  "results_align")
+check_model(results_align, "model5a_opt_z_econ", "results_align")
+check_model(results_align, "model5a_opt_z_cult", "results_align")
+check_model(results_align, "model5a_opt_z_oth",  "results_align")
+
+# H3b Z-score models (needed for main Table 4 and Table S8)
+check_model(results_ethnic, "model6a_high_z",          "results_ethnic")
+check_model(results_ethnic, "model6a_low_z",           "results_ethnic")
+check_model(results_ethnic, "model6a_z",               "results_ethnic")
+check_model(results_ethnic, "model6a_opt_z",           "results_ethnic")
+check_model(results_ethnic, "model6a_opt_non_mil_z",   "results_ethnic")
+check_model(results_ethnic, "model6a_opt_russian_z",   "results_ethnic")
 ```
 
 # Helper Functions for Bootstrap Standard Errors
@@ -127,28 +195,795 @@ save_table <- function(tbl, name) {
   invisible(tbl)
 }
 
-# Standard SE notation footnote appended to all table notes
-SE_NOTE <- "† Wild cluster bootstrap SEs (B=9999, Rademacher, null imposed), clustered by source domain. ‡ Cluster-robust SEs from rdrobust."
+# Standard SE notation footnotes
+SE_NOTE_BOOT    <- "† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach & Miller 2008) with Webb six-point weights (B=9999, null imposed), clustered by source domain."
+SE_NOTE_RDROBUST <- "‡ Cluster-robust SEs from rdrobust."
+SE_NOTE_CLUSTER  <- "All standard errors are clustered at the source level."
+# Legacy alias kept for existing table code that references SE_NOTE directly
+SE_NOTE <- paste(SE_NOTE_BOOT, SE_NOTE_RDROBUST)
 ```
 
-# Table 1: Main RDD Results
+# =============================================
+# MAIN PAPER TABLES
+# =============================================
+
+## Table 1: H1 RDD (Day)
 
 ```{r table1}
-n_cl_t1 <- sapply(list(results_h1$model1_opt, results_h1$model2_opt, results_h1$model3_opt,
-                        results_h1$model4_opt, results_h1$model1_full_linear,
-                        results_h1$model4_non_mil, results_h1$model4_non_nato), get_n_clusters)
-rows_t1 <- tibble::tribble(
+rows <- tibble::tribble(
   ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'State FEs', '-', 'X', 'X', 'X', 'X', 'X', 'X',
-  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
-  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X',
-  'Clusters', n_cl_t1[1], n_cl_t1[2], n_cl_t1[3], n_cl_t1[4], n_cl_t1[5], n_cl_t1[6], n_cl_t1[7]
+  'Topic FEs',      '-', '-', '-', 'X', 'X', 'X', 'X',
+  'State FEs',      '-', 'X', 'X', 'X', '-', '-', '-',
+  'Source FEs',     '-', '-', 'X', 'X', '-', '-', '-',
+  'Source Z-Score', '-', '-', '-', '-', 'X', 'X', 'X'
 )
-attr(rows_t1, 'position') <- c(3, 4, 5, 6)
+attr(rows, 'position') <- c(3, 4, 5, 6)
 
-note_t1 <- paste("All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Model 5 uses a linear specification with the full set of articles. Model 6 omits Military Topics. Model 7 omits NATO allies.", SE_NOTE)
+note_text <- paste(SE_NOTE_CLUSTER,
+                   "Models 1-4 use the optimal bandwidth.",
+                   "Models 5-7 use a Z-Score adjustment instead of fixed effects.",
+                   "Model 6 omits Military Topics. Model 7 omits NATO allies.")
 
 table_1 <- modelsummary(
+  list(
+    "(1)" = results_h1$model1_opt,
+    "(2)" = results_h1$model2_opt,
+    "(3)" = results_h1$model3_opt,
+    "(4)" = results_h1$model4_opt,
+    "(5)" = results_h1$model5_opt,
+    "(6)" = results_h1$model6a_nonmil,
+    "(7)" = results_h1$model7a_nonnato
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Table 1: Effect of Russian Invasion on Media Sentiment (RDD, Day Running Variable)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+table_1
+save_table(table_1, "table_01_main")
+```
+
+## Table 2: H2 Diff-in-Disc (Day)
+
+```{r table2}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5)
+
+note_text <- paste(
+  "All models use a source-level Z-Score normalization.",
+  "Models 1-2 show separate RDD estimates for state-owned and independent media.",
+  "Models 3-7 estimate the state-owned × treatment interaction.",
+  "Model 3 uses the full dataset. Model 4 uses the optimal bandwidth.",
+  "Model 5 omits military topics. Model 6 omits NATO allies.",
+  "Model 7 restricts to Russian-related articles with a re-optimized bandwidth.",
+  SE_NOTE_CLUSTER
+)
+
+if (is.null(results_h2$model2_state_rdd_z) || is.null(results_h2$model2_ind_rdd_z)) {
+  # TODO: model2_state_rdd_z or model2_ind_rdd_z not found in results_h2.
+  # Create these Z-score separate RDD models in 05 scripts before enabling cols 1-2.
+  cat("WARNING: Z-score separate RDD models not found for Table 2 — skipping full table.\n")
+} else {
+  table_2 <- modelsummary(
+    list(
+      "(1)" = results_h2$model2_state_rdd_z,
+      "(2)" = results_h2$model2_ind_rdd_z,
+      "(3)" = results_h2$model2a_z,
+      "(4)" = results_h2$model2a_opt_z,
+      "(5)" = results_h2$model2b_z,
+      "(6)" = results_h2$model2d_z,
+      "(7)" = results_h2$model3a_opt_z
+    ),
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    coef_map = c(
+      "treatment" = "Invasion",
+      "treatment:state_owned" = "State Owned x Treatment"
+    ),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = "Table 2: Difference in Discontinuities — State vs. Independent Media (Day Running Variable)",
+    add_rows = rows,
+    notes = str_wrap(note_text, 80)
+  )
+
+  table_2
+  save_table(table_2, "table_02_main")
+}
+```
+
+## Table 3: H3a Alignment (Day)
+
+```{r table3}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5)
+
+note_text <- paste(
+  "All models use a source-level Z-Score normalization.",
+  "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries.",
+  "Models 3-6 estimate the CSTO × treatment interaction.",
+  "Model 3 uses the full dataset. Model 4 uses the optimal bandwidth.",
+  "Model 5 omits military topics.",
+  "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
+  "Sample restricted to state-owned media in non-NATO countries.",
+  SE_NOTE_CLUSTER
+)
+
+table_3 <- modelsummary(
+  list(
+    "(1)" = results_align$model5a_csto_z,
+    "(2)" = results_align$model5a_neutral_z,
+    "(3)" = results_align$model5a_z,
+    "(4)" = results_align$model5a_opt_z,
+    "(5)" = results_align$model5a_opt_non_mil_z,
+    "(6)" = results_align$model5a_opt_russian_z
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3: Russian Alignment Heterogeneity — State Media (Day Running Variable)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+table_3
+save_table(table_3, "table_03_main")
+```
+
+## Table 4: H3b Ethnic (Day)
+
+```{r table4}
+if (is.null(results_ethnic$model6a_high_z) || is.null(results_ethnic$model6a_low_z) ||
+    is.null(results_ethnic$model6a_z) || is.null(results_ethnic$model6a_opt_z) ||
+    is.null(results_ethnic$model6a_opt_non_mil_z) || is.null(results_ethnic$model6a_opt_russian_z)) {
+  # TODO: Table 4 requires Z-score models to be created in 07_ethnic scripts.
+  # Expected model names: model6a_high_z, model6a_low_z, model6a_z, model6a_opt_z,
+  # model6a_opt_non_mil_z, model6a_opt_russian_z
+  # These should mirror the Z-score model structure in 06_alignment scripts.
+  # Once created, uncomment the code below.
+  cat("WARNING: Ethnic Z-score models not found for Table 4 — table skipped (TODO).\n")
+} else {
+  rows <- tibble::tribble(
+    ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+    'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+  )
+  attr(rows, 'position') <- c(5)
+
+  note_text <- paste(
+    "All models use a source-level Z-Score normalization.",
+    "Models 1-2 show separate RDD estimates for high and low ethnic Russian population countries.",
+    "Models 3-6 estimate the high ethnic Russian pop × treatment interaction.",
+    "Model 3 uses the full dataset. Model 4 uses the optimal bandwidth.",
+    "Model 5 omits military topics.",
+    "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
+    "Sample restricted to state-owned media in non-NATO countries.",
+    SE_NOTE_CLUSTER
+  )
+
+  table_4 <- modelsummary(
+    list(
+      "(1)" = results_ethnic$model6a_high_z,
+      "(2)" = results_ethnic$model6a_low_z,
+      "(3)" = results_ethnic$model6a_z,
+      "(4)" = results_ethnic$model6a_opt_z,
+      "(5)" = results_ethnic$model6a_opt_non_mil_z,
+      "(6)" = results_ethnic$model6a_opt_russian_z
+    ),
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    coef_map = c(
+      "treatment" = "Invasion",
+      "treatment:high_russia" = "High Russian Pop x Treatment"
+    ),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = "Table 4: Ethnic Russian Population Heterogeneity — State Media (Day Running Variable)",
+    add_rows = rows,
+    notes = str_wrap(note_text, 80)
+  )
+
+  table_4
+  save_table(table_4, "table_04_main")
+}
+```
+
+## Table 1 (Prob): H1 RDD (Probabilistic Time)
+
+```{r table1-prob}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Topic FEs',      '-', '-', '-', 'X', 'X', 'X', 'X',
+  'State FEs',      '-', 'X', 'X', 'X', '-', '-', '-',
+  'Source FEs',     '-', '-', 'X', 'X', '-', '-', '-',
+  'Source Z-Score', '-', '-', '-', '-', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+note_text <- paste(SE_NOTE_CLUSTER,
+                   "Articles without publication times are assigned times via KDE sampling.",
+                   "Models 1-4 use the optimal bandwidth.",
+                   "Models 5-7 use a Z-Score adjustment instead of fixed effects.",
+                   "Model 6 omits Military Topics. Model 7 omits NATO allies.")
+
+table_1_prob <- modelsummary(
+  list(
+    "(1)" = results_h1_prob$model1_opt,
+    "(2)" = results_h1_prob$model2_opt,
+    "(3)" = results_h1_prob$model3_opt,
+    "(4)" = results_h1_prob$model4_opt,
+    "(5)" = results_h1_prob$model5_opt,
+    "(6)" = results_h1_prob$model6a_nonmil,
+    "(7)" = results_h1_prob$model7a_nonnato
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Table 1 (Prob): Effect of Russian Invasion on Media Sentiment (RDD, Probabilistic Time)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+table_1_prob
+save_table(table_1_prob, "table_01_main_prob")
+```
+
+## Table 2 (Prob): H2 Diff-in-Disc (Probabilistic Time)
+
+```{r table2-prob}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5)
+
+note_text <- paste(
+  "All models use a source-level Z-Score normalization.",
+  "Articles without publication times are assigned times via KDE sampling.",
+  "Models 1-2 show separate RDD estimates for state-owned and independent media.",
+  "Models 3-7 estimate the state-owned × treatment interaction.",
+  "Model 3 uses the full dataset. Model 4 uses the optimal bandwidth.",
+  "Model 5 omits military topics. Model 6 omits NATO allies.",
+  "Model 7 restricts to Russian-related articles with a re-optimized bandwidth.",
+  SE_NOTE_CLUSTER
+)
+
+if (is.null(results_h2_prob$model2_state_rdd_z) || is.null(results_h2_prob$model2_ind_rdd_z)) {
+  cat("WARNING: Z-score separate RDD models not found for Table 2 (Prob) — skipping.\n")
+} else {
+  table_2_prob <- modelsummary(
+    list(
+      "(1)" = results_h2_prob$model2_state_rdd_z,
+      "(2)" = results_h2_prob$model2_ind_rdd_z,
+      "(3)" = results_h2_prob$model2a_z,
+      "(4)" = results_h2_prob$model2a_opt_z,
+      "(5)" = results_h2_prob$model2b_z,
+      "(6)" = results_h2_prob$model2d_z,
+      "(7)" = results_h2_prob$model3a_opt_z
+    ),
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    coef_map = c(
+      "treatment" = "Invasion",
+      "treatment:state_owned" = "State Owned x Treatment"
+    ),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = "Table 2 (Prob): Difference in Discontinuities — State vs. Independent Media (Probabilistic Time)",
+    add_rows = rows,
+    notes = str_wrap(note_text, 80)
+  )
+  table_2_prob
+  save_table(table_2_prob, "table_02_main_prob")
+}
+```
+
+## Table 3 (Prob): H3a Alignment (Probabilistic Time)
+
+```{r table3-prob}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5)
+
+note_text <- paste(
+  "All models use a source-level Z-Score normalization.",
+  "Articles without publication times are assigned times via KDE sampling.",
+  "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries.",
+  "Models 3-6 estimate the CSTO × treatment interaction.",
+  "Model 3 uses the full dataset. Model 4 uses the optimal bandwidth.",
+  "Model 5 omits military topics.",
+  "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
+  "Sample restricted to state-owned media in non-NATO countries.",
+  SE_NOTE_CLUSTER
+)
+
+table_3_prob <- modelsummary(
+  list(
+    "(1)" = results_align_prob$model5a_csto_z,
+    "(2)" = results_align_prob$model5a_neutral_z,
+    "(3)" = results_align_prob$model5a_z,
+    "(4)" = results_align_prob$model5a_opt_z,
+    "(5)" = results_align_prob$model5a_opt_non_mil_z,
+    "(6)" = results_align_prob$model5a_opt_russian_z
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3 (Prob): Russian Alignment Heterogeneity — State Media (Probabilistic Time)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+table_3_prob
+save_table(table_3_prob, "table_03_main_prob")
+```
+
+## Table 4 (Prob): H3b Ethnic (Probabilistic Time)
+
+```{r table4-prob}
+if (is.null(results_ethnic_prob$model6a_high_z) || is.null(results_ethnic_prob$model6a_opt_z)) {
+  # TODO: Table 4 (Prob) requires Z-score ethnic models in results_ethnic_prob.
+  # Create model6a_high_z, model6a_low_z, model6a_z, model6a_opt_z,
+  # model6a_opt_non_mil_z, model6a_opt_russian_z in 07_ethnic_prob scripts.
+  cat("WARNING: Ethnic Z-score models not found for Table 4 (Prob) — table skipped (TODO).\n")
+} else {
+  rows <- tibble::tribble(
+    ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+    'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+  )
+  attr(rows, 'position') <- c(5)
+
+  note_text <- paste(
+    "All models use a source-level Z-Score normalization.",
+    "Articles without publication times are assigned times via KDE sampling.",
+    "Models 1-2 show separate RDD estimates for high and low ethnic Russian population countries.",
+    "Models 3-6 estimate the high ethnic Russian pop × treatment interaction.",
+    "Model 3 uses the full dataset. Model 4 uses the optimal bandwidth.",
+    "Model 5 omits military topics.",
+    "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
+    "Sample restricted to state-owned media in non-NATO countries.",
+    SE_NOTE_CLUSTER
+  )
+
+  table_4_prob <- modelsummary(
+    list(
+      "(1)" = results_ethnic_prob$model6a_high_z,
+      "(2)" = results_ethnic_prob$model6a_low_z,
+      "(3)" = results_ethnic_prob$model6a_z,
+      "(4)" = results_ethnic_prob$model6a_opt_z,
+      "(5)" = results_ethnic_prob$model6a_opt_non_mil_z,
+      "(6)" = results_ethnic_prob$model6a_opt_russian_z
+    ),
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    coef_map = c(
+      "treatment" = "Invasion",
+      "treatment:high_russia" = "High Russian Pop x Treatment"
+    ),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = "Table 4 (Prob): Ethnic Russian Population Heterogeneity — State Media (Probabilistic Time)",
+    add_rows = rows,
+    notes = str_wrap(note_text, 80)
+  )
+
+  table_4_prob
+  save_table(table_4_prob, "table_04_main_prob")
+}
+```
+
+## Table 1 (Cont): H1 RDD (Continuous Running Variable)
+
+```{r table1-cont}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Topic FEs',      '-', '-', '-', 'X', 'X', 'X', 'X',
+  'State FEs',      '-', 'X', 'X', 'X', '-', '-', '-',
+  'Source FEs',     '-', '-', 'X', 'X', '-', '-', '-',
+  'Source Z-Score', '-', '-', '-', '-', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+note_text <- paste(SE_NOTE_CLUSTER,
+                   "Continuous (seconds) running variable.",
+                   "Models 1-4 use the optimal bandwidth.",
+                   "Models 5-7 use a Z-Score adjustment instead of fixed effects.",
+                   "Model 6 omits Military Topics. Model 7 omits NATO allies.")
+
+table_1_cont_new <- modelsummary(
+  list(
+    "(1)" = results_h1_cont$model1_opt,
+    "(2)" = results_h1_cont$model2_opt,
+    "(3)" = results_h1_cont$model3_opt,
+    "(4)" = results_h1_cont$model4_opt,
+    "(5)" = results_h1_cont$model5_opt,
+    "(6)" = results_h1_cont$model6a_nonmil,
+    "(7)" = results_h1_cont$model7a_nonnato
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Table 1 (Cont): Effect of Russian Invasion on Media Sentiment (RDD, Continuous Running Variable)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+table_1_cont_new
+save_table(table_1_cont_new, "table_01_main_cont")
+```
+
+## Table 2 (Cont): H2 Diff-in-Disc (Continuous Running Variable)
+
+```{r table2-cont}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5)
+
+note_text <- paste(
+  "All models use a source-level Z-Score normalization.",
+  "Continuous (seconds) running variable.",
+  "Models 1-2 show separate RDD estimates for state-owned and independent media.",
+  "Models 3-7 estimate the state-owned × treatment interaction.",
+  SE_NOTE_CLUSTER
+)
+
+if (is.null(results_h2_cont$model2_state_rdd_z) || is.null(results_h2_cont$model2_ind_rdd_z)) {
+  cat("WARNING: Z-score separate RDD models not found for Table 2 (Cont) — skipping.\n")
+} else {
+  table_2_cont_new <- modelsummary(
+    list(
+      "(1)" = results_h2_cont$model2_state_rdd_z,
+      "(2)" = results_h2_cont$model2_ind_rdd_z,
+      "(3)" = results_h2_cont$model2a_z,
+      "(4)" = results_h2_cont$model2a_opt_z,
+      "(5)" = results_h2_cont$model2b_z,
+      "(6)" = results_h2_cont$model2d_z,
+      "(7)" = results_h2_cont$model3a_opt_z
+    ),
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    coef_map = c(
+      "treatment" = "Invasion",
+      "treatment:state_owned" = "State Owned x Treatment"
+    ),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = "Table 2 (Cont): Difference in Discontinuities — State vs. Independent Media (Continuous Running Variable)",
+    add_rows = rows,
+    notes = str_wrap(note_text, 80)
+  )
+  table_2_cont_new
+  save_table(table_2_cont_new, "table_02_main_cont")
+}
+```
+
+## Table 3 (Cont): H3a Alignment (Continuous Running Variable)
+
+```{r table3-cont}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5)
+
+note_text <- paste(
+  "All models use a source-level Z-Score normalization.",
+  "Continuous (seconds) running variable.",
+  "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries.",
+  "Models 3-6 estimate the CSTO × treatment interaction.",
+  "Sample restricted to state-owned media in non-NATO countries.",
+  SE_NOTE_CLUSTER
+)
+
+table_3_cont_new <- modelsummary(
+  list(
+    "(1)" = results_align_cont$model5a_csto_z,
+    "(2)" = results_align_cont$model5a_neutral_z,
+    "(3)" = results_align_cont$model5a_z,
+    "(4)" = results_align_cont$model5a_opt_z,
+    "(5)" = results_align_cont$model5a_opt_non_mil_z,
+    "(6)" = results_align_cont$model5a_opt_russian_z
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3 (Cont): Russian Alignment Heterogeneity — State Media (Continuous Running Variable)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+table_3_cont_new
+save_table(table_3_cont_new, "table_03_main_cont")
+```
+
+## Table 4 (Cont): H3b Ethnic (Continuous Running Variable)
+
+```{r table4-cont}
+if (is.null(results_ethnic_cont$model6a_high_z) || is.null(results_ethnic_cont$model6a_opt_z)) {
+  # TODO: Table 4 (Cont) requires Z-score ethnic models in results_ethnic_cont.
+  cat("WARNING: Ethnic Z-score models not found for Table 4 (Cont) — table skipped (TODO).\n")
+} else {
+  rows <- tibble::tribble(
+    ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+    'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+  )
+  attr(rows, 'position') <- c(5)
+
+  note_text <- paste(
+    "All models use a source-level Z-Score normalization.",
+    "Continuous (seconds) running variable.",
+    "Sample restricted to state-owned media in non-NATO countries.",
+    SE_NOTE_CLUSTER
+  )
+
+  table_4_cont_new <- modelsummary(
+    list(
+      "(1)" = results_ethnic_cont$model6a_high_z,
+      "(2)" = results_ethnic_cont$model6a_low_z,
+      "(3)" = results_ethnic_cont$model6a_z,
+      "(4)" = results_ethnic_cont$model6a_opt_z,
+      "(5)" = results_ethnic_cont$model6a_opt_non_mil_z,
+      "(6)" = results_ethnic_cont$model6a_opt_russian_z
+    ),
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    coef_map = c(
+      "treatment" = "Invasion",
+      "treatment:high_russia" = "High Russian Pop x Treatment"
+    ),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = "Table 4 (Cont): Ethnic Russian Population Heterogeneity — State Media (Continuous Running Variable)",
+    add_rows = rows,
+    notes = str_wrap(note_text, 80)
+  )
+
+  table_4_cont_new
+  save_table(table_4_cont_new, "table_04_main_cont")
+}
+```
+
+## Table 1 (Drop): H1 RDD (Drop No-Time Articles)
+
+```{r table1-drop}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Topic FEs',      '-', '-', '-', 'X', 'X', 'X', 'X',
+  'State FEs',      '-', 'X', 'X', 'X', '-', '-', '-',
+  'Source FEs',     '-', '-', 'X', 'X', '-', '-', '-',
+  'Source Z-Score', '-', '-', '-', '-', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+note_text <- paste(SE_NOTE_CLUSTER,
+                   "Articles without publication times are dropped.",
+                   "Models 1-4 use the optimal bandwidth.",
+                   "Models 5-7 use a Z-Score adjustment instead of fixed effects.",
+                   "Model 6 omits Military Topics. Model 7 omits NATO allies.")
+
+table_1_drop_new <- modelsummary(
+  list(
+    "(1)" = results_h1_drop$model1_opt,
+    "(2)" = results_h1_drop$model2_opt,
+    "(3)" = results_h1_drop$model3_opt,
+    "(4)" = results_h1_drop$model4_opt,
+    "(5)" = results_h1_drop$model5_opt,
+    "(6)" = results_h1_drop$model6a_nonmil,
+    "(7)" = results_h1_drop$model7a_nonnato
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Table 1 (Drop): Effect of Russian Invasion on Media Sentiment (RDD, Drop No-Time Articles)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+table_1_drop_new
+save_table(table_1_drop_new, "table_01_main_drop")
+```
+
+## Table 2 (Drop): H2 Diff-in-Disc (Drop No-Time Articles)
+
+```{r table2-drop}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5)
+
+note_text <- paste(
+  "All models use a source-level Z-Score normalization.",
+  "Articles without publication times are dropped.",
+  "Models 1-2 show separate RDD estimates for state-owned and independent media.",
+  "Models 3-7 estimate the state-owned × treatment interaction.",
+  SE_NOTE_CLUSTER
+)
+
+if (is.null(results_h2_drop$model2_state_rdd_z) || is.null(results_h2_drop$model2_ind_rdd_z)) {
+  cat("WARNING: Z-score separate RDD models not found for Table 2 (Drop) — skipping.\n")
+} else {
+  table_2_drop_new <- modelsummary(
+    list(
+      "(1)" = results_h2_drop$model2_state_rdd_z,
+      "(2)" = results_h2_drop$model2_ind_rdd_z,
+      "(3)" = results_h2_drop$model2a_z,
+      "(4)" = results_h2_drop$model2a_opt_z,
+      "(5)" = results_h2_drop$model2b_z,
+      "(6)" = results_h2_drop$model2d_z,
+      "(7)" = results_h2_drop$model3a_opt_z
+    ),
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    coef_map = c(
+      "treatment" = "Invasion",
+      "treatment:state_owned" = "State Owned x Treatment"
+    ),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = "Table 2 (Drop): Difference in Discontinuities — State vs. Independent Media (Drop No-Time Articles)",
+    add_rows = rows,
+    notes = str_wrap(note_text, 80)
+  )
+  table_2_drop_new
+  save_table(table_2_drop_new, "table_02_main_drop")
+}
+```
+
+## Table 3 (Drop): H3a Alignment (Drop No-Time Articles)
+
+```{r table3-drop}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(5)
+
+note_text <- paste(
+  "All models use a source-level Z-Score normalization.",
+  "Articles without publication times are dropped.",
+  "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries.",
+  "Models 3-6 estimate the CSTO × treatment interaction.",
+  "Sample restricted to state-owned media in non-NATO countries.",
+  SE_NOTE_CLUSTER
+)
+
+table_3_drop_new <- modelsummary(
+  list(
+    "(1)" = results_align_drop$model5a_csto_z,
+    "(2)" = results_align_drop$model5a_neutral_z,
+    "(3)" = results_align_drop$model5a_z,
+    "(4)" = results_align_drop$model5a_opt_z,
+    "(5)" = results_align_drop$model5a_opt_non_mil_z,
+    "(6)" = results_align_drop$model5a_opt_russian_z
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  title = "Table 3 (Drop): Russian Alignment Heterogeneity — State Media (Drop No-Time Articles)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+table_3_drop_new
+save_table(table_3_drop_new, "table_03_main_drop")
+```
+
+## Table 4 (Drop): H3b Ethnic (Drop No-Time Articles)
+
+```{r table4-drop}
+if (is.null(results_ethnic_drop$model6a_high_z) || is.null(results_ethnic_drop$model6a_opt_z)) {
+  # TODO: Table 4 (Drop) requires Z-score ethnic models in results_ethnic_drop.
+  cat("WARNING: Ethnic Z-score models not found for Table 4 (Drop) — table skipped (TODO).\n")
+} else {
+  rows <- tibble::tribble(
+    ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
+    'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+  )
+  attr(rows, 'position') <- c(5)
+
+  note_text <- paste(
+    "All models use a source-level Z-Score normalization.",
+    "Articles without publication times are dropped.",
+    "Sample restricted to state-owned media in non-NATO countries.",
+    SE_NOTE_CLUSTER
+  )
+
+  table_4_drop_new <- modelsummary(
+    list(
+      "(1)" = results_ethnic_drop$model6a_high_z,
+      "(2)" = results_ethnic_drop$model6a_low_z,
+      "(3)" = results_ethnic_drop$model6a_z,
+      "(4)" = results_ethnic_drop$model6a_opt_z,
+      "(5)" = results_ethnic_drop$model6a_opt_non_mil_z,
+      "(6)" = results_ethnic_drop$model6a_opt_russian_z
+    ),
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    coef_map = c(
+      "treatment" = "Invasion",
+      "treatment:high_russia" = "High Russian Pop x Treatment"
+    ),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    title = "Table 4 (Drop): Ethnic Russian Population Heterogeneity — State Media (Drop No-Time Articles)",
+    add_rows = rows,
+    notes = str_wrap(note_text, 80)
+  )
+
+  table_4_drop_new
+  save_table(table_4_drop_new, "table_04_main_drop")
+}
+```
+
+# =============================================
+# SUPPLEMENTARY TABLES
+# =============================================
+
+## --- S1–S4: FE-Based Main Results ---
+
+### Table S1 (Days): H1 FE Main Results
+
+```{r table-s01-fe-days}
+n_cl_s1 <- sapply(list(results_h1$model1_opt, results_h1$model2_opt, results_h1$model3_opt,
+                       results_h1$model4_opt, results_h1$model1_full_linear,
+                       results_h1$model4_non_mil, results_h1$model4_non_nato), get_n_clusters)
+rows_s1 <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'State FEs',  '-', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Source FEs', '-', '-', 'X', 'X', 'X', 'X', 'X',
+  'Topic FEs',  '-', '-', '-', 'X', 'X', 'X', 'X',
+  'Clusters', n_cl_s1[1], n_cl_s1[2], n_cl_s1[3], n_cl_s1[4], n_cl_s1[5], n_cl_s1[6], n_cl_s1[7]
+)
+attr(rows_s1, 'position') <- c(3, 4, 5, 6)
+
+note_s1 <- paste("All standard errors are clustered at the source level.",
+                 "Models 1-4 use the optimal bandwidth.",
+                 "Model 5 uses a linear specification with the full set of articles.",
+                 "Model 6 omits Military Topics. Model 7 omits NATO allies.",
+                 SE_NOTE_BOOT)
+
+table_s01_days <- modelsummary(
   list(
     "(1)" = results_h1$model1_opt,
     "(2)" = results_h1$model2_opt,
@@ -163,41 +998,18 @@ table_1 <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1: Effect of Russian Invasion on Media Sentiment (RDD) with Day Running Variable",
-  add_rows = rows_t1,
-  notes = str_wrap(note_t1, 80)
+  title = "Table S1: H1 RDD — Fixed Effects (Day Running Variable)",
+  add_rows = rows_s1,
+  notes = str_wrap(note_s1, 80)
 )
 
-table_1
-
-save_table(table_1, "table_01_rdd_main")
+table_s01_days
+save_table(table_s01_days, "table_s01_fe_days")
 ```
 
-## Table 1-Z: RDD Z-Score Results (Days)
+### Table S1 (Cont): H1 FE Main Results — Continuous Running Variable
 
-```{r table1z}
-models_1z <- list(
-  "Basic" = results_h1$model1_z,
-  "Z-Score Opt" = results_h1$model5_opt,
-  "Non-Mil Z" = results_h1$model6a_nonmil,
-  "Non-NATO Z" = results_h1$model7a_nonnato
-)
-tbl_1z <- modelsummary(
-  models_1z,
-  output = "gt",
-  coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 1-Z: RDD Z-Score Results (Days)"
-)
-tbl_1z
-save_table(tbl_1z, "table_01z_rdd_zscore_days")
-```
-
-## Table 1 A: Continuous Running Variable
-
-```{r table1a}
+```{r table-s01-fe-cont}
 n_cl_t1a <- sapply(list(results_h1_cont$model1_opt, results_h1_cont$model2_opt,
                          results_h1_cont$model3_opt, results_h1_cont$model4_opt,
                          results_h1_cont$model1_full_linear, results_h1_cont$model4_non_mil,
@@ -230,36 +1042,14 @@ table_1_cont <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1A: Effect of Russian Invasion on Media Sentiment (RDD) with Continuous Running Variable",
+  title = "Table S1 (Cont): H1 RDD — Fixed Effects (Continuous Running Variable)",
   add_rows = rows_t1a,
   notes = str_wrap(note_t1a, 80)
 )
 
 table_1_cont
 
-save_table(table_1_cont, "table_01a_rdd_continuous")
-```
-
-## Table 1A-Z: RDD Z-Score Results (Continuous)
-
-```{r table1az}
-models_1az <- list(
-  "Basic" = results_h1_cont$model1_z,
-  "Z-Score Opt" = results_h1_cont$model5_opt,
-  "Non-Mil Z" = results_h1_cont$model6a_nonmil,
-  "Non-NATO Z" = results_h1_cont$model7a_nonnato
-)
-tbl_1az <- modelsummary(
-  models_1az,
-  output = "gt",
-  coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 1A-Z: RDD Z-Score Results (Continuous)"
-)
-tbl_1az
-save_table(tbl_1az, "table_01az_rdd_zscore_continuous")
+save_table(table_1_cont, "table_s01_fe_cont")
 ```
 
 ## Table 1B: RDD By Topic (Day)
@@ -292,19 +1082,21 @@ table_1b <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1B: RDD By Topic (Day Running Variable)",
+  title = "Table S9: H1 RDD by Topic — FE, Optimal BW (Day Running Variable)",
   add_rows = rows_t1b,
   notes = str_wrap(note_t1b, 80)
 )
 
 table_1b
 
-save_table(table_1b, "table_01b_rdd_by_topic_day")
+save_table(table_1b, "table_s09_fe_topic_opt_days")
 ```
 
-## Table 1B-Z: RDD Z-Score By Topic (Days)
+## --- S5–S8: By-Topic Z-Score ---
 
-```{r table1bz}
+### Table S5 (Days): H1 By-Topic Z-Score
+
+```{r table-s05-z-topic-days}
 models_1bz <- list(
   "Political" = results_h1$model5_opt_pol,
   "Military" = results_h1$model5_opt_mil,
@@ -319,10 +1111,10 @@ tbl_1bz <- modelsummary(
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   stars = c('*' = .05, '**' = .01, '***' = .001),
   fmt = 3,
-  title = "Table 1B-Z: RDD Z-Score By Topic (Days)"
+  title = "Table S5: H1 RDD by Topic — Z-Score (Day Running Variable)"
 )
 tbl_1bz
-save_table(tbl_1bz, "table_01bz_rdd_zscore_by_topic_days")
+save_table(tbl_1bz, "table_s05_z_topic_days")
 ```
 
 ## Table 1C: RDD By Topic (Continuous)
@@ -355,19 +1147,19 @@ table_1c <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1C: RDD By Topic (Continuous Running Variable)",
+  title = "Table S9 (Cont): H1 RDD by Topic — FE, Optimal BW (Continuous Running Variable)",
   add_rows = rows_t1c,
   notes = str_wrap(note_t1c, 80)
 )
 
 table_1c
 
-save_table(table_1c, "table_01c_rdd_by_topic_continuous")
+save_table(table_1c, "table_s09_fe_topic_opt_cont")
 ```
 
-## Table 1C-Z: RDD Z-Score By Topic (Continuous)
+### Table S5 (Cont): H1 By-Topic Z-Score — Continuous
 
-```{r table1cz}
+```{r table-s05-z-topic-cont}
 models_1cz <- list(
   "Political" = results_h1_cont$model5_opt_pol,
   "Military" = results_h1_cont$model5_opt_mil,
@@ -382,15 +1174,15 @@ tbl_1cz <- modelsummary(
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   stars = c('*' = .05, '**' = .01, '***' = .001),
   fmt = 3,
-  title = "Table 1C-Z: RDD Z-Score By Topic (Continuous)"
+  title = "Table S5 (Cont): H1 RDD by Topic — Z-Score (Continuous Running Variable)"
 )
 tbl_1cz
-save_table(tbl_1cz, "table_01cz_rdd_zscore_by_topic_continuous")
+save_table(tbl_1cz, "table_s05_z_topic_cont")
 ```
 
 # Table 2: Diff-in-Disc Results
 
-```{r table2}
+```{r table-s02-fe-days}
 n_cl_t2 <- sapply(list(results_h2$model2a, results_h2$model2a_full,
                         results_h2$model2a_opt, results_h2$model2a_opt_full_fe,
                         results_h2$model2b, results_h2$model2d,
@@ -426,14 +1218,14 @@ table_2 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2: Difference in Discontinuities Analysis",
+  title = "Table S2: H2 Diff-in-Disc — Fixed Effects (Day Running Variable)",
   add_rows = rows_t2,
   notes = str_wrap(note_t2, 80)
 )
 
 table_2
 
-save_table(table_2, "table_02_diff_disc_main")
+save_table(table_2, "table_s02_fe_days")
 ```
 
 ## Table 2-S: H2 Diff-in-Disc (Days) — Full FE Robustness
@@ -465,42 +1257,14 @@ table_2s <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2-S: H2 Diff-in-Disc (Days) — Full FE Robustness",
+  title = "Table S16: H2 Diff-in-Disc — Full FE Robustness (Day Running Variable)",
   add_rows = rows_t2s,
   notes = str_wrap(note_t2s, 80)
 )
 
 table_2s
 
-save_table(table_2s, "table_02s_diff_disc_full_fe_robustness")
-```
-
-## Table 2-Z: H2 Z-Score Results (Days)
-
-```{r table2z}
-# NOTE: Z-score models use default modelsummary SEs (no bootstrap vcov stored for these variants)
-models_2z <- list(
-  "Main Z" = results_h2$model2a_z,
-  "Opt BW Z" = results_h2$model2a_opt_z,
-  "Non-Mil Z" = results_h2$model2b_z,
-  "Non-NATO Z" = results_h2$model2d_z,
-  "Russian Z" = results_h2$model3a_z,
-  "Russian Opt Z" = results_h2$model3a_opt_z
-)
-tbl_2z <- modelsummary(
-  models_2z,
-  output = "gt",
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:state_owned" = "State Owned x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 2-Z: H2 Z-Score Results (Days)"
-)
-tbl_2z
-save_table(tbl_2z, "table_02z_h2_zscore_days")
+save_table(table_2s, "table_s16_full_fe_robustness_days")
 ```
 
 ## Table 2A: Diff-in-Disc (Continuous)
@@ -541,14 +1305,14 @@ table_2a <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2A: Difference in Discontinuities (Continuous Running Variable)",
+  title = "Table S2 (Cont): H2 Diff-in-Disc — Fixed Effects (Continuous Running Variable)",
   add_rows = rows_t2a,
   notes = str_wrap(note_t2a, 80)
 )
 
 table_2a
 
-save_table(table_2a, "table_02a_diff_disc_continuous")
+save_table(table_2a, "table_s02_fe_cont")
 ```
 
 ## Table 2A-S: H2 Diff-in-Disc (Continuous) — Full FE Robustness
@@ -580,42 +1344,14 @@ table_2as <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2A-S: H2 Diff-in-Disc (Continuous) — Full FE Robustness",
+  title = "Table S16 (Cont): H2 Diff-in-Disc — Full FE Robustness (Continuous Running Variable)",
   add_rows = rows_t2as,
   notes = str_wrap(note_t2as, 80)
 )
 
 table_2as
 
-save_table(table_2as, "table_02as_diff_disc_continuous_full_fe_robustness")
-```
-
-## Table 2A-Z: H2 Z-Score Results (Continuous)
-
-```{r table2az}
-# NOTE: Z-score models use default modelsummary SEs (no bootstrap vcov stored for these variants)
-models_2az <- list(
-  "Main Z" = results_h2_cont$model2a_z,
-  "Opt BW Z" = results_h2_cont$model2a_opt_z,
-  "Non-Mil Z" = results_h2_cont$model2b_z,
-  "Non-NATO Z" = results_h2_cont$model2d_z,
-  "Russian Z" = results_h2_cont$model3a_z,
-  "Russian Opt Z" = results_h2_cont$model3a_opt_z
-)
-tbl_2az <- modelsummary(
-  models_2az,
-  output = "gt",
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:state_owned" = "State Owned x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 2A-Z: H2 Z-Score Results (Continuous)"
-)
-tbl_2az
-save_table(tbl_2az, "table_02az_h2_zscore_continuous")
+save_table(table_2as, "table_s16_full_fe_robustness_cont")
 ```
 
 ## Table 2B: Diff-in-Disc By Topic (Day)
@@ -651,14 +1387,14 @@ table_2b <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2B: Diff-in-Disc By Topic (Day Running Variable)",
+  title = "Table S10: H2 Diff-in-Disc by Topic — FE, Optimal BW (Day Running Variable)",
   add_rows = rows_t2b,
   notes = str_wrap(note_t2b, 80)
 )
 
 table_2b
 
-save_table(table_2b, "table_02b_diff_disc_by_topic_day")
+save_table(table_2b, "table_s10_fe_topic_opt_days")
 ```
 
 ## Table 2C: Diff-in-Disc By Topic (Continuous)
@@ -694,14 +1430,14 @@ table_2c <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2C: Diff-in-Disc By Topic (Continuous Running Variable)",
+  title = "Table S10 (Cont): H2 Diff-in-Disc by Topic — FE, Optimal BW (Continuous Running Variable)",
   add_rows = rows_t2c,
   notes = str_wrap(note_t2c, 80)
 )
 
 table_2c
 
-save_table(table_2c, "table_02c_diff_disc_by_topic_continuous")
+save_table(table_2c, "table_s10_fe_topic_opt_cont")
 ```
 
 ## Table 2D: Diff-in-Disc By Topic Full Data (Day)
@@ -737,14 +1473,14 @@ table_2d <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2D: Diff-in-Disc By Topic Full Data (Day Running Variable)",
+  title = "Table S13: H2 Diff-in-Disc by Topic — FE, Full Data (Day Running Variable)",
   add_rows = rows_t2d,
   notes = str_wrap(note_t2d, 80)
 )
 
 table_2d
 
-save_table(table_2d, "table_02d_diff_disc_by_topic_full_day")
+save_table(table_2d, "table_s13_fe_topic_full_days")
 ```
 
 ## Table 2E: Diff-in-Disc By Topic Full Data (Continuous)
@@ -780,19 +1516,19 @@ table_2e <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2E: Diff-in-Disc By Topic Full Data (Continuous Running Variable)",
+  title = "Table S13 (Cont): H2 Diff-in-Disc by Topic — FE, Full Data (Continuous Running Variable)",
   add_rows = rows_t2e,
   notes = str_wrap(note_t2e, 80)
 )
 
 table_2e
 
-save_table(table_2e, "table_02e_diff_disc_by_topic_full_continuous")
+save_table(table_2e, "table_s13_fe_topic_full_cont")
 ```
 
 # Table 3: Heterogeneity by Russian Alignment
 
-```{r table3}
+```{r table-s03-fe-days}
 n_cl_t3 <- sapply(list(results_align$model5a_csto, results_align$model5a_neutral,
                        results_align$model5a_full, results_align$model5a_opt,
                        results_align$model5a_opt_non_mil, results_align$model5a_opt_russian,
@@ -846,44 +1582,15 @@ table_3 <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3: Russian Alignment Heterogeneity (State Media)",
+  title = "Table S3: H3a Alignment — Fixed Effects (Day Running Variable)",
   add_rows = rows_t3,
   notes = str_wrap(note_t3, 80)
 )
 
 table_3
 
-save_table(table_3, "table_03_alignment_main")
+save_table(table_3, "table_s03_fe_days")
 ```
-
-## Table 3-Z: Alignment Z-Score Results (Days)
-
-```{r table3z}
-# NOTE: Z-score models use default modelsummary SEs; bootstrap vcov is not stored for these variants
-models_3z <- list(
-  "Main Z" = results_align$model5a_z,
-  "CSTO Z" = results_align$model5a_csto_z,
-  "Neutral Z" = results_align$model5a_neutral_z,
-  "Opt BW Z" = results_align$model5a_opt_z,
-  "Non-Mil Z" = results_align$model5a_opt_non_mil_z,
-  "Russian Z" = results_align$model5a_opt_russian_z
-)
-tbl_3z <- modelsummary(
-  models_3z,
-  output = "gt",
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 3-Z: Alignment Z-Score Results (Days)"
-)
-tbl_3z
-save_table(tbl_3z, "table_03z_alignment_zscore_days")
-```
-
 
 ## Table 3A: Heterogeneity (Continuous)
 
@@ -942,42 +1649,14 @@ table_3a <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3A: Russian Alignment Heterogeneity (Continuous Running Variable)",
+  title = "Table S3 (Cont): H3a Alignment — Fixed Effects (Continuous Running Variable)",
   add_rows = rows_t3a,
   notes = str_wrap(note_t3a, 80)
 )
 
 table_3a
 
-save_table(table_3a, "table_03a_alignment_continuous")
-```
-
-## Table 3A-Z: Alignment Z-Score Results (Continuous)
-
-```{r table3az}
-# NOTE: Z-score models use default modelsummary SEs; bootstrap vcov is not stored for these variants
-models_3az <- list(
-  "Main Z" = results_align_cont$model5a_z,
-  "CSTO Z" = results_align_cont$model5a_csto_z,
-  "Neutral Z" = results_align_cont$model5a_neutral_z,
-  "Opt BW Z" = results_align_cont$model5a_opt_z,
-  "Non-Mil Z" = results_align_cont$model5a_opt_non_mil_z,
-  "Russian Z" = results_align_cont$model5a_opt_russian_z
-)
-tbl_3az <- modelsummary(
-  models_3az,
-  output = "gt",
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 3A-Z: Alignment Z-Score Results (Continuous)"
-)
-tbl_3az
-save_table(tbl_3az, "table_03az_alignment_zscore_continuous")
+save_table(table_3a, "table_s03_fe_cont")
 ```
 
 ## Table 3B: Heterogeneity By Topic Optimal BW (Day)
@@ -1023,14 +1702,14 @@ table_3b <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3B: Heterogeneity By Topic (Per-Topic Optimal BW, Day)",
+  title = "Table S11: H3a Alignment by Topic — FE, Optimal BW (Day Running Variable)",
   add_rows = rows_t3b,
   notes = str_wrap(note_t3b, 80)
 )
 
 table_3b
 
-save_table(table_3b, "table_03b_alignment_by_topic_day")
+save_table(table_3b, "table_s11_fe_topic_opt_days")
 ```
 
 ## Table 3C: Heterogeneity By Topic Optimal BW (Continuous)
@@ -1076,14 +1755,14 @@ table_3c <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3C: Heterogeneity By Topic (Per-Topic Optimal BW, Continuous)",
+  title = "Table S11 (Cont): H3a Alignment by Topic — FE, Optimal BW (Continuous Running Variable)",
   add_rows = rows_t3c,
   notes = str_wrap(note_t3c, 80)
 )
 
 table_3c
 
-save_table(table_3c, "table_03c_alignment_by_topic_continuous")
+save_table(table_3c, "table_s11_fe_topic_opt_cont")
 ```
 
 ## Table 3D: Heterogeneity By Topic Full Data (Day)
@@ -1129,14 +1808,14 @@ table_3d <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3D: Heterogeneity By Topic (Full Data, Day)",
+  title = "Table S14: H3a Alignment by Topic — FE, Full Data (Day Running Variable)",
   add_rows = rows_t3d,
   notes = str_wrap(note_t3d, 80)
 )
 
 table_3d
 
-save_table(table_3d, "table_03d_alignment_by_topic_full_day")
+save_table(table_3d, "table_s14_fe_topic_full_days")
 ```
 
 ## Table 3E: Heterogeneity By Topic Full Data (Continuous)
@@ -1182,19 +1861,19 @@ table_3e <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3E: Heterogeneity By Topic (Full Data, Continuous)",
+  title = "Table S14 (Cont): H3a Alignment by Topic — FE, Full Data (Continuous Running Variable)",
   add_rows = rows_t3e,
   notes = str_wrap(note_t3e, 80)
 )
 
 table_3e
 
-save_table(table_3e, "table_03e_alignment_by_topic_full_continuous")
+save_table(table_3e, "table_s14_fe_topic_full_cont")
 ```
 
 # Table 4: Heterogeneity by Ethnic Russian Population
 
-```{r table4}
+```{r table-s04-fe-days}
 n_cl_t4 <- sapply(list(results_ethnic$model6a_full, results_ethnic$model6a_opt,
                        results_ethnic$model6a_opt_non_mil, results_ethnic$model6a_opt_russian),
                   get_n_clusters)
@@ -1233,14 +1912,14 @@ table_4 <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4: Ethnic Russian Population Heterogeneity (State Media)",
+  title = "Table S4: H3b Ethnic — Fixed Effects (Day Running Variable)",
   add_rows = rows_t4,
   notes = str_wrap(note_t4, 80)
 )
 
 table_4
 
-save_table(table_4, "table_04_ethnic_main")
+save_table(table_4, "table_s04_fe_days")
 ```
 
 ## Table 4A: Ethnic Heterogeneity (Continuous)
@@ -1284,14 +1963,14 @@ table_4a <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4A: Ethnic Russian Population Heterogeneity (Continuous Running Variable)",
+  title = "Table S4 (Cont): H3b Ethnic — Fixed Effects (Continuous Running Variable)",
   add_rows = rows_t4a,
   notes = str_wrap(note_t4a, 80)
 )
 
 table_4a
 
-save_table(table_4a, "table_04a_ethnic_continuous")
+save_table(table_4a, "table_s04_fe_cont")
 ```
 
 ## Table 4B: Ethnic By Topic Optimal BW (Day)
@@ -1337,14 +2016,14 @@ table_4b <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4B: Ethnic Heterogeneity By Topic (Per-Topic Optimal BW, Day)",
+  title = "Table S12: H3b Ethnic by Topic — FE, Optimal BW (Day Running Variable)",
   add_rows = rows_t4b,
   notes = str_wrap(note_t4b, 80)
 )
 
 table_4b
 
-save_table(table_4b, "table_04b_ethnic_by_topic_day")
+save_table(table_4b, "table_s12_fe_topic_opt_days")
 ```
 
 ## Table 4C: Ethnic By Topic Optimal BW (Continuous)
@@ -1390,14 +2069,14 @@ table_4c <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4C: Ethnic Heterogeneity By Topic (Per-Topic Optimal BW, Continuous)",
+  title = "Table S12 (Cont): H3b Ethnic by Topic — FE, Optimal BW (Continuous Running Variable)",
   add_rows = rows_t4c,
   notes = str_wrap(note_t4c, 80)
 )
 
 table_4c
 
-save_table(table_4c, "table_04c_ethnic_by_topic_continuous")
+save_table(table_4c, "table_s12_fe_topic_opt_cont")
 ```
 
 ## Table 4D: Ethnic By Topic Full Data (Day)
@@ -1443,14 +2122,14 @@ table_4d <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4D: Ethnic Heterogeneity By Topic (Full Data, Day)",
+  title = "Table S15: H3b Ethnic by Topic — FE, Full Data (Day Running Variable)",
   add_rows = rows_t4d,
   notes = str_wrap(note_t4d, 80)
 )
 
 table_4d
 
-save_table(table_4d, "table_04d_ethnic_by_topic_full_day")
+save_table(table_4d, "table_s15_fe_topic_full_days")
 ```
 
 ## Table 4E: Ethnic By Topic Full Data (Continuous)
@@ -1496,21 +2175,19 @@ table_4e <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4E: Ethnic Heterogeneity By Topic (Full Data, Continuous)",
+  title = "Table S15 (Cont): H3b Ethnic by Topic — FE, Full Data (Continuous Running Variable)",
   add_rows = rows_t4e,
   notes = str_wrap(note_t4e, 80)
 )
 
 table_4e
 
-save_table(table_4e, "table_04e_ethnic_by_topic_full_continuous")
+save_table(table_4e, "table_s15_fe_topic_full_cont")
 ```
 
-# Drop No-Time Articles Variant Tables
+### Table S1 (Drop): H1 FE Main Results — Drop No-Time Articles
 
-## Table 1D: RDD Main (Drop No-Time)
-
-```{r table1d}
+```{r table-s01-fe-drop}
 n_cl_t1d <- sapply(list(results_h1_drop$model1_opt, results_h1_drop$model2_opt,
                         results_h1_drop$model3_opt, results_h1_drop$model4_opt,
                         results_h1_drop$model1_full_linear, results_h1_drop$model4_non_mil,
@@ -1543,36 +2220,14 @@ table_1d <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1D: RDD with Continuous Running Variable (Drop No-Time Articles)",
+  title = "Table S1 (Drop): H1 RDD — Fixed Effects (Drop No-Time Articles)",
   add_rows = rows_t1d,
   notes = str_wrap(note_t1d, 80)
 )
 
 table_1d
 
-save_table(table_1d, "table_01d_rdd_drop_notime")
-```
-
-## Table 1D-Z: RDD Z-Score Results (Drop No-Time)
-
-```{r table1dz}
-models_1dz <- list(
-  "Basic" = results_h1_drop$model1_z,
-  "Z-Score Opt" = results_h1_drop$model5_opt,
-  "Non-Mil Z" = results_h1_drop$model6a_nonmil,
-  "Non-NATO Z" = results_h1_drop$model7a_nonnato
-)
-tbl_1dz <- modelsummary(
-  models_1dz,
-  output = "gt",
-  coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 1D-Z: RDD Z-Score Results (Drop No-Time)"
-)
-tbl_1dz
-save_table(tbl_1dz, "table_01dz_rdd_zscore_drop")
+save_table(table_1d, "table_s01_fe_drop")
 ```
 
 ## Table 1E: RDD By Topic (Drop No-Time)
@@ -1605,19 +2260,19 @@ table_1e <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1E: RDD By Topic (Drop No-Time Articles)",
+  title = "Table S9 (Drop): H1 RDD by Topic — FE, Optimal BW (Drop No-Time Articles)",
   add_rows = rows_t1e,
   notes = str_wrap(note_t1e, 80)
 )
 
 table_1e
 
-save_table(table_1e, "table_01e_rdd_by_topic_drop_notime")
+save_table(table_1e, "table_s09_fe_topic_opt_drop")
 ```
 
-## Table 1E-Z: RDD Z-Score By Topic (Drop No-Time)
+### Table S5 (Drop): H1 By-Topic Z-Score — Drop No-Time Articles
 
-```{r table1ez}
+```{r table-s05-z-topic-drop}
 models_1ez <- list(
   "Political" = results_h1_drop$model5_opt_pol,
   "Military" = results_h1_drop$model5_opt_mil,
@@ -1632,10 +2287,10 @@ tbl_1ez <- modelsummary(
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   stars = c('*' = .05, '**' = .01, '***' = .001),
   fmt = 3,
-  title = "Table 1E-Z: RDD Z-Score By Topic (Drop No-Time)"
+  title = "Table S5 (Drop): H1 RDD by Topic — Z-Score (Drop No-Time Articles)"
 )
 tbl_1ez
-save_table(tbl_1ez, "table_01ez_rdd_zscore_by_topic_drop")
+save_table(tbl_1ez, "table_s05_z_topic_drop")
 ```
 
 ## Table 2F: Diff-in-Disc Main (Drop No-Time)
@@ -1676,14 +2331,14 @@ table_2f <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2F: Diff-in-Disc (Drop No-Time Articles)",
+  title = "Table S2 (Drop): H2 Diff-in-Disc — Fixed Effects (Drop No-Time Articles)",
   add_rows = rows_t2f,
   notes = str_wrap(note_t2f, 80)
 )
 
 table_2f
 
-save_table(table_2f, "table_02f_diff_disc_drop_notime")
+save_table(table_2f, "table_s02_fe_drop")
 ```
 
 ## Table 2F-S: H2 Diff-in-Disc (Drop No-Time) — Full FE Robustness
@@ -1715,42 +2370,14 @@ table_2fs <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2F-S: H2 Diff-in-Disc (Drop No-Time) — Full FE Robustness",
+  title = "Table S16 (Drop): H2 Diff-in-Disc — Full FE Robustness (Drop No-Time Articles)",
   add_rows = rows_t2fs,
   notes = str_wrap(note_t2fs, 80)
 )
 
 table_2fs
 
-save_table(table_2fs, "table_02fs_diff_disc_drop_notime_full_fe_robustness")
-```
-
-## Table 2F-Z: H2 Z-Score Results (Drop No-Time)
-
-```{r table2fz}
-# NOTE: Z-score models use default modelsummary SEs (no bootstrap vcov stored for these variants)
-models_2fz <- list(
-  "Main Z" = results_h2_drop$model2a_z,
-  "Opt BW Z" = results_h2_drop$model2a_opt_z,
-  "Non-Mil Z" = results_h2_drop$model2b_z,
-  "Non-NATO Z" = results_h2_drop$model2d_z,
-  "Russian Z" = results_h2_drop$model3a_z,
-  "Russian Opt Z" = results_h2_drop$model3a_opt_z
-)
-tbl_2fz <- modelsummary(
-  models_2fz,
-  output = "gt",
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:state_owned" = "State Owned x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 2F-Z: H2 Z-Score Results (Drop No-Time)"
-)
-tbl_2fz
-save_table(tbl_2fz, "table_02fz_h2_zscore_drop")
+save_table(table_2fs, "table_s16_full_fe_robustness_drop")
 ```
 
 ## Table 2G: Diff-in-Disc By Topic Optimal BW (Drop No-Time)
@@ -1786,14 +2413,14 @@ table_2g <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2G: Diff-in-Disc By Topic, Optimal BW (Drop No-Time Articles)",
+  title = "Table S10 (Drop): H2 Diff-in-Disc by Topic — FE, Optimal BW (Drop No-Time Articles)",
   add_rows = rows_t2g,
   notes = str_wrap(note_t2g, 80)
 )
 
 table_2g
 
-save_table(table_2g, "table_02g_diff_disc_by_topic_opt_drop_notime")
+save_table(table_2g, "table_s10_fe_topic_opt_drop")
 ```
 
 ## Table 2H: Diff-in-Disc By Topic Full Data (Drop No-Time)
@@ -1829,14 +2456,14 @@ table_2h <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2H: Diff-in-Disc By Topic, Full Data (Drop No-Time Articles)",
+  title = "Table S13 (Drop): H2 Diff-in-Disc by Topic — FE, Full Data (Drop No-Time Articles)",
   add_rows = rows_t2h,
   notes = str_wrap(note_t2h, 80)
 )
 
 table_2h
 
-save_table(table_2h, "table_02h_diff_disc_by_topic_full_drop_notime")
+save_table(table_2h, "table_s13_fe_topic_full_drop")
 ```
 
 ## Table 3F: Alignment Main (Drop No-Time)
@@ -1896,42 +2523,14 @@ table_3f <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3F: Russian Alignment Heterogeneity (Drop No-Time Articles)",
+  title = "Table S3 (Drop): H3a Alignment — Fixed Effects (Drop No-Time Articles)",
   add_rows = rows_t3f,
   notes = str_wrap(note_t3f, 80)
 )
 
 table_3f
 
-save_table(table_3f, "table_03f_alignment_drop_notime")
-```
-
-## Table 3F-Z: Alignment Z-Score Results (Drop No-Time)
-
-```{r table3fz}
-# NOTE: Z-score models use default modelsummary SEs; bootstrap vcov is not stored for these variants
-models_3fz <- list(
-  "Main Z" = results_align_drop$model5a_z,
-  "CSTO Z" = results_align_drop$model5a_csto_z,
-  "Neutral Z" = results_align_drop$model5a_neutral_z,
-  "Opt BW Z" = results_align_drop$model5a_opt_z,
-  "Non-Mil Z" = results_align_drop$model5a_opt_non_mil_z,
-  "Russian Z" = results_align_drop$model5a_opt_russian_z
-)
-tbl_3fz <- modelsummary(
-  models_3fz,
-  output = "gt",
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 3F-Z: Alignment Z-Score Results (Drop No-Time)"
-)
-tbl_3fz
-save_table(tbl_3fz, "table_03fz_alignment_zscore_drop")
+save_table(table_3f, "table_s03_fe_drop")
 ```
 
 ## Table 3G: Alignment By Topic Optimal BW (Drop No-Time)
@@ -1967,14 +2566,14 @@ table_3g <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3G: Alignment By Topic, Optimal BW (Drop No-Time Articles)",
+  title = "Table S11 (Drop): H3a Alignment by Topic — FE, Optimal BW (Drop No-Time Articles)",
   add_rows = rows_t3g,
   notes = str_wrap(note_t3g, 80)
 )
 
 table_3g
 
-save_table(table_3g, "table_03g_alignment_by_topic_opt_drop_notime")
+save_table(table_3g, "table_s11_fe_topic_opt_drop")
 ```
 
 ## Table 3H: Alignment By Topic Full Data (Drop No-Time)
@@ -2010,14 +2609,14 @@ table_3h <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3H: Alignment By Topic, Full Data (Drop No-Time Articles)",
+  title = "Table S14 (Drop): H3a Alignment by Topic — FE, Full Data (Drop No-Time Articles)",
   add_rows = rows_t3h,
   notes = str_wrap(note_t3h, 80)
 )
 
 table_3h
 
-save_table(table_3h, "table_03h_alignment_by_topic_full_drop_notime")
+save_table(table_3h, "table_s14_fe_topic_full_drop")
 ```
 
 ## Table 4F: Ethnic Main (Drop No-Time)
@@ -2061,14 +2660,14 @@ table_4f <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4F: Ethnic Heterogeneity (Drop No-Time Articles)",
+  title = "Table S4 (Drop): H3b Ethnic — Fixed Effects (Drop No-Time Articles)",
   add_rows = rows_t4f,
   notes = str_wrap(note_t4f, 80)
 )
 
 table_4f
 
-save_table(table_4f, "table_04f_ethnic_drop_notime")
+save_table(table_4f, "table_s04_fe_drop")
 ```
 
 ## Table 4G: Ethnic By Topic Optimal BW (Drop No-Time)
@@ -2104,14 +2703,14 @@ table_4g <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4G: Ethnic By Topic, Optimal BW (Drop No-Time Articles)",
+  title = "Table S12 (Drop): H3b Ethnic by Topic — FE, Optimal BW (Drop No-Time Articles)",
   add_rows = rows_t4g,
   notes = str_wrap(note_t4g, 80)
 )
 
 table_4g
 
-save_table(table_4g, "table_04g_ethnic_by_topic_opt_drop_notime")
+save_table(table_4g, "table_s12_fe_topic_opt_drop")
 ```
 
 ## Table 4H: Ethnic By Topic Full Data (Drop No-Time)
@@ -2147,21 +2746,19 @@ table_4h <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4H: Ethnic By Topic, Full Data (Drop No-Time Articles)",
+  title = "Table S15 (Drop): H3b Ethnic by Topic — FE, Full Data (Drop No-Time Articles)",
   add_rows = rows_t4h,
   notes = str_wrap(note_t4h, 80)
 )
 
 table_4h
 
-save_table(table_4h, "table_04h_ethnic_by_topic_full_drop_notime")
+save_table(table_4h, "table_s15_fe_topic_full_drop")
 ```
 
-# Probabilistic Time Assignment Variant Tables
+### Table S1 (Prob): H1 FE Main Results — Probabilistic Time Assignment
 
-## Table 1F: RDD Main (Probabilistic Time)
-
-```{r table1f}
+```{r table-s01-fe-prob}
 n_cl_t1f <- sapply(list(results_h1_prob$model1_opt, results_h1_prob$model2_opt,
                         results_h1_prob$model3_opt, results_h1_prob$model4_opt,
                         results_h1_prob$model1_full_linear, results_h1_prob$model4_non_mil,
@@ -2194,36 +2791,14 @@ table_1f <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion", "post" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1F: RDD with Probabilistic Time Assignment",
+  title = "Table S1 (Prob): H1 RDD — Fixed Effects (Probabilistic Time Assignment)",
   add_rows = rows_t1f,
   notes = str_wrap(note_t1f, 80)
 )
 
 table_1f
 
-save_table(table_1f, "table_01f_rdd_probabilistic")
-```
-
-## Table 1F-Z: RDD Z-Score Results (Probabilistic)
-
-```{r table1fz}
-models_1fz <- list(
-  "Basic" = results_h1_prob$model1_z,
-  "Z-Score Opt" = results_h1_prob$model5_opt,
-  "Non-Mil Z" = results_h1_prob$model6a_nonmil,
-  "Non-NATO Z" = results_h1_prob$model7a_nonnato
-)
-tbl_1fz <- modelsummary(
-  models_1fz,
-  output = "gt",
-  coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 1F-Z: RDD Z-Score Results (Probabilistic)"
-)
-tbl_1fz
-save_table(tbl_1fz, "table_01fz_rdd_zscore_prob")
+save_table(table_1f, "table_s01_fe_prob")
 ```
 
 ## Table 1G: RDD By Topic (Probabilistic Time)
@@ -2256,19 +2831,19 @@ table_1g <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 1G: RDD By Topic (Probabilistic Time Assignment)",
+  title = "Table S9 (Prob): H1 RDD by Topic — FE, Optimal BW (Probabilistic Time Assignment)",
   add_rows = rows_t1g,
   notes = str_wrap(note_t1g, 80)
 )
 
 table_1g
 
-save_table(table_1g, "table_01g_rdd_by_topic_probabilistic")
+save_table(table_1g, "table_s09_fe_topic_opt_prob")
 ```
 
-## Table 1G-Z: RDD Z-Score By Topic (Probabilistic)
+### Table S5 (Prob): H1 By-Topic Z-Score — Probabilistic Time
 
-```{r table1gz}
+```{r table-s05-z-topic-prob}
 models_1gz <- list(
   "Political" = results_h1_prob$model5_opt_pol,
   "Military" = results_h1_prob$model5_opt_mil,
@@ -2283,11 +2858,55 @@ tbl_1gz <- modelsummary(
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
   stars = c('*' = .05, '**' = .01, '***' = .001),
   fmt = 3,
-  title = "Table 1G-Z: RDD Z-Score By Topic (Probabilistic)"
+  title = "Table S5 (Prob): H1 RDD by Topic — Z-Score (Probabilistic Time Assignment)"
 )
 tbl_1gz
-save_table(tbl_1gz, "table_01gz_rdd_zscore_by_topic_prob")
+save_table(tbl_1gz, "table_s05_z_topic_prob")
 ```
+
+### Table S6 (All Variants): H2 By-Topic Z-Score
+
+```{r table-s06-z-topic-todo}
+# TODO: Table S6 requires Z-score by-topic models for H2 (state_owned interaction).
+# Expected model names in results_h2 (and _prob, _cont, _drop variants):
+#   model2a_opt_z_pol, model2a_opt_z_mil, model2a_opt_z_econ,
+#   model2a_opt_z_cult, model2a_opt_z_oth
+# Create these in 05 scripts. Once available, build table with:
+#   coef_map = c("treatment" = "Invasion", "treatment:state_owned" = "State Owned x Treatment")
+# Save files: table_s06_z_topic_days, table_s06_z_topic_prob,
+#             table_s06_z_topic_cont, table_s06_z_topic_drop
+cat("NOTE: Table S6 (H2 by-topic Z-score) skipped — models not yet created.\n")
+```
+
+### Table S7 (All Variants): H3a By-Topic Z-Score
+
+```{r table-s07-z-topic-todo}
+# TODO: Table S7 requires Z-score by-topic models for H3a (CSTO interaction).
+# Expected model names in results_align (and _prob, _cont, _drop variants):
+#   model5a_opt_z_pol, model5a_opt_z_mil, model5a_opt_z_econ,
+#   model5a_opt_z_cult, model5a_opt_z_oth
+# Create these in 06 scripts. Once available, build table with:
+#   coef_map = c("treatment" = "Invasion", "treatment:csto" = "CSTO x Treatment")
+# Save files: table_s07_z_topic_days, table_s07_z_topic_prob,
+#             table_s07_z_topic_cont, table_s07_z_topic_drop
+cat("NOTE: Table S7 (H3a by-topic Z-score) skipped — models not yet created.\n")
+```
+
+### Table S8 (All Variants): H3b By-Topic Z-Score
+
+```{r table-s08-z-topic-todo}
+# TODO: Table S8 requires Z-score by-topic models for H3b (high_russia interaction).
+# Expected model names in results_ethnic (and _prob, _cont, _drop variants):
+#   model6a_opt_z_pol, model6a_opt_z_mil, model6a_opt_z_econ,
+#   model6a_opt_z_cult, model6a_opt_z_oth
+# Create these in 07 scripts. Once available, build table with:
+#   coef_map = c("treatment" = "Invasion", "treatment:high_russia" = "High Russian Pop x Treatment")
+# Save files: table_s08_z_topic_days, table_s08_z_topic_prob,
+#             table_s08_z_topic_cont, table_s08_z_topic_drop
+cat("NOTE: Table S8 (H3b by-topic Z-score) skipped — models not yet created.\n")
+```
+
+## --- S9–S12: By-Topic FE Optimal BW ---
 
 ## Table 2I: Diff-in-Disc Main (Probabilistic Time)
 
@@ -2327,14 +2946,14 @@ table_2i <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2I: Diff-in-Disc (Probabilistic Time Assignment)",
+  title = "Table S2 (Prob): H2 Diff-in-Disc — Fixed Effects (Probabilistic Time Assignment)",
   add_rows = rows_t2i,
   notes = str_wrap(note_t2i, 80)
 )
 
 table_2i
 
-save_table(table_2i, "table_02i_diff_disc_probabilistic")
+save_table(table_2i, "table_s02_fe_prob")
 ```
 
 ## Table 2I-S: H2 Diff-in-Disc (Probabilistic) — Full FE Robustness
@@ -2366,42 +2985,14 @@ table_2is <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2I-S: H2 Diff-in-Disc (Probabilistic) — Full FE Robustness",
+  title = "Table S16 (Prob): H2 Diff-in-Disc — Full FE Robustness (Probabilistic Time)",
   add_rows = rows_t2is,
   notes = str_wrap(note_t2is, 80)
 )
 
 table_2is
 
-save_table(table_2is, "table_02is_diff_disc_probabilistic_full_fe_robustness")
-```
-
-## Table 2I-Z: H2 Z-Score Results (Probabilistic)
-
-```{r table2iz}
-# NOTE: Z-score models use default modelsummary SEs (no bootstrap vcov stored for these variants)
-models_2iz <- list(
-  "Main Z" = results_h2_prob$model2a_z,
-  "Opt BW Z" = results_h2_prob$model2a_opt_z,
-  "Non-Mil Z" = results_h2_prob$model2b_z,
-  "Non-NATO Z" = results_h2_prob$model2d_z,
-  "Russian Z" = results_h2_prob$model3a_z,
-  "Russian Opt Z" = results_h2_prob$model3a_opt_z
-)
-tbl_2iz <- modelsummary(
-  models_2iz,
-  output = "gt",
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:state_owned" = "State Owned x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 2I-Z: H2 Z-Score Results (Probabilistic)"
-)
-tbl_2iz
-save_table(tbl_2iz, "table_02iz_h2_zscore_prob")
+save_table(table_2is, "table_s16_full_fe_robustness_prob")
 ```
 
 ## Table 2J: Diff-in-Disc By Topic Optimal BW (Probabilistic Time)
@@ -2437,14 +3028,14 @@ table_2j <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2J: Diff-in-Disc By Topic, Optimal BW (Probabilistic Time)",
+  title = "Table S10 (Prob): H2 Diff-in-Disc by Topic — FE, Optimal BW (Probabilistic Time Assignment)",
   add_rows = rows_t2j,
   notes = str_wrap(note_t2j, 80)
 )
 
 table_2j
 
-save_table(table_2j, "table_02j_diff_disc_by_topic_opt_probabilistic")
+save_table(table_2j, "table_s10_fe_topic_opt_prob")
 ```
 
 ## Table 2K: Diff-in-Disc By Topic Full Data (Probabilistic Time)
@@ -2480,14 +3071,14 @@ table_2k <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2K: Diff-in-Disc By Topic, Full Data (Probabilistic Time)",
+  title = "Table S13 (Prob): H2 Diff-in-Disc by Topic — FE, Full Data (Probabilistic Time)",
   add_rows = rows_t2k,
   notes = str_wrap(note_t2k, 80)
 )
 
 table_2k
 
-save_table(table_2k, "table_02k_diff_disc_by_topic_full_probabilistic")
+save_table(table_2k, "table_s13_fe_topic_full_prob")
 ```
 
 ## Table 2L: State-Owned and Independent Media RDD (Day)
@@ -2505,13 +3096,34 @@ table_2l <- modelsummary(
   stars = c('*' = .05, '**' = .01, '***' = .001),
   coef_map = c("treatment" = "Invasion (RDD)"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 2L: RDD for State-Owned and Independent Media Separately (Day)",
+  title = "Table S17: H2 State vs. Independent Media RDDs — FE (Day Running Variable)",
   notes = str_wrap(note_t2l, 80)
 )
 
 table_2l
 
-save_table(table_2l, "table_02l_state_ind_rdd")
+save_table(table_2l, "table_s17_h2_state_ind_rdd_days")
+```
+
+```{r table-s17-state-ind-rdd-cont}
+# TODO: Verify model2_state_rdd and model2_ind_rdd exist in results_h2_cont.
+# If yes, create Table S17 (Cont): H2 State vs. Independent Media RDDs — FE (Continuous Running Variable)
+# and save as table_s17_h2_state_ind_rdd_cont.
+cat("TODO: Table S17 (Cont) — model2_state_rdd / model2_ind_rdd in results_h2_cont not yet verified.\n")
+```
+
+```{r table-s17-state-ind-rdd-drop}
+# TODO: Verify model2_state_rdd and model2_ind_rdd exist in results_h2_drop.
+# If yes, create Table S17 (Drop): H2 State vs. Independent Media RDDs — FE (Drop No-Time Articles)
+# and save as table_s17_h2_state_ind_rdd_drop.
+cat("TODO: Table S17 (Drop) — model2_state_rdd / model2_ind_rdd in results_h2_drop not yet verified.\n")
+```
+
+```{r table-s17-state-ind-rdd-prob}
+# TODO: Verify model2_state_rdd and model2_ind_rdd exist in results_h2_prob.
+# If yes, create Table S17 (Prob): H2 State vs. Independent Media RDDs — FE (Probabilistic Time)
+# and save as table_s17_h2_state_ind_rdd_prob.
+cat("TODO: Table S17 (Prob) — model2_state_rdd / model2_ind_rdd in results_h2_prob not yet verified.\n")
 ```
 
 ## Table 3I: Alignment Main (Probabilistic Time)
@@ -2571,42 +3183,14 @@ table_3i <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3I: Russian Alignment Heterogeneity (Probabilistic Time)",
+  title = "Table S3 (Prob): H3a Alignment — Fixed Effects (Probabilistic Time Assignment)",
   add_rows = rows_t3i,
   notes = str_wrap(note_t3i, 80)
 )
 
 table_3i
 
-save_table(table_3i, "table_03i_alignment_probabilistic")
-```
-
-## Table 3I-Z: Alignment Z-Score Results (Probabilistic)
-
-```{r table3iz}
-# NOTE: Z-score models use default modelsummary SEs; bootstrap vcov is not stored for these variants
-models_3iz <- list(
-  "Main Z" = results_align_prob$model5a_z,
-  "CSTO Z" = results_align_prob$model5a_csto_z,
-  "Neutral Z" = results_align_prob$model5a_neutral_z,
-  "Opt BW Z" = results_align_prob$model5a_opt_z,
-  "Non-Mil Z" = results_align_prob$model5a_opt_non_mil_z,
-  "Russian Z" = results_align_prob$model5a_opt_russian_z
-)
-tbl_3iz <- modelsummary(
-  models_3iz,
-  output = "gt",
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  stars = c('*' = .05, '**' = .01, '***' = .001),
-  fmt = 3,
-  title = "Table 3I-Z: Alignment Z-Score Results (Probabilistic)"
-)
-tbl_3iz
-save_table(tbl_3iz, "table_03iz_alignment_zscore_prob")
+save_table(table_3i, "table_s03_fe_prob")
 ```
 
 ## Table 3J: Alignment By Topic Optimal BW (Probabilistic Time)
@@ -2642,14 +3226,14 @@ table_3j <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3J: Alignment By Topic, Optimal BW (Probabilistic Time)",
+  title = "Table S11 (Prob): H3a Alignment by Topic — FE, Optimal BW (Probabilistic Time Assignment)",
   add_rows = rows_t3j,
   notes = str_wrap(note_t3j, 80)
 )
 
 table_3j
 
-save_table(table_3j, "table_03j_alignment_by_topic_opt_probabilistic")
+save_table(table_3j, "table_s11_fe_topic_opt_prob")
 ```
 
 ## Table 3K: Alignment By Topic Full Data (Probabilistic Time)
@@ -2685,14 +3269,14 @@ table_3k <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 3K: Alignment By Topic, Full Data (Probabilistic Time)",
+  title = "Table S14 (Prob): H3a Alignment by Topic — FE, Full Data (Probabilistic Time)",
   add_rows = rows_t3k,
   notes = str_wrap(note_t3k, 80)
 )
 
 table_3k
 
-save_table(table_3k, "table_03k_alignment_by_topic_full_probabilistic")
+save_table(table_3k, "table_s14_fe_topic_full_prob")
 ```
 
 ## Table 4I: Ethnic Main (Probabilistic Time)
@@ -2736,14 +3320,14 @@ table_4i <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4I: Ethnic Heterogeneity (Probabilistic Time)",
+  title = "Table S4 (Prob): H3b Ethnic — Fixed Effects (Probabilistic Time Assignment)",
   add_rows = rows_t4i,
   notes = str_wrap(note_t4i, 80)
 )
 
 table_4i
 
-save_table(table_4i, "table_04i_ethnic_probabilistic")
+save_table(table_4i, "table_s04_fe_prob")
 ```
 
 ## Table 4J: Ethnic By Topic Optimal BW (Probabilistic Time)
@@ -2779,14 +3363,14 @@ table_4j <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4J: Ethnic By Topic, Optimal BW (Probabilistic Time)",
+  title = "Table S12 (Prob): H3b Ethnic by Topic — FE, Optimal BW (Probabilistic Time Assignment)",
   add_rows = rows_t4j,
   notes = str_wrap(note_t4j, 80)
 )
 
 table_4j
 
-save_table(table_4j, "table_04j_ethnic_by_topic_opt_probabilistic")
+save_table(table_4j, "table_s12_fe_topic_opt_prob")
 ```
 
 ## Table 4K: Ethnic By Topic Full Data (Probabilistic Time)
@@ -2822,14 +3406,14 @@ table_4k <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-  title = "Table 4K: Ethnic By Topic, Full Data (Probabilistic Time)",
+  title = "Table S15 (Prob): H3b Ethnic by Topic — FE, Full Data (Probabilistic Time)",
   add_rows = rows_t4k,
   notes = str_wrap(note_t4k, 80)
 )
 
 table_4k
 
-save_table(table_4k, "table_04k_ethnic_by_topic_full_probabilistic")
+save_table(table_4k, "table_s15_fe_topic_full_prob")
 ```
 
 # Comparison Table: Countries by Alignment and Ethnic Population
@@ -2869,7 +3453,7 @@ comparison_table <- table_data %>%
 
 comparison_table
 
-save_table(comparison_table, "table_05_country_classification")
+save_table(comparison_table, "table_s18_country_classification")
 ```
 
 # Alignment Table
@@ -2898,7 +3482,7 @@ alignment_table <- table_data %>%
 
 alignment_table
 
-save_table(alignment_table, "table_06_alignment_classification")
+save_table(alignment_table, "table_s19_alignment_classification")
 ```
 
 # Ethnic Table
@@ -2927,7 +3511,7 @@ ethnic_table <- table_data %>%
 
 ethnic_table
 
-save_table(ethnic_table, "table_07_ethnic_classification")
+save_table(ethnic_table, "table_s20_ethnic_classification")
 ```
 
 # Export Tables to LaTeX
@@ -2965,60 +3549,34 @@ cat("  - 05_h2_results*.rds      (H2: Diff-in-Disc, 4 variants)\n")
 cat("  - 06_alignment_results*.rds (Alignment heterogeneity, 4 variants)\n")
 cat("  - 07_ethnic_results*.rds   (Ethnic heterogeneity, 4 variants)\n")
 cat("\nTables generated (each saved as .tex AND .html):\n")
-cat("\n  ## Main Day-Running-Variable Tables ##\n")
-cat("  - table_01_rdd_main:                  RDD main results (H1, day)\n")
-cat("  - table_01a_rdd_continuous:           RDD main results (H1, continuous)\n")
-cat("  - table_01b_rdd_by_topic_day:         RDD by topic, opt BW (day)\n")
-cat("  - table_01c_rdd_by_topic_continuous:  RDD by topic, opt BW (continuous)\n")
-cat("  - table_02_diff_disc_main:            Diff-in-Disc main (H2, day)\n")
-cat("  - table_02a_diff_disc_continuous:     Diff-in-Disc main (H2, continuous)\n")
-cat("  - table_02b_diff_disc_by_topic_day:   Diff-in-Disc by topic, opt BW (day)\n")
-cat("  - table_02c_diff_disc_by_topic_continuous: Diff-in-Disc by topic, opt BW (cont)\n")
-cat("  - table_02d_diff_disc_by_topic_full_day:   Diff-in-Disc by topic, full (day)\n")
-cat("  - table_02e_diff_disc_by_topic_full_continuous: Diff-in-Disc by topic, full (cont)\n")
-cat("  - table_02l_state_ind_rdd:            RDD for state vs independent media\n")
-cat("  - table_03_alignment_main:            Alignment heterogeneity (day)\n")
-cat("  - table_03a_alignment_continuous:     Alignment heterogeneity (continuous)\n")
-cat("  - table_03b_alignment_by_topic_day:   Alignment by topic, opt BW (day)\n")
-cat("  - table_03c_alignment_by_topic_continuous: Alignment by topic, opt BW (cont)\n")
-cat("  - table_03d_alignment_by_topic_full_day:   Alignment by topic, full (day)\n")
-cat("  - table_03e_alignment_by_topic_full_continuous: Alignment by topic, full (cont)\n")
-cat("  - table_04_ethnic_main:               Ethnic heterogeneity (day)\n")
-cat("  - table_04a_ethnic_continuous:        Ethnic heterogeneity (continuous)\n")
-cat("  - table_04b_ethnic_by_topic_day:      Ethnic by topic, opt BW (day)\n")
-cat("  - table_04c_ethnic_by_topic_continuous: Ethnic by topic, opt BW (cont)\n")
-cat("  - table_04d_ethnic_by_topic_full_day:   Ethnic by topic, full (day)\n")
-cat("  - table_04e_ethnic_by_topic_full_continuous: Ethnic by topic, full (cont)\n")
-cat("\n  ## Drop No-Time Articles Robustness ##\n")
-cat("  - table_01d_rdd_drop_notime:          RDD main (drop no-time)\n")
-cat("  - table_01e_rdd_by_topic_drop_notime: RDD by topic (drop no-time)\n")
-cat("  - table_02f_diff_disc_drop_notime:    Diff-in-Disc main (drop no-time)\n")
-cat("  - table_02g_diff_disc_by_topic_opt_drop_notime: DiD by topic, opt (drop)\n")
-cat("  - table_02h_diff_disc_by_topic_full_drop_notime: DiD by topic, full (drop)\n")
-cat("  - table_03f_alignment_drop_notime:    Alignment main (drop no-time)\n")
-cat("  - table_03g_alignment_by_topic_opt_drop_notime: Alignment by topic (drop)\n")
-cat("  - table_03h_alignment_by_topic_full_drop_notime: Alignment full (drop)\n")
-cat("  - table_04f_ethnic_drop_notime:       Ethnic main (drop no-time)\n")
-cat("  - table_04g_ethnic_by_topic_opt_drop_notime: Ethnic by topic, opt (drop)\n")
-cat("  - table_04h_ethnic_by_topic_full_drop_notime: Ethnic by topic, full (drop)\n")
-cat("\n  ## Probabilistic Time Assignment Robustness ##\n")
-cat("  - table_01f_rdd_probabilistic:        RDD main (probabilistic time)\n")
-cat("  - table_01g_rdd_by_topic_probabilistic: RDD by topic (probabilistic time)\n")
-cat("  - table_02i_diff_disc_probabilistic:  Diff-in-Disc main (probabilistic)\n")
-cat("  - table_02j_diff_disc_by_topic_opt_probabilistic: DiD by topic, opt (prob)\n")
-cat("  - table_02k_diff_disc_by_topic_full_probabilistic: DiD by topic, full (prob)\n")
-cat("  - table_03i_alignment_probabilistic:  Alignment main (probabilistic)\n")
-cat("  - table_03j_alignment_by_topic_opt_probabilistic: Alignment by topic (prob)\n")
-cat("  - table_03k_alignment_by_topic_full_probabilistic: Alignment full (prob)\n")
-cat("  - table_04i_ethnic_probabilistic:     Ethnic main (probabilistic)\n")
-cat("  - table_04j_ethnic_by_topic_opt_probabilistic: Ethnic by topic, opt (prob)\n")
-cat("  - table_04k_ethnic_by_topic_full_probabilistic: Ethnic by topic, full (prob)\n")
-cat("\n  ## Classification / Descriptive Tables ##\n")
-cat("  - table_05_country_classification:    Country × alignment × ethnic\n")
-cat("  - table_06_alignment_classification:  Alignment comparison\n")
-cat("  - table_07_ethnic_classification:     Ethnic population comparison\n")
-cat("  - table_loo_alignment_robustness:     LOO country robustness (alignment)\n")
-cat("  - table_placebo_summary:              Placebo test summary\n")
+cat("\n  ## MAIN PAPER TABLES (Tables 1–4, each × 4 data variants) ##\n")
+cat("  - table_01_main / _prob / _cont / _drop   Table 1: H1 RDD (hybrid FE + Z-score)\n")
+cat("  - table_02_main / _prob / _cont / _drop   Table 2: H2 Diff-in-Disc (Z-score)\n")
+cat("  - table_03_main / _prob / _cont / _drop   Table 3: H3a Alignment (Z-score)\n")
+cat("  - table_04_main / _prob / _cont / _drop   Table 4: H3b Ethnic (Z-score)\n")
+cat("\n  ## SUPPLEMENTARY TABLES ##\n")
+cat("  S1  table_s01_fe_days/cont/drop/prob    H1 FE-based main results\n")
+cat("  S2  table_s02_fe_days/cont/drop/prob    H2 FE-based main results\n")
+cat("  S3  table_s03_fe_days/cont/drop/prob    H3a Alignment FE-based main results\n")
+cat("  S4  table_s04_fe_days/cont/drop/prob    H3b Ethnic FE-based main results\n")
+cat("  S5  table_s05_z_topic_days/cont/drop/prob  H1 by-topic Z-score, opt BW\n")
+cat("  S6  table_s06_z_topic_*                 H2 by-topic Z-score (TODO: models missing)\n")
+cat("  S7  table_s07_z_topic_*                 H3a by-topic Z-score (TODO: models missing)\n")
+cat("  S8  table_s08_z_topic_*                 H3b by-topic Z-score (TODO: models missing)\n")
+cat("  S9  table_s09_fe_topic_opt_days/cont/drop/prob  H1 by-topic FE opt BW\n")
+cat("  S10 table_s10_fe_topic_opt_days/cont/drop/prob  H2 by-topic FE opt BW\n")
+cat("  S11 table_s11_fe_topic_opt_days/cont/drop/prob  H3a by-topic FE opt BW\n")
+cat("  S12 table_s12_fe_topic_opt_days/cont/drop/prob  H3b by-topic FE opt BW\n")
+cat("  S13 table_s13_fe_topic_full_days/cont/drop/prob H2 by-topic FE full data\n")
+cat("  S14 table_s14_fe_topic_full_days/cont/drop/prob H3a by-topic FE full data\n")
+cat("  S15 table_s15_fe_topic_full_days/cont/drop/prob H3b by-topic FE full data\n")
+cat("  S16 table_s16_full_fe_robustness_days/cont/drop/prob  H2 Full FE robustness\n")
+cat("  S17 table_s17_h2_state_ind_rdd_days (+TODO: cont/drop/prob)  H2 State vs Ind RDDs\n")
+cat("  S18 table_s18_country_classification    Country classification\n")
+cat("  S19 table_s19_alignment_classification  Alignment classification\n")
+cat("  S20 table_s20_ethnic_classification     Ethnic population classification\n")
+cat("  S21 table_s21_loo_alignment_robustness  Leave-one-out robustness\n")
+cat("  S22 table_s22_placebo_summary           Placebo test summary\n")
 cat("\nFigures generated in previous scripts:\n")
 cat("  - invasion_on_sentiment.png\n")
 cat("  - invasion_on_sentiment_non_mil.png\n")
@@ -3062,13 +3620,13 @@ loo_table <- loo_data %>%
     n_obs_fmt = "N",
     bandwidth_fmt = "Bandwidth"
   ) %>%
-  tab_header(title = "Table A: Leave-One-Out Country Robustness Analysis",
+  tab_header(title = "Table S21: Leave-One-Out Country Robustness Analysis",
              subtitle = "Non-Military Topics Model") %>%
   tab_footnote(footnote = note_loo_wrapped)
 
 loo_table
 
-save_table(loo_table, "table_loo_alignment_robustness")
+save_table(loo_table, "table_s21_loo_alignment_robustness")
 ```
 
 # Placebo Test Summary Table
@@ -3127,12 +3685,12 @@ table_placebo <- placebo_summary %>%
     Bandwidth_fmt = "Bandwidth",
     N_fmt = "N"
   ) %>%
-  tab_header(title = "Table B: Placebo Test Summary (December 7, 2021)") %>%
+  tab_header(title = "Table S22: Placebo Test Summary (December 7, 2021)") %>%
   tab_footnote(footnote = note_placebo_wrapped)
 
 table_placebo
 
-save_table(table_placebo, "table_placebo_summary")
+save_table(table_placebo, "table_s22_placebo_summary")
 ```
 
 # Session Info
