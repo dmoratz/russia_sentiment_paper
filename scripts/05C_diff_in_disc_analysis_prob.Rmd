@@ -308,7 +308,7 @@ bw_select <- rdbwselect(y = resid_y,
                         p = 1,
                         bwselect = "mserd")
 
-optimal_bw_align <- bw_align$bws[1, 1]
+optimal_bw_align <- bw_select$bws[1, 1]
 cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
 
 optimal_bandwidth_data_z <- data_non_ukraine %>%
@@ -348,11 +348,11 @@ data_non_mil <- data_non_ukraine %>%
   filter(!topic_clean %in% c("Military"))
 
 # Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + csto, 
+resid_y <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + state_owned, 
                  data = data_non_mil)$residuals
 
 bw_align_non_mil <- rdbwselect(y = resid_y,
-                               x = data_align_state_non_mil$running_probabilistic,
+                               x = data_non_mil$running_probabilistic,
                                kernel = "triangular",
                                cluster = data_non_mil$source_domain,
                                p = 1,
@@ -401,7 +401,7 @@ data_non_mil <- data_non_mil %>%
   ungroup()
 
 # Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y <- feols(sentiment_z~ 1 | topic_clean + csto, 
+resid_y <- feols(sentiment_z~ 1 | topic_clean + state_owned, 
                  data = data_non_mil)$residuals
 
 bw_align_non_mil <- rdbwselect(y = resid_y,
@@ -472,7 +472,7 @@ data_non_nato <- data_non_mil %>%
   filter(!country %in% NATO_COUNTRIES)
 
 # Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y <- feols(sentiment_clean~ 1 | topic_clean + csto, 
+resid_y <- feols(sentiment_clean~ 1 | topic_clean + state_owned, 
                  data = data_non_nato)$residuals
 
 bw_align_non_nato <- rdbwselect(y = resid_y,
@@ -490,7 +490,7 @@ optimal_bandwidth_data_non_nato <- data_non_nato %>%
 
 model2d <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
-                 data = optimal_bandwidth_data__non_nato)
+                 data = optimal_bandwidth_data_non_nato)
 
 summary(model2d)
 
@@ -518,7 +518,7 @@ cat("Bootstrap p-value:", boot_model2d_fullfe$p_val, "\n")
 # Z-score version
 
 # Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y <- feols(sentiment_z~ 1 | topic_clean + csto, 
+resid_y <- feols(sentiment_z~ 1 | topic_clean + state_owned, 
                  data = data_non_nato)$residuals
 
 bw_align_non_nato <- rdbwselect(y = resid_y,
@@ -559,7 +559,7 @@ data_russian_related <- data_russian_related %>%
   ungroup()
 
 # Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y <- feols(sentiment_clean~ 1 | topic_clean + csto, 
+resid_y <- feols(sentiment_clean~ 1 | topic_clean + state_owned, 
                  data = data_russian_related)$residuals
 
 bw_align_russian <- rdbwselect(y = resid_y,
@@ -575,7 +575,7 @@ cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_russian, 1), "days\n
 optimal_bandwidth_data_russian <- data_russian_related %>%
   filter(running_probabilistic < optimal_bw_align_russian, running_probabilistic > -optimal_bw_align_russian)
 
-model3a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
+model3a_opt <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = optimal_bandwidth_data_russian)
 
@@ -605,7 +605,7 @@ cat("Bootstrap p-value:", boot_model3a_opt_full_fe$p_val, "\n")
 
 ```{r russian-related-prob-z}
 # Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y <- feols(sentiment_z~ 1 | topic_clean + csto, 
+resid_y <- feols(sentiment_z~ 1 | topic_clean + state_owned, 
                  data = data_russian_related)$residuals
 
 bw_align_russian <- rdbwselect(y = resid_y,
@@ -1308,7 +1308,6 @@ results_h2_prob <- list(
   model2d = model2d,
   model2b = model2b,
   model2b_full_fe = model2b_full_fe,
-  model3a = model3a,
   model3a_opt = model3a_opt,
   model3a_opt_full_fe = model3a_opt_full_fe,
   model3a_opt_saturated = model3a_opt_saturated,
