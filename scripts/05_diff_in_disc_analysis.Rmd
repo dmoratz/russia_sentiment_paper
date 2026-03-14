@@ -52,7 +52,8 @@ data_non_ukraine <- data_non_ukraine %>%
   filter(sd(sentiment_clean, na.rm = TRUE) > 0) %>%
   mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
                        sd(sentiment_clean, na.rm = TRUE)) %>%
-  ungroup()
+  ungroup() %>%
+  droplevels()
 
 data <- data %>%
   group_by(source_domain) %>%
@@ -255,12 +256,6 @@ optimal_bandwidth_data <- data_non_ukraine %>%
   filter(running < optimal_bw) %>%
   filter(running > -optimal_bw)
 
-# Z-score for optimal bandwidth data
-optimal_bandwidth_data <- optimal_bandwidth_data %>%
-  group_by(source_domain) %>%
-  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
-                       sd(sentiment_clean, na.rm = TRUE)) %>%
-  ungroup()
 
 cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
 ```
@@ -309,13 +304,15 @@ optimal_bw_align <- bw_select$bws[1, 1]
 cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
 
 optimal_bandwidth_data_z <- data_non_ukraine %>%
-  filter(running < optimal_bw_align, running > -optimal_bw_align)
+  filter(running < optimal_bw_align, running > -optimal_bw_align) %>%
+  droplevels()
 
 
 # Z-score version
 model2a_opt_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
                        cluster = ~source_domain,
                        data = optimal_bandwidth_data_z)
+
 boot_model2a_opt_z <- run_wild_bootstrap(model2a_opt_z, "treatment:state_owned")
 cat("Z-score model2a_opt — Bootstrap p-value:", boot_model2a_opt_z$p_val, "\n")
 ```
@@ -359,7 +356,8 @@ optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
 cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "days\n")
 
 optimal_bandwidth_data_non_mil <- data_non_mil %>%
-  filter(running < optimal_bw_align_non_mil, running > -optimal_bw_align_non_mil)
+  filter(running < optimal_bw_align_non_mil, running > -optimal_bw_align_non_mil) %>%
+  droplevels()
 
 model2b <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
@@ -412,7 +410,8 @@ optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
 cat("Optimal bandwidth (non-mil):", round(optimal_bw_align_non_mil, 1), "days\n")
 
 optimal_bandwidth_data_non_mil <- data_non_mil %>%
-  filter(running < optimal_bw_align_non_mil, running > -optimal_bw_align_non_mil)
+  filter(running < optimal_bw_align_non_mil, running > -optimal_bw_align_non_mil) %>%
+  droplevels()
 
 model2b_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
@@ -483,7 +482,8 @@ optimal_bw_align_non_nato <- bw_align_non_nato$bws[1, 1]
 cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_non_nato, 1), "days\n")
 
 optimal_bandwidth_data_non_nato <- data_non_nato %>%
-  filter(running < optimal_bw_align_non_nato, running > -optimal_bw_align_non_nato)
+  filter(running < optimal_bw_align_non_nato, running > -optimal_bw_align_non_nato) %>%
+  droplevels()
 
 model2d <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
@@ -529,12 +529,13 @@ optimal_bw_align_non_nato <- bw_align_non_nato$bws[1, 1]
 cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_non_nato, 1), "days\n")
 
 optimal_bandwidth_data_non_nato <- data_non_nato %>%
-  filter(running < optimal_bw_align_non_nato, running > -optimal_bw_align_non_nato)
+  filter(running < optimal_bw_align_non_nato, running > -optimal_bw_align_non_nato) %>%
+  droplevels()
 
 
 model2d_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
-                   data = data_non_nato)
+                   data = optimal_bandwidth_data_non_nato)
 
 boot_model2d_z <- run_wild_bootstrap(model2d_z, "treatment:state_owned")
 cat("Z-score model2d — Bootstrap p-value:", boot_model2d_z$p_val, "\n")
@@ -570,18 +571,19 @@ optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
 cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_russian, 1), "days\n")
 
 optimal_bandwidth_data_russian <- data_russian_related %>%
-  filter(running < optimal_bw_align_russian, running > -optimal_bw_align_russian)
+  filter(running < optimal_bw_align_russian, running > -optimal_bw_align_russian) %>%
+  droplevels()
 
 model3a_opt <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = optimal_bandwidth_data_russian)
 
-summary(model3a)
+summary(model3a_opt)
 
 # Wild cluster bootstrap
-boot_model3a <- run_wild_bootstrap(model3a, "treatment:state_owned")
-cat("Bootstrap SE for treatment:state_owned:", boot_model3a$se, "\n")
-cat("Bootstrap p-value:", boot_model3a$p_val, "\n")
+boot_model3a_opt <- run_wild_bootstrap(model3a_opt, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt$se, "\n")
+cat("Bootstrap p-value:", boot_model3a_opt$p_val, "\n")
 ```
 
 ### Russian-Related Full FEs
@@ -616,12 +618,14 @@ optimal_bw_align_russian <- bw_align_russian$bws[1, 1]
 cat("Optimal bandwidth (non-nato):", round(optimal_bw_align_russian, 1), "days\n")
 
 optimal_bandwidth_data_russian_z <- data_russian_related %>%
-  filter(running < optimal_bw_align_russian, running > -optimal_bw_align_russian)
+  filter(running < optimal_bw_align_russian, running > -optimal_bw_align_russian) %>%
+  droplevels()
 
 
 model3a_z <- feols(sentiment_z ~ running * treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
                    data = optimal_bandwidth_data_russian_z)
+
 boot_model3a_z <- run_wild_bootstrap(model3a_z, "treatment:state_owned")
 cat("Z-score model3a — Bootstrap p-value:", boot_model3a_z$p_val, "\n")
 ```
@@ -631,11 +635,11 @@ cat("Z-score model3a — Bootstrap p-value:", boot_model3a_z$p_val, "\n")
 ## Full Data By Topic
 
 ```{r topic-full}
-data_pol <- data_non_ukraine %>% filter(topic_clean == "Political")
-data_mil <- data_non_ukraine %>% filter(topic_clean == "Military")
-data_econ <- data_non_ukraine %>% filter(topic_clean == "Economic")
-data_cult <- data_non_ukraine %>% filter(topic_clean == "Culture")
-data_oth <- data_non_ukraine %>% filter(topic_clean == "Other")
+data_pol <- data_non_ukraine %>% filter(topic_clean == "Political") %>% droplevels()
+data_mil <- data_non_ukraine %>% filter(topic_clean == "Military") %>% droplevels()
+data_econ <- data_non_ukraine %>% filter(topic_clean == "Economic") %>% droplevels()
+data_cult <- data_non_ukraine %>% filter(topic_clean == "Culture") %>% droplevels()
+data_oth <- data_non_ukraine %>% filter(topic_clean == "Other") %>% droplevels()
 
 model2a_full_pol <- feols(sentiment_z ~ running * treatment * state_owned,
                           cluster = ~source_domain,
@@ -670,7 +674,7 @@ bw_pol <- rdbwselect(y = resid_y_pol, x = data_pol$running,
                      kernel = "triangular", cluster = data_pol$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_pol <- bw_pol$bws[1, 1]
 cat("Political optimal bandwidth:", round(optimal_bw_pol, 1), "days\n")
-opt_data_pol <- data_pol %>% filter(running < optimal_bw_pol, running > -optimal_bw_pol)
+opt_data_pol <- data_pol %>% filter(running < optimal_bw_pol, running > -optimal_bw_pol) %>% droplevels()
 
 # Military
 resid_y_mil <- feols(sentiment_clean ~ 1 | state_owned, data = data_mil)$residuals
@@ -678,7 +682,7 @@ bw_mil <- rdbwselect(y = resid_y_mil, x = data_mil$running,
                      kernel = "triangular", cluster = data_mil$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_mil <- bw_mil$bws[1, 1]
 cat("Military optimal bandwidth:", round(optimal_bw_mil, 1), "days\n")
-opt_data_mil <- data_mil %>% filter(running < optimal_bw_mil, running > -optimal_bw_mil)
+opt_data_mil <- data_mil %>% filter(running < optimal_bw_mil, running > -optimal_bw_mil) %>% droplevels()
 
 # Economic
 resid_y_econ <- feols(sentiment_clean ~ 1 | state_owned, data = data_econ)$residuals
@@ -686,7 +690,7 @@ bw_econ <- rdbwselect(y = resid_y_econ, x = data_econ$running,
                       kernel = "triangular", cluster = data_econ$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_econ <- bw_econ$bws[1, 1]
 cat("Economic optimal bandwidth:", round(optimal_bw_econ, 1), "days\n")
-opt_data_econ <- data_econ %>% filter(running < optimal_bw_econ, running > -optimal_bw_econ)
+opt_data_econ <- data_econ %>% filter(running < optimal_bw_econ, running > -optimal_bw_econ) %>% droplevels()
 
 # Culture
 resid_y_cult <- feols(sentiment_clean ~ 1 | state_owned, data = data_cult)$residuals
@@ -694,7 +698,7 @@ bw_cult <- rdbwselect(y = resid_y_cult, x = data_cult$running,
                       kernel = "triangular", cluster = data_cult$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_cult <- bw_cult$bws[1, 1]
 cat("Culture optimal bandwidth:", round(optimal_bw_cult, 1), "days\n")
-opt_data_cult <- data_cult %>% filter(running < optimal_bw_cult, running > -optimal_bw_cult)
+opt_data_cult <- data_cult %>% filter(running < optimal_bw_cult, running > -optimal_bw_cult) %>% droplevels()
 
 # Other
 resid_y_oth <- feols(sentiment_clean ~ 1 | state_owned, data = data_oth)$residuals
@@ -702,7 +706,7 @@ bw_oth <- rdbwselect(y = resid_y_oth, x = data_oth$running,
                      kernel = "triangular", cluster = data_oth$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_oth <- bw_oth$bws[1, 1]
 cat("Other optimal bandwidth:", round(optimal_bw_oth, 1), "days\n")
-opt_data_oth <- data_oth %>% filter(running < optimal_bw_oth, running > -optimal_bw_oth)
+opt_data_oth <- data_oth %>% filter(running < optimal_bw_oth, running > -optimal_bw_oth) %>% droplevels()
 ```
 
 ```{r topic-opt-models}
@@ -768,7 +772,7 @@ for (cntry in countries) {
   optimal_bw_loo <- bw_loo$bws[1, 1]
 
   data_loo_bw <- data_loo %>%
-    filter(running < optimal_bw_loo, running > -optimal_bw_loo)
+    filter(running < optimal_bw_loo, running > -optimal_bw_loo) %>% droplevels()
 
   model_loo <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                      cluster = ~source_domain,
@@ -829,7 +833,7 @@ optimal_bw_placebo <- bw_placebo$bws[1, 1]
 cat("Placebo optimal bandwidth:", round(optimal_bw_placebo, 1), "days\n")
 
 data_dec_bw <- data_dec %>%
-  filter(running < optimal_bw_placebo, running > -optimal_bw_placebo)
+  filter(running < optimal_bw_placebo, running > -optimal_bw_placebo) %>% droplevels()
 
 model4a <- feols(sentiment_clean ~ running * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
@@ -880,10 +884,9 @@ data_dec %>%
 
 ```{r matching-h2}
 # Subset to data of interest (non-military, optimal bandwidth)
-matching_data <- data_non_mil %>%
-  filter(running < optimal_bw, running > -optimal_bw) %>%
+matching_data <- optimal_bandwidth_data_non_mil %>%
   select(sentiment_clean, sentiment_z, running, running, treatment, state_owned,
-         topic_clean, source_domain, country)
+         topic_clean, source_domain, country) %>% droplevels()
 
 # Match on topic and publication day
 ps_model <- matchit(
