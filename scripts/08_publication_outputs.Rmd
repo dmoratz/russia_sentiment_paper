@@ -96,6 +96,7 @@ data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 cat("Results loaded successfully.\n")
 ```
 
+
 # Model Verification
 
 ```{r verify-models}
@@ -119,18 +120,18 @@ check_model(results_h1, "model5_opt_cult", "results_h1")
 check_model(results_h1, "model5_opt_oth",  "results_h1")
 
 # H2 Z-score by-topic models (needed for Table S6)
-check_model(results_h2, "model2a_opt_z_pol",  "results_h2")
-check_model(results_h2, "model2a_opt_z_mil",  "results_h2")
-check_model(results_h2, "model2a_opt_z_econ", "results_h2")
-check_model(results_h2, "model2a_opt_z_cult", "results_h2")
-check_model(results_h2, "model2a_opt_z_oth",  "results_h2")
+check_model(results_h2, "model2a_opt_pol",  "results_h2")
+check_model(results_h2, "model2a_opt_mil",  "results_h2")
+check_model(results_h2, "model2a_opt_econ", "results_h2")
+check_model(results_h2, "model2a_opt_cult", "results_h2")
+check_model(results_h2, "model2a_opt_oth",  "results_h2")
 
 # H3a Z-score by-topic models (needed for Table S7)
-check_model(results_align, "model5a_opt_z_pol",  "results_align")
-check_model(results_align, "model5a_opt_z_mil",  "results_align")
-check_model(results_align, "model5a_opt_z_econ", "results_align")
-check_model(results_align, "model5a_opt_z_cult", "results_align")
-check_model(results_align, "model5a_opt_z_oth",  "results_align")
+check_model(results_align, "model5a_opt_pol",  "results_align")
+check_model(results_align, "model5a_opt_mil",  "results_align")
+check_model(results_align, "model5a_opt_econ", "results_align")
+check_model(results_align, "model5a_opt_cult", "results_align")
+check_model(results_align, "model5a_opt_oth",  "results_align")
 
 # H3b Z-score models (needed for main Table 4 and Table S8)
 check_model(results_ethnic, "model6a_high_z",          "results_ethnic")
@@ -170,6 +171,7 @@ get_boot_stars <- function(p_val) {
   if (p_val < 0.001) return("***")
   if (p_val < 0.01) return("**")
   if (p_val < 0.05) return("*")
+  if (p_val < 0.1) return("+")
   return("")
 }
 
@@ -195,8 +197,20 @@ save_table <- function(tbl, name) {
   invisible(tbl)
 }
 
+# Get Clusters
+get_n_clusters <- function(mod) {
+  if (inherits(mod, "fixest")) {
+    as.character(attr(mod$cov.scaled, "G"))
+  } else if (inherits(mod, "rdrobust")) {
+    NA
+  } else {
+    "—"
+  }
+}
+
+
 # Standard SE notation footnotes
-SE_NOTE_BOOT    <- "† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach & Miller 2008) with Webb six-point weights (B=9999, null imposed), clustered by source domain."
+SE_NOTE_BOOT    <- "† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach & Miller 2008) with Webb six-point weights (B=4999, null imposed), clustered by source domain."
 SE_NOTE_RDROBUST <- "‡ Cluster-robust SEs from rdrobust."
 SE_NOTE_CLUSTER  <- "All standard errors are clustered at the source level."
 # Legacy alias kept for existing table code that references SE_NOTE directly
@@ -210,14 +224,16 @@ SE_NOTE <- paste(SE_NOTE_BOOT, SE_NOTE_RDROBUST)
 ## Table 1: H1 RDD (Day)
 
 ```{r table1}
+
 rows <- tibble::tribble(
   ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
   'Topic FEs',      '-', '-', '-', 'X', 'X', 'X', 'X',
   'State FEs',      '-', 'X', 'X', 'X', '-', '-', '-',
   'Source FEs',     '-', '-', 'X', 'X', '-', '-', '-',
-  'Source Z-Score', '-', '-', '-', '-', 'X', 'X', 'X'
+  'Source Z-Score', '-', '-', '-', '-', 'X', 'X', 'X',
+  'Clusters', '61', '61', '61', '61', '61', '61', '61'
 )
-attr(rows, 'position') <- c(3, 4, 5, 6)
+attr(rows, 'position') <- c(3, 4, 5, 6,7)
 
 note_text <- paste(SE_NOTE_CLUSTER,
                    "Models 1-4 use the optimal bandwidth.",
@@ -238,7 +254,7 @@ table_1 <- modelsummary(
   fmt = fmt_significant(2),
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
   title = "Table 1: Effect of Russian Invasion on Media Sentiment (RDD, Day Running Variable)",
   add_rows = rows,
   notes = str_wrap(note_text, 80)
@@ -251,84 +267,174 @@ save_table(table_1, "table_01_main")
 ## Table 2: H2 Diff-in-Disc (Day)
 
 ```{r table2}
-rows <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X', 'X'
+models <- list(
+  results_h2$model2_state_rdd_z,
+  results_h2$model2_ind_rdd_z,
+  results_h2$model2a_z,
+  results_h2$model2a_opt_z,
+  results_h2$model2b_z,
+  results_h2$model2d_z,
+  results_h2$model3a_z,
+  results_h2$matched_model_z
 )
-attr(rows, 'position') <- c(5)
+
+cluster_counts <- map_chr(models, get_n_clusters)
+cluster_counts[1] <- 17
+cluster_counts[2] <- 44
+
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', cluster_counts[1], cluster_counts[2], cluster_counts[3],
+  cluster_counts[4], cluster_counts[5], cluster_counts[6],
+  cluster_counts[7], cluster_counts[8]
+)
+attr(rows, 'position') <- c(5, 6)
 
 note_text <- paste(
   "All models use a source-level Z-Score normalization.",
-  "Models 1-2 show separate RDD estimates for state-owned and independent media.",
-  "Models 3-7 estimate the state-owned × treatment interaction.",
+  SE_NOTE,
+  "Models 1-2 show separate RDD estimates for state-owned and independent media, filtered to omit military topics.",
+  "Models 3-8 estimate the state-owned × treatment interaction.",
   "Model 3 uses the full dataset. Model 4 uses the optimal bandwidth.",
   "Model 5 omits military topics. Model 6 omits NATO allies.",
   "Model 7 restricts to Russian-related articles with a re-optimized bandwidth.",
-  SE_NOTE_CLUSTER
+  "Model 8 omits military topics and uses matched data across independent and state-owned outlet. Matching done on topic and date of publication."
 )
 
-if (is.null(results_h2$model2_state_rdd_z) || is.null(results_h2$model2_ind_rdd_z)) {
-  # TODO: model2_state_rdd_z or model2_ind_rdd_z not found in results_h2.
-  # Create these Z-score separate RDD models in 05 scripts before enabling cols 1-2.
-  cat("WARNING: Z-score separate RDD models not found for Table 2 — skipping full table.\n")
-} else {
-  table_2 <- modelsummary(
-    list(
-      "(1)" = results_h2$model2_state_rdd_z,
-      "(2)" = results_h2$model2_ind_rdd_z,
-      "(3)" = results_h2$model2a_z,
-      "(4)" = results_h2$model2a_opt_z,
-      "(5)" = results_h2$model2b_z,
-      "(6)" = results_h2$model2d_z,
-      "(7)" = results_h2$model3a_opt_z
-    ),
-    output = "gt",
-    fmt = fmt_significant(2),
-    stars = TRUE,
-    coef_map = c(
-      "treatment" = "Invasion",
-      "treatment:state_owned" = "State Owned x Treatment"
-    ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-    title = "Table 2: Difference in Discontinuities — State vs. Independent Media (Day Running Variable)",
-    add_rows = rows,
-    notes = str_wrap(note_text, 80)
-  )
+# Bootstrap SE objects for felm models (columns 3-8)
+boot_keys <- c("model2a_z", "model2a_opt_z", "model2b_z", "model2d_z", "model3a_z", "matched_model_z")
+boot_results <- lapply(boot_keys, function(k) results_h2$bootstrap_se[[k]])
 
-  table_2
-  save_table(table_2, "table_02_main")
+# Create vcov list with bootstrap SEs
+vcov_t2 <- list(
+  NULL,
+  NULL,
+  "(3)†" = create_bootstrap_vcov(results_h2$model2a_z, boot_results[[1]], "treatment:state_owned"),
+  "(4)†" = create_bootstrap_vcov(results_h2$model2a_opt_z, boot_results[[2]], "treatment:state_owned"),
+  "(5)†" = create_bootstrap_vcov(results_h2$model2b_z, boot_results[[3]], "treatment:state_owned"),
+  "(6)†" = create_bootstrap_vcov(results_h2$model2d_z, boot_results[[4]], "treatment:state_owned"),
+  "(7)†" = create_bootstrap_vcov(results_h2$model3a_z, boot_results[[5]], "treatment:state_owned"),
+  "(8)†" = create_bootstrap_vcov(results_h2$matched_model_z, boot_results[[6]], "treatment:state_owned")
+)
+
+# Build table with default stars (correct for rdrobust + main effects)
+table_2 <- modelsummary(
+  list(
+    "(1)‡" = results_h2$model2_state_rdd_z,
+    "(2)‡" = results_h2$model2_ind_rdd_z,
+    "(3)†" = results_h2$model2a_z,
+    "(4)†" = results_h2$model2a_opt_z,
+    "(5)†" = results_h2$model2b_z,
+    "(6)†" = results_h2$model2d_z,
+    "(7)†" = results_h2$model3a_z,
+    "(8)†" = results_h2$matched_model_z
+  ),
+  vcov = vcov_t2,
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|nobs.left|nobs.right|bandwidth.left|bandwidth.right|R2 Within|R2 Within Adj.",
+  title = "Table 2: Difference in Discontinuities — State vs. Independent Media (Day Running Variable)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+
+# Post-process: overwrite interaction row stars with bootstrap p-values
+# The interaction row ("State Owned x Treatment") is row 3 in the gt body
+# (row 1 = Invasion estimate, row 2 = Invasion SE, row 3 = interaction estimate, row 4 = interaction SE)
+interaction_row <- 3
+boot_col_names <- paste0("(", 3:8, ")†")
+
+for (i in seq_along(boot_results)) {
+  boot_p <- boot_results[[i]]$p_val
+  boot_stars <- get_boot_stars(boot_p)
+  
+  # Extract the current cell value, strip any existing stars, and add bootstrap stars
+  table_2 <- table_2 %>%
+    text_transform(
+      locations = cells_body(columns = boot_col_names[i], rows = interaction_row),
+      fn = function(x) {
+        # Remove any stars modelsummary may have added
+        val <- gsub("[*]+$", "", x)
+        paste0(val, boot_stars)
+      }
+    )
 }
+
+table_2
+save_table(table_2, "table_02_main")
 ```
+
 
 ## Table 3: H3a Alignment (Day)
 
 ```{r table3}
-rows <- tibble::tribble(
-  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X'
+models <- list(
+  results_align$model5a_csto_z,
+  results_align$model5a_neutral_z,
+  results_align$model5a_z,
+  results_align$model5a_opt_z,
+  results_align$model5a_opt_non_mil_z,
+  results_align$model5a_opt_russian_z,
+  results_align$matched_model
 )
-attr(rows, 'position') <- c(5)
+
+cluster_counts <- map_chr(models, get_n_clusters)
+cluster_counts[1] <- 9
+cluster_counts[2] <- 4
+
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Source Z-Score', 'X', 'X', 'X', 'X', 'X', 'X', 'X',
+  'Clusters', cluster_counts[1], cluster_counts[2], cluster_counts[3],
+  cluster_counts[4], cluster_counts[5], cluster_counts[6], cluster_counts[7]
+)
+attr(rows, 'position') <- c(5, 6)
 
 note_text <- paste(
   "All models use a source-level Z-Score normalization.",
-  "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries.",
-  "Models 3-6 estimate the CSTO × treatment interaction.",
+  SE_NOTE,
+  "Sample restricted to state-owned media in non-NATO countries.",
+  "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries, filtered to omit military topics.",
+  "Models 3-7 estimate the CSTO × treatment interaction.",
   "Model 3 uses the full dataset. Model 4 uses the optimal bandwidth.",
   "Model 5 omits military topics.",
   "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
-  "Sample restricted to state-owned media in non-NATO countries.",
-  SE_NOTE_CLUSTER
+  "Model 7 omits military topics and uses matched data across CSTO and neutral countries. Matching done on topic and date of publication."
 )
 
+# Bootstrap SE objects for felm models (columns 3-7)
+boot_keys <- c("model5a_z", "model5a_opt_z", "model5a_opt_non_mil_z", "model5a_opt_russian_z", "matched_model")
+boot_results <- lapply(boot_keys, function(k) results_align$bootstrap_se[[k]])
+
+# Create vcov list with bootstrap SEs for felm models (columns 3-7)
+vcov_t3 <- list(
+  NULL,
+  NULL,
+  "(3)†" = create_bootstrap_vcov(results_align$model5a_z, boot_results[[1]], "treatment:csto"),
+  "(4)†" = create_bootstrap_vcov(results_align$model5a_opt_z, boot_results[[2]], "treatment:csto"),
+  "(5)†" = create_bootstrap_vcov(results_align$model5a_opt_non_mil_z, boot_results[[3]], "treatment:csto"),
+  "(6)†" = create_bootstrap_vcov(results_align$model5a_opt_russian_z, boot_results[[4]], "treatment:csto"),
+  "(7)†" = create_bootstrap_vcov(results_align$matched_model, boot_results[[5]], "treatment:csto")
+)
+
+# Build table with default stars
 table_3 <- modelsummary(
   list(
-    "(1)" = results_align$model5a_csto_z,
-    "(2)" = results_align$model5a_neutral_z,
-    "(3)" = results_align$model5a_z,
-    "(4)" = results_align$model5a_opt_z,
-    "(5)" = results_align$model5a_opt_non_mil_z,
-    "(6)" = results_align$model5a_opt_russian_z
+    "(1)‡" = results_align$model5a_csto_z,
+    "(2)‡" = results_align$model5a_neutral_z,
+    "(3)†" = results_align$model5a_z,
+    "(4)†" = results_align$model5a_opt_z,
+    "(5)†" = results_align$model5a_opt_non_mil_z,
+    "(6)†" = results_align$model5a_opt_russian_z,
+    "(7)†" = results_align$matched_model
   ),
+  vcov = vcov_t3,
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
@@ -336,11 +442,29 @@ table_3 <- modelsummary(
     "treatment" = "Invasion",
     "treatment:csto" = "CSTO x Treatment"
   ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|nobs.left|nobs.right|bandwidth.left|bandwidth.right|R2 Within|R2 Within Adj.",
   title = "Table 3: Russian Alignment Heterogeneity — State Media (Day Running Variable)",
   add_rows = rows,
   notes = str_wrap(note_text, 80)
 )
+
+# Post-process: overwrite interaction row stars with bootstrap p-values
+interaction_row <- 3
+boot_col_names <- paste0("(", 3:7, ")†")
+
+for (i in seq_along(boot_results)) {
+  boot_p <- boot_results[[i]]$p_val
+  boot_stars <- get_boot_stars(boot_p)
+
+  table_3 <- table_3 %>%
+    text_transform(
+      locations = cells_body(columns = boot_col_names[i], rows = interaction_row),
+      fn = function(x) {
+        val <- gsub("[*]+$", "", x)
+        paste0(val, boot_stars)
+      }
+    )
+}
 
 table_3
 save_table(table_3, "table_03_main")
@@ -392,7 +516,7 @@ if (is.null(results_ethnic$model6a_high_z) || is.null(results_ethnic$model6a_low
       "treatment" = "Invasion",
       "treatment:high_russia" = "High Russian Pop x Treatment"
     ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
     title = "Table 4: Ethnic Russian Population Heterogeneity — State Media (Day Running Variable)",
     add_rows = rows,
     notes = str_wrap(note_text, 80)
@@ -435,7 +559,7 @@ table_1_prob <- modelsummary(
   fmt = fmt_significant(2),
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
   title = "Table 1 (Prob): Effect of Russian Invasion on Media Sentiment (RDD, Probabilistic Time)",
   add_rows = rows,
   notes = str_wrap(note_text, 80)
@@ -465,34 +589,32 @@ note_text <- paste(
   SE_NOTE_CLUSTER
 )
 
-if (is.null(results_h2_prob$model2_state_rdd_z) || is.null(results_h2_prob$model2_ind_rdd_z)) {
-  cat("WARNING: Z-score separate RDD models not found for Table 2 (Prob) — skipping.\n")
-} else {
-  table_2_prob <- modelsummary(
-    list(
-      "(1)" = results_h2_prob$model2_state_rdd_z,
-      "(2)" = results_h2_prob$model2_ind_rdd_z,
-      "(3)" = results_h2_prob$model2a_z,
-      "(4)" = results_h2_prob$model2a_opt_z,
-      "(5)" = results_h2_prob$model2b_z,
-      "(6)" = results_h2_prob$model2d_z,
-      "(7)" = results_h2_prob$model3a_opt_z
-    ),
-    output = "gt",
-    fmt = fmt_significant(2),
-    stars = TRUE,
-    coef_map = c(
-      "treatment" = "Invasion",
-      "treatment:state_owned" = "State Owned x Treatment"
-    ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
-    title = "Table 2 (Prob): Difference in Discontinuities — State vs. Independent Media (Probabilistic Time)",
-    add_rows = rows,
-    notes = str_wrap(note_text, 80)
-  )
-  table_2_prob
-  save_table(table_2_prob, "table_02_main_prob")
-}
+
+table_2_prob <- modelsummary(
+  list(
+    "(1)" = results_h2_prob$model2_state_rdd_z,
+    "(2)" = results_h2_prob$model2_ind_rdd_z,
+    "(3)" = results_h2_prob$model2a_z,
+    "(4)" = results_h2_prob$model2a_opt_z,
+    "(5)" = results_h2_prob$model2b_z,
+    "(6)" = results_h2_prob$model2d_z,
+    "(7)" = results_h2_prob$model3a_z
+  ),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|nobs.left|nobs.right|bandwidth.left|bandwidth.right|R2 Within|R2 Within Adj.",
+  title = "Table 2 (Prob): Difference in Discontinuities — State vs. Independent Media (Probabilistic Time)",
+  add_rows = rows,
+  notes = str_wrap(note_text, 80)
+)
+table_2_prob
+save_table(table_2_prob, "table_02_main_prob")
+
 ```
 
 ## Table 3 (Prob): H3a Alignment (Probabilistic Time)
@@ -532,7 +654,7 @@ table_3_prob <- modelsummary(
     "treatment" = "Invasion",
     "treatment:csto" = "CSTO x Treatment"
   ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
   title = "Table 3 (Prob): Russian Alignment Heterogeneity — State Media (Probabilistic Time)",
   add_rows = rows,
   notes = str_wrap(note_text, 80)
@@ -585,7 +707,7 @@ if (is.null(results_ethnic_prob$model6a_high_z) || is.null(results_ethnic_prob$m
       "treatment" = "Invasion",
       "treatment:high_russia" = "High Russian Pop x Treatment"
     ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE",
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
     title = "Table 4 (Prob): Ethnic Russian Population Heterogeneity — State Media (Probabilistic Time)",
     add_rows = rows,
     notes = str_wrap(note_text, 80)

@@ -1,0 +1,34 @@
+\begin{table}[!t]
+\caption{Table 3: Russian Alignment Heterogeneity — State Media (Day Running Variable)} 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccccc}
+\toprule
+  & (1)‡ & (2)‡ & (3)† & (4)† & (5)† & (6)† & (7)† \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.217* & 0.056 & -0.150 & -0.044 & 0.079 & 0.067 & 0.079 \\ 
+ & (0.100) & (0.122) & (0.093) & (0.074) & (0.065) & (0.084) & (0.064) \\ 
+CSTO x Treatment &  &  & -0.021+ & -0.16+ & -0.26+ & -0.34+ & -0.31+ \\ 
+{} & {} & {} & {(0.101)} & {(0.11)} & {(0.10)} & {(0.12)} & {(0.10)} \\ 
+Source Z-Score & X & X & X & X & X & X & X \\ 
+Clusters & 9 & 4 & 13 & 13 & 13 & 13 & 13 \\ 
+Num.Obs. & 17733 & 4802 & 26911 & 7671 & 6469 & 4958 & 6097 \\ 
+R2 &  &  & 0.023 & 0.022 & 0.013 & 0.015 & 0.012 \\ 
+R2 Adj. &  &  & 0.023 & 0.020 & 0.012 & 0.013 & 0.011 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
++ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
+All models use a source-level Z-Score normalization. † Standard errors computed
+via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach \& Miller 2008)
+with Webb six-point weights (B=4999, null imposed), clustered by source domain.
+‡ Cluster-robust SEs from rdrobust. Sample restricted to state-owned media in
+non-NATO countries. Models 1-2 show separate RDD estimates for CSTO-aligned
+and neutral countries, filtered to omit military topics. Models 3-7 estimate
+the CSTO × treatment interaction. Model 3 uses the full dataset. Model 4 uses
+the optimal bandwidth. Model 5 omits military topics. Model 6 restricts to
+Russian-related articles with a re-optimized bandwidth. Model 7 omits military
+topics and uses matched data across CSTO and neutral countries. Matching done on
+topic and date of publication.\\
+\end{minipage}
+\end{table}
+
