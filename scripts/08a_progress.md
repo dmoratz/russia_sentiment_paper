@@ -1,0 +1,24 @@
+# 08a Progress Tracker
+
+- [x] Task 1.1: Create file header
+- [x] Task 1.2: Load data
+- [x] Task 1.3: Model verification
+- [x] Task 2.1: Build Table 1 (H1 RDD, Pattern A)
+- [x] Task 3.1: Build Table 2 (H2 Interaction Z-Score, Pattern B)
+- [~] Task 4.1: Build Table 3 (H2 By-Topic Z-Score, Pattern C-z) — models may not exist, guarded with if/TODO
+- [x] Task 5.1: Build Table 4 (H3a Interaction Z-Score, Pattern B)
+- [~] Task 6.1: Build Table 5 (H3a By-Topic Z-Score, Pattern C-z) — models may not exist, guarded with if/TODO
+- [~] Task 7.1: Build Table 6 (H3b Null Result Z-Score, Pattern B) — models likely don't exist, guarded with if/TODO
+- [x] Task 8.1: Build Table 7 (Country Classification, Pattern E)
+- [x] Task 9.1: Build Table S1 (H1 FE Robustness, Pattern A)
+- [x] Task 10.1: Build Table S2 (H1 By-Topic Z-Score, Pattern C-z)
+- [x] Task 11.1: Build Table S3 (H2 FE Interaction Core, Pattern B-fe)
+- [x] Task 12.1: Build Table S4 (H2 FE Robustness, Pattern B-fe)
+- [x] Task 13.1: Build Table S5 (H2 By-Topic FE Opt BW, Pattern C-fe)
+- [x] Task 14.1: Build Table S6 (H2 LOO Robustness, Pattern E)
+- [x] Task 15.1: Build Table S7 (H3a FE Interaction + Robustness, Pattern B-fe)
+- [x] Task 16.1: Build Table S8 (H3a By-Topic FE Opt BW, Pattern C-fe)
+- [x] Task 17.1: Build Table S9 (H3a LOO Robustness, Pattern E)
+- [x] Task 18.1: Build Table S10 (Placebo Test Summary, Pattern E)
+- [x] Task 19.1: Add summary section
+- [x] Task 19.2: Add session info

@@ -448,4 +448,50 @@ assign_probabilistic_time <- function(data, date_col_name, source_col, country_c
   return(result)
 }
 
+# -----------------------------------------------------------------------------
+# Publication Output Helpers
+# -----------------------------------------------------------------------------
+
+create_bootstrap_vcov <- function(model, boot_result, coef_name) {
+  original_vcov <- vcov(model)
+  modified_vcov <- original_vcov
+  coef_idx <- which(names(coef(model)) == coef_name)
+  if (length(coef_idx) > 0 && !is.null(boot_result$se)) {
+    modified_vcov[coef_idx, coef_idx] <- boot_result$se^2
+  }
+  return(modified_vcov)
+}
+
+get_boot_stars <- function(p_val) {
+  if (is.null(p_val) || is.na(p_val)) return("")
+  if (p_val < 0.001) return("***")
+  if (p_val < 0.01) return("**")
+  if (p_val < 0.05) return("*")
+  if (p_val < 0.1) return("+")
+  return("")
+}
+
+get_n_clusters <- function(model) {
+  tryCatch({
+    if ("fixest" %in% class(model)) {
+      n_cl <- attr(model$cov.scaled, "G")
+      if (!is.null(n_cl)) return(as.character(n_cl))
+    }
+    return("—")
+  }, error = function(e) "—")
+}
+
+save_table <- function(tbl, name, subdir = NULL) {
+  out_dir <- if (!is.null(subdir)) file.path(FIGURES_TABLES, subdir) else FIGURES_TABLES
+  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  gtsave(tbl, file.path(out_dir, paste0(name, ".tex")))
+  gtsave(tbl, file.path(out_dir, paste0(name, ".html")))
+  invisible(tbl)
+}
+
+SE_NOTE_BOOT <- "† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach & Miller 2008) with Webb six-point weights (B=9999, null imposed), clustered by source domain."
+SE_NOTE_RDROBUST <- "‡ Cluster-robust SEs from rdrobust."
+SE_NOTE_CLUSTER <- "All standard errors are clustered at the source level."
+SE_NOTE <- paste(SE_NOTE_BOOT, SE_NOTE_RDROBUST)
+
 cat("Setup complete. Project root:", PROJECT_ROOT, "\n")

@@ -106,7 +106,10 @@ Changes to make:
 | `07A_ethnic_russian_analysis_continuous.Rmd` | Ethnic Russian analysis (continuous) | `07_ethnic_results_continuous.rds` |
 | `07B_ethnic_russian_analysis_drop.Rmd` | Ethnic Russian analysis (drop no-time) | `07_ethnic_results_drop.rds` |
 | `07C_ethnic_russian_analysis_prob.Rmd` | Ethnic Russian analysis (probabilistic) | `07_ethnic_results_prob.rds` |
-| `08_publication_outputs.Rmd` | Final tables and figures | Publication-ready outputs (.tex + .html) |
+| `08a_publication_outputs.Rmd` | Publication tables (Probabilistic Time, primary) | Publication-ready outputs (.tex + .html) |
+| `08b_publication_outputs_days.Rmd` | Publication tables (Day Running Variable) | Publication-ready outputs (.tex + .html) |
+| `08c_publication_outputs_cont.Rmd` | Publication tables (Continuous Running Variable) | Publication-ready outputs (.tex + .html) |
+| `08d_publication_outputs_drop.Rmd` | Publication tables (Drop No-Time Articles) | Publication-ready outputs (.tex + .html) |
 
 # Run Pipeline
 
@@ -421,20 +424,68 @@ step7c_time <- difftime(Sys.time(), step7c_start, units = "secs")
 cat("Completed in", round(step7c_time, 1), "seconds\n")
 ```
 
-## Step 8: Publication Outputs
+## Step 8a: Publication Outputs (Probabilistic Time)
 
-```{r step8}
-step8_start <- Sys.time()
-cat("Running 08_publication_outputs.Rmd...\n")
+```{r step8a}
+step8a_start <- Sys.time()
+cat("Running 08a_publication_outputs.Rmd...\n")
 
 rmarkdown::render(
-  "08_publication_outputs.Rmd",
+  "08a_publication_outputs.Rmd",
   output_dir = "../output",
   quiet = TRUE
 )
 
-step8_time <- difftime(Sys.time(), step8_start, units = "secs")
-cat("Completed in", round(step8_time, 1), "seconds\n")
+step8a_time <- difftime(Sys.time(), step8a_start, units = "secs")
+cat("Completed in", round(step8a_time, 1), "seconds\n")
+```
+
+## Step 8b: Publication Outputs (Day Running Variable)
+
+```{r step8b}
+step8b_start <- Sys.time()
+cat("Running 08b_publication_outputs_days.Rmd...\n")
+
+rmarkdown::render(
+  "08b_publication_outputs_days.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step8b_time <- difftime(Sys.time(), step8b_start, units = "secs")
+cat("Completed in", round(step8b_time, 1), "seconds\n")
+```
+
+## Step 8c: Publication Outputs (Continuous Running Variable)
+
+```{r step8c}
+step8c_start <- Sys.time()
+cat("Running 08c_publication_outputs_cont.Rmd...\n")
+
+rmarkdown::render(
+  "08c_publication_outputs_cont.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step8c_time <- difftime(Sys.time(), step8c_start, units = "secs")
+cat("Completed in", round(step8c_time, 1), "seconds\n")
+```
+
+## Step 8d: Publication Outputs (Drop No-Time Articles)
+
+```{r step8d}
+step8d_start <- Sys.time()
+cat("Running 08d_publication_outputs_drop.Rmd...\n")
+
+rmarkdown::render(
+  "08d_publication_outputs_drop.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step8d_time <- difftime(Sys.time(), step8d_start, units = "secs")
+cat("Completed in", round(step8d_time, 1), "seconds\n")
 ```
 
 # Cleanup
@@ -477,7 +528,10 @@ cat("  07_ethnic:               ", round(step7_time, 1), "s\n")
 cat("  07A_ethnic_continuous:   ", round(step7a_time, 1), "s\n")
 cat("  07B_ethnic_drop:         ", round(step7b_time, 1), "s\n")
 cat("  07C_ethnic_prob:         ", round(step7c_time, 1), "s\n")
-cat("  08_publication_outputs:  ", round(step8_time, 1), "s\n")
+cat("  08a_pub_outputs_prob:    ", round(step8a_time, 1), "s\n")
+cat("  08b_pub_outputs_days:    ", round(step8b_time, 1), "s\n")
+cat("  08c_pub_outputs_cont:    ", round(step8c_time, 1), "s\n")
+cat("  08d_pub_outputs_drop:    ", round(step8d_time, 1), "s\n")
 cat("  ─────────────────────────────\n")
 cat("  Total:                   ", round(pipeline_total, 2), "min\n")
 cat("\n")
