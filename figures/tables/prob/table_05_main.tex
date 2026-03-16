@@ -1,29 +1,34 @@
 \begin{table}[!t]
-\caption{Table 5: H3a Alignment by Topic — Z-Score (Probabilistic Time)} 
+\caption{Table 5: H3b Ethnic Russian Population — Null Result, Z-Score (Probabilistic Time)} 
 \fontsize{12.0pt}{14.4pt}\selectfont
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
 \toprule
-  & Political & Military & Economic & Cultural & Other \\ 
+  & (1)‡ & (2)‡ & (3)† & (4)† & (5)† \\ 
 \midrule\addlinespace[2.5pt]
-Invasion & 0.0051 & -0.46+ & 0.15 & -1.35*** & 0.33 \\ 
- & (0.0725) & (0.25) & (0.11) & (0.34) & (0.60) \\ 
-CSTO x Treatment & -0.26 & 0.29 & -0.39 & 0.74 & -0.32 \\ 
-{} & {(0.12)} & {(0.28)} & {(0.21)} & {(0.45)} & {(0.60)} \\ 
+Invasion & -0.079 & -0.108 & -0.17 & -0.13 & -0.143 \\ 
+ & (0.066) & (0.102) & (0.10) & (0.10) & (0.099) \\ 
+High Russian Pop x Treatment &  &  & -0.055 & -0.0024 & 0.015 \\ 
+{} & {} & {} & {(0.133)} & {(0.1479)} & {(0.145)} \\ 
 Source Z-Score & X & X & X & X & X \\ 
-Clusters & 13 & 13 & 13 & 13 & 13 \\ 
-Num.Obs. & 2661 & 1783 & 1343 & 501 & 2206 \\ 
-R2 & 0.004 & 0.038 & 0.021 & 0.099 & 0.028 \\ 
-R2 Adj. & 0.001 & 0.034 & 0.016 & 0.086 & 0.025 \\ 
+Clusters & — & — & 13 & 13 & 13 \\ 
+Num.Obs. & 13942 & 8593 & 7202 & 6092 & 5992 \\ 
+R2 &  &  & 0.022 & 0.012 & 0.011 \\ 
+R2 Adj. &  &  & 0.021 & 0.010 & 0.010 \\ 
+nobs.left & 5027 & 4038 &  &  &  \\ 
+nobs.right & 8915 & 4555 &  &  &  \\ 
+bandwidth.left & 35.366169887111 & 84.7669531673441 &  &  &  \\ 
+bandwidth.right & 35.366169887111 & 84.7669531673441 &  &  &  \\ 
 \bottomrule
 \end{tabular*}
 \begin{minipage}{\linewidth}
 + p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
-All models use a source-level Z-Score normalization with the optimal bandwidth.
-Sample restricted to state-owned media in non-NATO countries. Each column
-restricts to the indicated topic category. † Standard errors computed via
-wild cluster restricted (WCR) bootstrap (Cameron, Gelbach \& Miller 2008) with
-Webb six-point weights (B=9999, null imposed), clustered by source domain. ‡
-Cluster-robust SEs from rdrobust.\\
+All models use a source-level Z-Score normalization. Models 1-2 show separate
+RDD estimates for high and low ethnic Russian population countries. Models 3-5
+estimate the high Russian population x treatment interaction. Model 3 uses the
+optimal bandwidth. Model 4 omits military topics. Model 5 uses matched data. †
+Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron,
+Gelbach \& Miller 2008) with Webb six-point weights (B=9999, null imposed),
+clustered by source domain. ‡ Cluster-robust SEs from rdrobust.\\
 \end{minipage}
 \end{table}
 
