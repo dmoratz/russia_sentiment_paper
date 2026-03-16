@@ -729,25 +729,40 @@ opt_align_oth <- data_align_state_oth %>% filter(running_probabilistic < optimal
 model5a_opt_pol <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                          cluster = ~source_domain,
                          data = opt_align_pol)
+summary(model5a_opt_pol)
+
 model5a_opt_mil <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                          cluster = ~source_domain,
                          data = opt_align_mil)
+summary(model5a_opt_mil)
+
 model5a_opt_econ <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                           cluster = ~source_domain,
                           data = opt_align_econ)
+summary(model5a_opt_econ)
+
 model5a_opt_cult <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                           cluster = ~source_domain,
                           data = opt_align_cult)
+summary(model5a_opt_cult)
+
 model5a_opt_oth <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
                          cluster = ~source_domain,
                          data = opt_align_oth)
+summary(model5a_opt_oth)
+
 
 # Wild cluster bootstrap for topic-specific model5a (optimal BW)
 boot_model5a_opt_pol <- run_wild_bootstrap(model5a_opt_pol, "treatment:csto")
+cat("Bootstrap p-value:", boot_model5a_opt_pol$p_val, "\n")
 boot_model5a_opt_mil <- run_wild_bootstrap(model5a_opt_mil, "treatment:csto")
+cat("Bootstrap p-value:", boot_model5a_opt_mil$p_val, "\n")
 boot_model5a_opt_econ <- run_wild_bootstrap(model5a_opt_econ, "treatment:csto")
+cat("Bootstrap p-value:", boot_model5a_opt_econ$p_val, "\n")
 boot_model5a_opt_cult <- run_wild_bootstrap(model5a_opt_cult, "treatment:csto")
+cat("Bootstrap p-value:", boot_model5a_opt_cult$p_val, "\n")
 boot_model5a_opt_oth <- run_wild_bootstrap(model5a_opt_oth, "treatment:csto")
+cat("Bootstrap p-value:", boot_model5a_opt_oth$p_val, "\n")
 ```
 
 # Robustness
