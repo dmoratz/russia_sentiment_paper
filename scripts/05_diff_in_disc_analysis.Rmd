@@ -254,7 +254,8 @@ cat("Optimal bandwidth:", round(optimal_bw, 1), "days\n")
 
 optimal_bandwidth_data <- data_non_ukraine %>%
   filter(running < optimal_bw) %>%
-  filter(running > -optimal_bw)
+  filter(running > -optimal_bw) %>%
+  droplevels()
 
 
 cat("Observations within bandwidth:", nrow(optimal_bandwidth_data), "\n")
@@ -906,9 +907,9 @@ summary(ps_model)
 bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
 
 # Love plot (publication quality)
-love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
+love <- love.plot(ps_model, binary = "std", thresholds = c(m = 0.1))
 
-ggsave(plot = last_plot(),
+ggsave(plot = love,
        file.path(FIGURES_DIFF_DISC_DAYS, "love_balance_state_owned.png"),
        width = 10, height = 7)
 ```
@@ -1009,7 +1010,7 @@ benchmark_df <- data.frame(
 # Build contour data with wider x limit
 contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
 
-ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
+sensitivity <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   geom_contour(colour = "grey60",
                breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
   geom_contour(breaks = 0,
@@ -1045,7 +1046,9 @@ ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
     legend.position = "none"
   )
 
-ggsave(plot = last_plot(),
+sensitivity
+
+ggsave(plot = sensitivity,
        file.path(FIGURES_DIFF_DISC_DAYS, "sensitivity_ovb_state_owned.png"),
        width = 10, height = 7)
 ```
@@ -1064,7 +1067,8 @@ for (cntry in countries_match) {
     filter(running < optimal_bw, running > -optimal_bw) %>%
     filter(country != cntry) %>%
     select(sentiment_clean, sentiment_z, running, running, treatment, state_owned,
-           topic_clean, source_domain, country)
+           topic_clean, source_domain, country)%>%
+    droplevels()
 
   # Re-calculate optimal bandwidth for LOO data
   bw_loo_m <- tryCatch({
@@ -1171,9 +1175,9 @@ model3a_opt_saturated <- feols(sentiment_clean ~ running * treatment * state_own
 summary(model3a_opt_saturated)
 
 # Wild cluster bootstrap for saturated model
-boot_model3a_opt_saturated <- run_wild_bootstrap(model3a_opt_saturated, "treatment:state_owned")
-cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt_saturated$se, "\n")
-cat("Bootstrap p-value:", boot_model3a_opt_saturated$p_val, "\n")
+#boot_model3a_opt_saturated <- run_wild_bootstrap(model3a_opt_saturated, "treatment:state_owned")
+#cat("Bootstrap SE for treatment:state_owned:", boot_model3a_opt_saturated$se, "\n")
+#cat("Bootstrap p-value:", boot_model3a_opt_saturated$p_val, "\n")
 ```
 
 
@@ -1218,7 +1222,7 @@ table_2
 note_text_s <- "All standard errors are clustered at the source level. (1) Non-military topics, topic + source FEs. (2) Russian-related articles, combined bandwidth, topic + source FEs."
 note_wrapped_s <- str_wrap(note_text_s, width = 80)
 
-table_2i_supplemental <- modelsummary(
+table_2_supplemental <- modelsummary(
   list(
     "(1)" = model2b_full_fe,
     "(2)" = model3a_opt_full_fe
@@ -1252,7 +1256,7 @@ attr(rows_topic, 'position') <- c(5, 6, 7)
 note_topic_opt <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth with country fixed effects."
 note_topic_opt_wrapped <- str_wrap(note_topic_opt, width = 80)
 
-table_2i_topic_opt <- modelsummary(
+table_2_topic_opt <- modelsummary(
   list("Political" = model2a_opt_pol, "Military" = model2a_opt_mil,
        "Economic" = model2a_opt_econ, "Cultural" = model2a_opt_cult, "Other" = model2a_opt_oth),
   output = "gt",
@@ -1277,7 +1281,7 @@ table_2_topic_opt
 note_topic_full <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction) with country fixed effects."
 note_topic_full_wrapped <- str_wrap(note_topic_full, width = 80)
 
-table_2i_topic_full <- modelsummary(
+table_2_topic_full <- modelsummary(
   list("Political" = model2a_full_pol, "Military" = model2a_full_mil,
        "Economic" = model2a_full_econ, "Cultural" = model2a_full_cult, "Other" = model2a_full_oth),
   output = "gt",
@@ -1301,7 +1305,7 @@ table_2_topic_full
 
 ```{r}
 country_name <- "Kosovo"
-country_data <- optimal_bw_combined_data %>%
+country_data <- optimal_bandwidth_data_non_nato %>%
   filter(country == country_name)
 
 # Filter to only source-topic combinations with both pre and post data
@@ -1480,7 +1484,6 @@ results_h2 <- list(
   model2b_z = model2b_z,
   model2d_z = model2d_z,
   model3a_z = model3a_z,
-  model3a_opt_z = model3a_opt_z,
 
   # Matching
   matched_model = matched_model,
@@ -1503,10 +1506,9 @@ results_h2 <- list(
     model2b = boot_model2b,
     model2b_full_fe = boot_model2b_full_fe,
     model2d = boot_model2d,
-    model3a = boot_model3a,
     model3a_opt = boot_model3a_opt,
     model3a_opt_full_fe = boot_model3a_opt_full_fe,
-    model3a_opt_saturated = boot_model3a_opt_saturated,
+    #model3a_opt_saturated = boot_model3a_opt_saturated,
     model_did = boot_model_did,
     model_placebo = boot_model4a,
     matched_model = boot_matched_model,
@@ -1529,7 +1531,7 @@ results_h2 <- list(
     model2b_z = boot_model2b_z,
     model2d_z = boot_model2d_z,
     model3a_z = boot_model3a_z,
-    model3a_opt_z = boot_model3a_opt_z
+    model3a_z = boot_model3a_z
   ),
 
   # Sensitivity
@@ -1537,7 +1539,7 @@ results_h2 <- list(
 
   # Bandwidths
   optimal_bandwidth = optimal_bw,
-  optimal_bandwidth_combined = optimal_bw_combined,
+  optimal_bandwidth_combined = optimal_bandwidth_data_non_nato,
   optimal_bw_pol = optimal_bw_pol,
   optimal_bw_mil = optimal_bw_mil,
   optimal_bw_econ = optimal_bw_econ,
