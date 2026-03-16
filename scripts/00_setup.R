@@ -471,6 +471,25 @@ get_boot_stars <- function(p_val) {
   return("")
 }
 
+override_interaction_stars <- function(tbl, boot_results, col_names, row_idx = 3) {
+  for (i in seq_along(boot_results)) {
+    boot_p <- boot_results[[i]]$p_val
+    stars <- get_boot_stars(boot_p)
+    make_fn <- function(s) {
+      function(x) {
+        val <- gsub("[+*]+$", "", x)
+        paste0(val, s)
+      }
+    }
+    tbl <- tbl %>%
+      text_transform(
+        locations = cells_body(columns = col_names[i], rows = row_idx),
+        fn = make_fn(stars)
+      )
+  }
+  tbl
+}
+
 get_n_clusters <- function(model) {
   tryCatch({
     if ("fixest" %in% class(model)) {
