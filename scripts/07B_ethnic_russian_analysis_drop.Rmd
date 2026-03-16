@@ -11,16 +11,13 @@ output:
 
 # Overview
 
-This script examines heterogeneous treatment effects by Ethnic Russian Population. Specifically, it analyzes whether state-owned media in non-NATO countries with high ethnic Russian populations showed differential sentiment changes following the Russian invasion of Ukraine, compared to those with low ethnic Russian populations. Articles without publication times are dropped.
+This script examines heterogeneous treatment effects by Ethnic Russian Population. It tests whether state-owned media in non-NATO countries with high ethnic Russian populations showed differential sentiment changes following the Russian invasion of Ukraine (H3b). Articles without publication times are dropped. This is an alternative specification to the CSTO analysis (H3) — the null expectation is that ethnic Russian population share does not explain the pattern.
 
 **Analysis:**
-- Diff-in-disc regressions: High vs Low Ethnic Russian population (state media, non-NATO countries)
-- Optimal bandwidth selection
-- Non-military topic subsetting
-- Russian-related article subsetting
-- By-topic models (full data and per-topic optimal bandwidth)
+- Separate RDDs: High vs Low Ethnic Russian population (rdrobust, Z-score, non-military)
+- Diff-in-disc interaction models: Optimal bandwidth and non-military subset (Z-score, topic FEs)
+- Matched model (Z-score, topic FEs)
 - Placebo test using December 7th 2021 announcement date
-- Leave-one-out country robustness checks
 
 **Inputs:**
 - `data/intermediate/02_cleaned_data.rds`
@@ -28,11 +25,14 @@ This script examines heterogeneous treatment effects by Ethnic Russian Populatio
 
 **Outputs:**
 - `data/intermediate/07_ethnic_results_drop.rds`
-- Table 4F (Ethnic Russian Population heterogeneity, Drop No-Time Articles)
+- Table 6B (Ethnic Russian Population heterogeneity, Drop No-Time Articles)
 
 ```{r setup, include=FALSE}
 source("00_setup.R")
 knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_DROP, "/"))
+options(digits = 10)
+
+set.seed(3184)
 ```
 
 # Load Data
@@ -52,25 +52,6 @@ cat("Non-Ukraine data:", nrow(data_non_ukraine), "articles\n")
 
 data <- data %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
 data_non_ukraine <- data_non_ukraine %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
-
-# Helper function for wild cluster bootstrap
-run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999) {
-  boot_result <- boottest(
-    object = model,
-    param = param,
-    clustid = clustid,
-    B = B,
-    impose_null = TRUE,
-    type = "rademacher"
-  )
-  list(
-    se = boot_result$point_estimate / boot_result$t_stat,
-    p_val = boot_result$p_val,
-    ci_lower = boot_result$conf_int[1],
-    ci_upper = boot_result$conf_int[2],
-    t_stat = boot_result$teststat
-  )
-}
 ```
 
 # Ethnic Russian Population Analysis
@@ -100,6 +81,23 @@ cat("High Russian population:", sum(data_ethnic$high_russia), "\n")
 cat("Low Russian population:", sum(data_ethnic$high_russia == 0), "\n")
 ```
 
+## State Media Subset and Z-Score
+
+```{r ethnic-state-data}
+# Convert running_continuous from seconds to days
+data_ethnic_state <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  mutate(source_domain = droplevels(source_domain)) %>%
+  mutate(running_continuous = running_continuous / 86400)
+
+# Compute Z-score on full state media data
+data_ethnic_state <- data_ethnic_state %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+```
+
 ## Visualization: State Media by Ethnic Russian Population
 
 ```{r ethnic-plot, fig.width=10, fig.height=7}
@@ -121,7 +119,7 @@ ethnic_discs_graph <- data_ethnic %>%
   theme_classic() +
   labs(
     title = "Effect of Invasion on State Media Sentiment",
-    subtitle = "High vs Low Ethnic Russian, Difference in Discontinuities",
+    subtitle = "High vs Low Ethnic Russian, Difference in Discontinuities (Drop No-Time)",
     x = "Days Pre/Post Invasion (Continuous)",
     y = "Sentiment"
   )
@@ -133,361 +131,202 @@ ggsave(plot = ethnic_discs_graph,
        width = 10, height = 7)
 ```
 
-## Ethnic Russian Population Regressions
+# Separate RDD Models (Z-Score)
 
-### Diff-in-Disc: High vs Low Ethnic Russian (State Media)
+## High Ethnic Russian Population
 
-```{r ethnic-reg}
-data_ethnic_state <- data_ethnic %>%
-  filter(state_owned == 1) %>%
-  mutate(source_domain = droplevels(source_domain)) %>%
-  mutate(running_continuous = running_continuous / 86400)
+```{r ethnic-high-rdd}
+data_high <- data_ethnic_state %>%
+  filter(high_russia == 1) %>%
+  filter(!topic_clean %in% "Military")
 
-model6a <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                 cluster = ~source_domain,
-                 data = data_ethnic_state)
+# Recompute Z-score within this subset
+data_high <- data_high %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
 
-summary(model6a)
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_high)
 
-# Wild cluster bootstrap for model6a
-boot_model6a <- run_wild_bootstrap(model6a, "treatment:high_russia")
-cat("Bootstrap SE for treatment:high_russia:", boot_model6a$se, "\n")
-cat("Bootstrap p-value:", boot_model6a$p_val, "\n")
+model6a_high_z <- rdrobust(
+  y = data_high$sentiment_z,
+  x = data_high$running_continuous,
+  covs = covs_matrix,
+  cluster = data_high$source_domain
+)
+
+summary(model6a_high_z)
 ```
 
-## Full Data with Topic FEs
+## Low Ethnic Russian Population
 
-```{r ethnic-full}
-model6a_full <- feols(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean,
-                      cluster = ~source_domain,
-                      data = data_ethnic_state)
+```{r ethnic-low-rdd}
+data_low <- data_ethnic_state %>%
+  filter(high_russia == 0) %>%
+  filter(!topic_clean %in% "Military")
 
-summary(model6a_full)
+# Recompute Z-score within this subset
+data_low <- data_low %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
 
-# Wild cluster bootstrap for model6a_full
-boot_model6a_full <- run_wild_bootstrap(model6a_full, "treatment:high_russia")
-cat("Bootstrap SE for treatment:high_russia:", boot_model6a_full$se, "\n")
-cat("Bootstrap p-value:", boot_model6a_full$p_val, "\n")
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_low)
+
+model6a_low_z <- rdrobust(
+  y = data_low$sentiment_z,
+  x = data_low$running_continuous,
+  covs = covs_matrix,
+  cluster = data_low$source_domain
+)
+
+summary(model6a_low_z)
 ```
 
-## Optimal Bandwidth
+# Interaction Model — Optimal Bandwidth, Z-Score
 
-```{r ethnic-optimal}
-bw_ethnic <- rdbwselect(y = data_ethnic_state$sentiment_clean,
-                        x = data_ethnic_state$running_continuous,
-                        kernel = "triangular",
-                        cluster = data_ethnic_state$source_domain,
-                        p = 1,
-                        bwselect = "mserd")
+```{r ethnic-optimal-z}
+# Residualize for bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | topic_clean + high_russia,
+                 data = data_ethnic_state)$residuals
 
-optimal_bw_ethnic <- bw_ethnic$bws[1, 1]
-cat("Optimal bandwidth:", round(optimal_bw_ethnic, 1), "units\n")
+bw_ethnic_z <- rdbwselect(y = resid_y,
+                          x = data_ethnic_state$running_continuous,
+                          kernel = "triangular",
+                          cluster = data_ethnic_state$source_domain,
+                          p = 1,
+                          bwselect = "mserd")
 
-optimal_bandwidth_data_ethnic <- data_ethnic_state %>%
-  filter(running_continuous < optimal_bw_ethnic, running_continuous > -optimal_bw_ethnic)
+optimal_bw_ethnic_z <- bw_ethnic_z$bws[1, 1]
+cat("Optimal bandwidth (Z-score):", round(optimal_bw_ethnic_z, 1), "days\n")
 
-model6a_opt <- feols(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean,
-                     cluster = ~source_domain,
-                     data = optimal_bandwidth_data_ethnic)
+optimal_bandwidth_data_z <- data_ethnic_state %>%
+  filter(running_continuous < optimal_bw_ethnic_z,
+         running_continuous > -optimal_bw_ethnic_z)
 
-summary(model6a_opt)
+model6a_opt_z <- feols(
+  sentiment_z ~ running_continuous * treatment * high_russia | topic_clean,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_z
+)
 
-# Wild cluster bootstrap for model6a_opt
-boot_model6a_opt <- run_wild_bootstrap(model6a_opt, "treatment:high_russia")
-cat("Bootstrap SE for treatment:high_russia:", boot_model6a_opt$se, "\n")
-cat("Bootstrap p-value:", boot_model6a_opt$p_val, "\n")
+summary(model6a_opt_z)
+
+boot_model6a_opt_z <- run_wild_bootstrap(model6a_opt_z, "treatment:high_russia")
+cat("Bootstrap SE:", boot_model6a_opt_z$se, "\n")
+cat("Bootstrap p-value:", boot_model6a_opt_z$p_val, "\n")
 ```
 
-## Non-Military Topics
+# Non-Military Topics, Z-Score
 
-```{r ethnic-non-mil}
+```{r ethnic-non-mil-z}
 data_ethnic_state_non_mil <- data_ethnic_state %>%
   filter(!topic_clean %in% "Military")
 
-bw_ethnic_non_mil <- rdbwselect(y = data_ethnic_state_non_mil$sentiment_clean,
-                                x = data_ethnic_state_non_mil$running_continuous,
-                                kernel = "triangular",
-                                cluster = data_ethnic_state_non_mil$source_domain,
-                                p = 1,
-                                bwselect = "mserd")
+# Recompute Z-score on non-mil subset
+data_ethnic_state_non_mil <- data_ethnic_state_non_mil %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
 
-optimal_bw_ethnic_non_mil <- bw_ethnic_non_mil$bws[1, 1]
-cat("Optimal bandwidth (non-mil):", round(optimal_bw_ethnic_non_mil, 1), "units\n")
+# Residualize for bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | topic_clean + high_russia,
+                 data = data_ethnic_state_non_mil)$residuals
 
-optimal_bandwidth_data_ethnic_non_mil <- data_ethnic_state_non_mil %>%
-  filter(running_continuous < optimal_bw_ethnic_non_mil, running_continuous > -optimal_bw_ethnic_non_mil)
+bw_ethnic_non_mil_z <- rdbwselect(y = resid_y,
+                                  x = data_ethnic_state_non_mil$running_continuous,
+                                  kernel = "triangular",
+                                  cluster = data_ethnic_state_non_mil$source_domain,
+                                  p = 1,
+                                  bwselect = "mserd")
 
-model6a_opt_non_mil <- feols(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean,
-                             cluster = ~source_domain,
-                             data = optimal_bandwidth_data_ethnic_non_mil)
+optimal_bw_ethnic_non_mil_z <- bw_ethnic_non_mil_z$bws[1, 1]
+cat("Optimal bandwidth (non-mil, Z-score):", round(optimal_bw_ethnic_non_mil_z, 1), "days\n")
 
-summary(model6a_opt_non_mil)
+optimal_bandwidth_data_non_mil_z <- data_ethnic_state_non_mil %>%
+  filter(running_continuous < optimal_bw_ethnic_non_mil_z,
+         running_continuous > -optimal_bw_ethnic_non_mil_z)
 
-# Wild cluster bootstrap for model6a_opt_non_mil
-boot_model6a_opt_non_mil <- run_wild_bootstrap(model6a_opt_non_mil, "treatment:high_russia")
-cat("Bootstrap SE for treatment:high_russia:", boot_model6a_opt_non_mil$se, "\n")
-cat("Bootstrap p-value:", boot_model6a_opt_non_mil$p_val, "\n")
-```
-
-## Russian-Related Articles Only
-
-```{r ethnic-russian}
-data_ethnic_state_russian <- data_ethnic_state %>%
-  filter(!topic_clean %in% "Military") %>%
-  filter(!Russian.Involvement == "Not")
-
-bw_ethnic_russian <- rdbwselect(y = data_ethnic_state_russian$sentiment_clean,
-                                x = data_ethnic_state_russian$running_continuous,
-                                kernel = "triangular",
-                                cluster = data_ethnic_state_russian$source_domain,
-                                p = 1,
-                                bwselect = "mserd")
-
-optimal_bw_ethnic_russian <- bw_ethnic_russian$bws[1, 1]
-cat("Optimal bandwidth (russian):", round(optimal_bw_ethnic_russian, 1), "units\n")
-
-optimal_bandwidth_data_ethnic_russian <- data_ethnic_state_russian %>%
-  filter(running_continuous < optimal_bw_ethnic_russian, running_continuous > -optimal_bw_ethnic_russian)
-
-model6a_opt_russian <- feols(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean,
-                             cluster = ~source_domain,
-                             data = optimal_bandwidth_data_ethnic_russian)
-
-summary(model6a_opt_russian)
-
-# Wild cluster bootstrap for model6a_opt_russian
-boot_model6a_opt_russian <- run_wild_bootstrap(model6a_opt_russian, "treatment:high_russia")
-cat("Bootstrap SE for treatment:high_russia:", boot_model6a_opt_russian$se, "\n")
-cat("Bootstrap p-value:", boot_model6a_opt_russian$p_val, "\n")
-```
-
-## Fully Saturated Model
-
-```{r ethnic-fully-saturated}
-# Change source and topic to factor for interaction FEs
-optimal_bandwidth_data_ethnic_non_mil <- optimal_bandwidth_data_ethnic_non_mil %>%
-  mutate(
-    source_domain = as.factor(source_domain),
-    topic_clean = as.factor(topic_clean)
-  )
-
-# Heavily saturated model (source:topic + topic:treatment FEs)
-model6a_fully_saturated <- feols(
-  sentiment_clean ~ running_continuous * treatment * high_russia |
-    source_domain^topic_clean + topic_clean^treatment,
+model6a_opt_non_mil_z <- feols(
+  sentiment_z ~ running_continuous * treatment * high_russia | topic_clean,
   cluster = ~source_domain,
-  data = optimal_bandwidth_data_ethnic_non_mil
+  data = optimal_bandwidth_data_non_mil_z
 )
 
-summary(model6a_fully_saturated)
+summary(model6a_opt_non_mil_z)
+
+boot_model6a_opt_non_mil_z <- run_wild_bootstrap(model6a_opt_non_mil_z, "treatment:high_russia")
+cat("Bootstrap SE:", boot_model6a_opt_non_mil_z$se, "\n")
+cat("Bootstrap p-value:", boot_model6a_opt_non_mil_z$p_val, "\n")
 ```
 
-### Manual Wild Bootstrap Standard Errors
+# Matched Model, Z-Score
 
-```{r ethnic-fully-saturated-bootstrap}
-set.seed(3184)
-B <- 99
+```{r ethnic-matching}
+library(MatchIt)
+library(cobalt)
 
-# Original model
-model_original <- model6a_fully_saturated
-original_coef <- coef(model_original)["treatment:high_russia"]
-original_se <- se(model_original)["treatment:high_russia"]
-original_t <- original_coef / original_se
+# Use running (day variable) for exact matching, not running_continuous
+matching_data <- optimal_bandwidth_data_non_mil_z %>%
+  select(sentiment_z, running, running_continuous, treatment, high_russia,
+         topic_clean, source_domain, country)
 
-cat("Original t-stat:", original_t, "\n")
+ps_model <- matchit(
+  high_russia ~ running + topic_clean,
+  data = matching_data,
+  method = "exact",
+  ratio = 1
+)
 
-# CRITICAL: Estimate RESTRICTED model under the null (treatment:high_russia = 0)
-model_restricted <- feols(
-  sentiment_clean ~ running_continuous + treatment + high_russia + running_continuous:treatment +
-    running_continuous:high_russia + running_continuous:treatment:high_russia |
-    source_domain^topic_clean + topic_clean^treatment,
+summary(ps_model)
+```
+
+## Assess Balance
+
+```{r ethnic-balance}
+bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
+```
+
+## Matching Analysis
+
+```{r ethnic-matched-model}
+matched_data <- match.data(ps_model)
+cat("Matched observations:", nrow(matched_data), "\n")
+
+matched_model_z <- feols(
+  sentiment_z ~ running_continuous * treatment * high_russia | topic_clean,
   cluster = ~source_domain,
-  data = optimal_bandwidth_data_ethnic_non_mil
+  data = matched_data
 )
 
-# Get residuals and fitted values from RESTRICTED model
-residuals_restricted <- residuals(model_restricted)
-fitted_restricted <- fitted(model_restricted)
+summary(matched_model_z)
 
-cat("Using restricted model residuals (null imposed)\n")
-
-# Get clusters
-clusters <- unique(optimal_bandwidth_data_ethnic_non_mil$source_domain)
-n_clusters <- length(clusters)
-
-# Bootstrap
-boot_t_stats <- numeric(B)
-
-for(b in 1:B) {
-  # Generate Rademacher weights
-  cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
-
-  # Assign to observations
-  data_boot <- optimal_bandwidth_data_ethnic_non_mil
-  data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
-    cluster_weights[which(clusters == clust)]
-  })
-
-  # Create bootstrap outcome using RESTRICTED fitted values
-  data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
-
-  # Re-estimate FULL model on bootstrap data
-  model_boot <- feols(
-    sentiment_boot ~ running_continuous * treatment * high_russia |
-      source_domain^topic_clean + topic_clean^treatment,
-    cluster = ~source_domain,
-    data = data_boot
-  )
-
-  boot_coef <- coef(model_boot)["treatment:high_russia"]
-  boot_se <- se(model_boot)["treatment:high_russia"]
-  boot_t_stats[b] <- boot_coef / boot_se
-
-  if(b %% 100 == 0) cat("Iteration:", b, "\n")
-}
-
-# Calculate p-value
-p_value <- mean(abs(boot_t_stats) >= abs(original_t))
-
-cat("\n=== Results ===\n")
-cat("Original t-stat:", original_t, "\n")
-cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
-cat("P-value:", p_value, "\n")
-
-# Plot
-hist(boot_t_stats, breaks = 30, main = "Wild Bootstrap t-statistics (Null Imposed)",
-     xlab = "t-statistic")
-abline(v = original_t, col = "red", lwd = 2)
-abline(v = 0, col = "blue", lwd = 2, lty = 2)
-legend("topright", c("Original t", "Null (t=0)"), col = c("red", "blue"), lty = c(1, 2), lwd = 2)
-
-# Extract bootstrap results in standard format
-boot_model6a_fully_saturated <- list(
-  se = original_se,
-  p_val = p_value,
-  ci_lower = NA,
-  ci_upper = NA,
-  t_stat = original_t
-)
-cat("Saturated model bootstrap results extracted\n")
-```
-
-## By-Topic Models: Full Data
-
-```{r ethnic-topic-full}
-data_ethnic_state_pol <- data_ethnic_state %>% filter(topic_clean == "Political")
-data_ethnic_state_mil <- data_ethnic_state %>% filter(topic_clean == "Military")
-data_ethnic_state_econ <- data_ethnic_state %>% filter(topic_clean == "Economic")
-data_ethnic_state_cult <- data_ethnic_state %>% filter(topic_clean == "Culture")
-data_ethnic_state_oth <- data_ethnic_state %>% filter(topic_clean == "Other")
-
-model6a_full_pol <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                          cluster = ~source_domain,
-                          data = data_ethnic_state_pol)
-model6a_full_mil <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                          cluster = ~source_domain,
-                          data = data_ethnic_state_mil)
-model6a_full_econ <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                           cluster = ~source_domain,
-                           data = data_ethnic_state_econ)
-model6a_full_cult <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                           cluster = ~source_domain,
-                           data = data_ethnic_state_cult)
-model6a_full_oth <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                          cluster = ~source_domain,
-                          data = data_ethnic_state_oth)
-```
-
-## By-Topic Models: Per-Topic Optimal Bandwidth
-
-```{r ethnic-topic-opt}
-# Political
-bw_ethnic_pol <- rdbwselect(y = data_ethnic_state_pol$sentiment_clean, x = data_ethnic_state_pol$running_continuous,
-                            kernel = "triangular", cluster = data_ethnic_state_pol$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_ethnic_pol <- bw_ethnic_pol$bws[1, 1]
-cat("Political optimal bandwidth:", round(optimal_bw_ethnic_pol, 1), "units\n")
-opt_ethnic_pol <- data_ethnic_state_pol %>% filter(running_continuous < optimal_bw_ethnic_pol, running_continuous > -optimal_bw_ethnic_pol)
-
-# Military
-bw_ethnic_mil <- rdbwselect(y = data_ethnic_state_mil$sentiment_clean, x = data_ethnic_state_mil$running_continuous,
-                            kernel = "triangular", cluster = data_ethnic_state_mil$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_ethnic_mil <- bw_ethnic_mil$bws[1, 1]
-cat("Military optimal bandwidth:", round(optimal_bw_ethnic_mil, 1), "units\n")
-opt_ethnic_mil <- data_ethnic_state_mil %>% filter(running_continuous < optimal_bw_ethnic_mil, running_continuous > -optimal_bw_ethnic_mil)
-
-# Economic
-bw_ethnic_econ <- rdbwselect(y = data_ethnic_state_econ$sentiment_clean, x = data_ethnic_state_econ$running_continuous,
-                             kernel = "triangular", cluster = data_ethnic_state_econ$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_ethnic_econ <- bw_ethnic_econ$bws[1, 1]
-cat("Economic optimal bandwidth:", round(optimal_bw_ethnic_econ, 1), "units\n")
-opt_ethnic_econ <- data_ethnic_state_econ %>% filter(running_continuous < optimal_bw_ethnic_econ, running_continuous > -optimal_bw_ethnic_econ)
-
-# Culture
-bw_ethnic_cult <- rdbwselect(y = data_ethnic_state_cult$sentiment_clean, x = data_ethnic_state_cult$running_continuous,
-                             kernel = "triangular", cluster = data_ethnic_state_cult$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_ethnic_cult <- bw_ethnic_cult$bws[1, 1]
-cat("Culture optimal bandwidth:", round(optimal_bw_ethnic_cult, 1), "units\n")
-opt_ethnic_cult <- data_ethnic_state_cult %>% filter(running_continuous < optimal_bw_ethnic_cult, running_continuous > -optimal_bw_ethnic_cult)
-
-# Other
-bw_ethnic_oth <- rdbwselect(y = data_ethnic_state_oth$sentiment_clean, x = data_ethnic_state_oth$running_continuous,
-                            kernel = "triangular", cluster = data_ethnic_state_oth$source_domain, p = 1, bwselect = "mserd")
-optimal_bw_ethnic_oth <- bw_ethnic_oth$bws[1, 1]
-cat("Other optimal bandwidth:", round(optimal_bw_ethnic_oth, 1), "units\n")
-opt_ethnic_oth <- data_ethnic_state_oth %>% filter(running_continuous < optimal_bw_ethnic_oth, running_continuous > -optimal_bw_ethnic_oth)
-
-model6a_opt_pol <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                         cluster = ~source_domain,
-                         data = opt_ethnic_pol)
-model6a_opt_mil <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                         cluster = ~source_domain,
-                         data = opt_ethnic_mil)
-model6a_opt_econ <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                          cluster = ~source_domain,
-                          data = opt_ethnic_econ)
-model6a_opt_cult <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                          cluster = ~source_domain,
-                          data = opt_ethnic_cult)
-model6a_opt_oth <- feols(sentiment_clean ~ running_continuous * treatment * high_russia,
-                         cluster = ~source_domain,
-                         data = opt_ethnic_oth)
-
-# Wild cluster bootstrap for topic-specific model6a models (optimal BW)
-boot_model6a_opt_pol <- run_wild_bootstrap(model6a_opt_pol, "treatment:high_russia")
-boot_model6a_opt_mil <- run_wild_bootstrap(model6a_opt_mil, "treatment:high_russia")
-boot_model6a_opt_econ <- run_wild_bootstrap(model6a_opt_econ, "treatment:high_russia")
-boot_model6a_opt_cult <- run_wild_bootstrap(model6a_opt_cult, "treatment:high_russia")
-boot_model6a_opt_oth <- run_wild_bootstrap(model6a_opt_oth, "treatment:high_russia")
-
-# Wild cluster bootstrap for topic-specific model6a models (full data)
-boot_model6a_full_pol <- run_wild_bootstrap(model6a_full_pol, "treatment:high_russia")
-boot_model6a_full_mil <- run_wild_bootstrap(model6a_full_mil, "treatment:high_russia")
-boot_model6a_full_econ <- run_wild_bootstrap(model6a_full_econ, "treatment:high_russia")
-boot_model6a_full_cult <- run_wild_bootstrap(model6a_full_cult, "treatment:high_russia")
-boot_model6a_full_oth <- run_wild_bootstrap(model6a_full_oth, "treatment:high_russia")
-
-cat("Bootstrap completed for all model6a topic-specific variants\n")
+boot_matched_model_z <- run_wild_bootstrap(matched_model_z, "treatment:high_russia")
+cat("Bootstrap SE:", boot_matched_model_z$se, "\n")
+cat("Bootstrap p-value:", boot_matched_model_z$p_val, "\n")
 ```
 
 # Placebo Test: December 7th Announcement (Non-Military Topics, Ethnic Russian)
 
 ```{r placebo-dec-ethnic}
-# Filter to state media non-NATO countries
-data_ethnic_state_non_mil_full <- data %>%
-  filter(nato == 0) %>%
-  filter(state_owned == 1) %>%
-  filter(!topic_clean %in% "Military") %>%
-  mutate(source_domain = droplevels(source_domain)) %>%
-  mutate(running_continuous = running_continuous / 86400)
-
-data_dec_ethnic <- data_ethnic_state_non_mil_full %>%
+data_dec_ethnic <- data_ethnic_state_non_mil %>%
   filter(date_publish < "2022-02-19") %>%
   mutate(
     running_continuous = as.numeric(date_publish - as.Date("2021-12-07")),
     treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
   )
 
-bw_placebo_ethnic <- rdbwselect(y = data_dec_ethnic$sentiment_clean,
+# Recompute Z-score for placebo subset
+data_dec_ethnic <- data_dec_ethnic %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+bw_placebo_ethnic <- rdbwselect(y = data_dec_ethnic$sentiment_z,
                                 x = data_dec_ethnic$running_continuous,
                                 kernel = "triangular",
                                 cluster = data_dec_ethnic$source_domain,
@@ -495,12 +334,12 @@ bw_placebo_ethnic <- rdbwselect(y = data_dec_ethnic$sentiment_clean,
                                 bwselect = "mserd")
 
 optimal_bw_placebo_ethnic <- bw_placebo_ethnic$bws[1, 1]
-cat("Placebo optimal bandwidth (ethnic, non-mil):", round(optimal_bw_placebo_ethnic, 1), "units\n")
+cat("Placebo optimal bandwidth (ethnic, non-mil):", round(optimal_bw_placebo_ethnic, 1), "days\n")
 
 data_dec_ethnic_bw <- data_dec_ethnic %>%
   filter(running_continuous < optimal_bw_placebo_ethnic, running_continuous > -optimal_bw_placebo_ethnic)
 
-model_placebo_ethnic <- feols(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean,
+model_placebo_ethnic <- feols(sentiment_z ~ running_continuous * treatment * high_russia | topic_clean,
                                cluster = ~source_domain,
                                data = data_dec_ethnic_bw)
 
@@ -512,198 +351,34 @@ cat("Bootstrap p-value (placebo):", boot_model_placebo_ethnic$p_val, "\n")
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
 ```
 
-# Leave-One-Out Country Robustness (Ethnic Russian)
-
-```{r loo-country-ethnic}
-data_ethnic_state_non_mil <- data %>%
-  filter(nato == 0, state_owned == 1, !topic_clean %in% "Military") %>%
-  filter(running_continuous < optimal_bw_ethnic_non_mil, running_continuous > -optimal_bw_ethnic_non_mil)
-
-countries_ethnic <- unique(data_ethnic_state_non_mil$country)
-loo_results_ethnic <- list()
-
-for (cntry in countries_ethnic) {
-  data_loo <- data_ethnic_state_non_mil %>%
-    filter(country != cntry)
-
-  bw_loo <- tryCatch(
-    rdbwselect(y = data_loo$sentiment_clean, x = data_loo$running_continuous,
-               kernel = "triangular", cluster = data_loo$source_domain,
-               p = 1, bwselect = "mserd"),
-    error = function(e) NULL
-  )
-
-  if (is.null(bw_loo)) next
-
-  optimal_bw_loo <- bw_loo$bws[1, 1]
-  data_loo_bw <- data_loo %>%
-    filter(running_continuous < optimal_bw_loo, running_continuous > -optimal_bw_loo)
-
-  model_loo <- feols(sentiment_clean ~ running_continuous * treatment * high_russia | topic_clean,
-                     cluster = ~source_domain,
-                     data = data_loo_bw)
-
-  boot_loo <- tryCatch(
-    run_wild_bootstrap(model_loo, "treatment:high_russia", B = 999),
-    error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
-  )
-
-  loo_results_ethnic[[cntry]] <- list(
-    model = model_loo,
-    bandwidth = optimal_bw_loo,
-    n = nrow(data_loo_bw),
-    country_dropped = cntry,
-    boot_p_val = boot_loo$p_val,
-    boot_se = boot_loo$se
-  )
-}
-
-loo_summary_ethnic <- map_df(names(loo_results_ethnic), function(cntry) {
-  mod <- loo_results_ethnic[[cntry]]$model
-  tibble(
-    country_dropped = cntry,
-    estimate = coef(mod)["treatment:high_russia"],
-    std_error = se(mod)["treatment:high_russia"],
-    p_value = pvalue(mod)["treatment:high_russia"],
-    boot_p_val = loo_results_ethnic[[cntry]]$boot_p_val,
-    boot_se = loo_results_ethnic[[cntry]]$boot_se,
-    n_obs = loo_results_ethnic[[cntry]]$n,
-    bandwidth = loo_results_ethnic[[cntry]]$bandwidth
-  )
-})
-
-print(loo_summary_ethnic)
-```
-
-# Summary Table (Table 4F)
-
-```{r table4}
-note_t4 <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth."
-note_t4_wrapped <- str_wrap(note_t4, width = 80)
-
-table_4 <- modelsummary(
-  list("(1)" = model6a, "(2)" = model6a_full, "(3)" = model6a_opt,
-       "(4)" = model6a_opt_non_mil, "(5)" = model6a_opt_russian),
-  output = "gt",
-  fmt = fmt_significant(2),
-  stars = TRUE,
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:high_russia" = "High Russian Pop x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Ethnic Russian Population: Difference in Discontinuity Analysis (Drop No-Time Articles)",
-  notes = note_t4_wrapped
-)
-
-table_4
-```
-
-## Summary Table: By Topic (Optimal Bandwidth)
-
-```{r table4b}
-note_t4b <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only."
-note_t4b_wrapped <- str_wrap(note_t4b, width = 80)
-
-table_4b <- modelsummary(
-  list("Political" = model6a_opt_pol, "Military" = model6a_opt_mil,
-       "Economic" = model6a_opt_econ, "Cultural" = model6a_opt_cult, "Other" = model6a_opt_oth),
-  output = "gt",
-  fmt = fmt_significant(2),
-  stars = TRUE,
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:high_russia" = "High Russian Pop x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Ethnic Russian Population By Topic (Per-Topic Optimal Bandwidth, Drop No-Time Articles)",
-  notes = note_t4b_wrapped
-)
-
-table_4b
-```
-
-## Summary Table: By Topic (Full Data)
-
-```{r table4c}
-note_t4c <- "All standard errors are clustered at the source level. Articles without publication times are dropped. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only."
-note_t4c_wrapped <- str_wrap(note_t4c, width = 80)
-
-table_4c <- modelsummary(
-  list("Political" = model6a_full_pol, "Military" = model6a_full_mil,
-       "Economic" = model6a_full_econ, "Cultural" = model6a_full_cult, "Other" = model6a_full_oth),
-  output = "gt",
-  fmt = fmt_significant(2),
-  stars = TRUE,
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:high_russia" = "High Russian Pop x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Ethnic Russian Population By Topic (Full Data, Drop No-Time Articles)",
-  notes = note_t4c_wrapped
-)
-
-table_4c
-```
-
 # Save Results
 
 ```{r save}
 results_ethnic_drop <- list(
-  # Model6a variants
-  model6a = model6a,
-  model6a_full = model6a_full,
-  model6a_opt = model6a_opt,
-  model6a_opt_non_mil = model6a_opt_non_mil,
-  model6a_opt_russian = model6a_opt_russian,
-  model6a_fully_saturated = model6a_fully_saturated,
-  model6a_opt_pol = model6a_opt_pol,
-  model6a_opt_mil = model6a_opt_mil,
-  model6a_opt_econ = model6a_opt_econ,
-  model6a_opt_cult = model6a_opt_cult,
-  model6a_opt_oth = model6a_opt_oth,
-  model6a_full_pol = model6a_full_pol,
-  model6a_full_mil = model6a_full_mil,
-  model6a_full_econ = model6a_full_econ,
-  model6a_full_cult = model6a_full_cult,
-  model6a_full_oth = model6a_full_oth,
+  # Z-score models for Table 6B
+  model6a_high_z = model6a_high_z,
+  model6a_low_z = model6a_low_z,
+  model6a_opt_z = model6a_opt_z,
+  model6a_opt_non_mil_z = model6a_opt_non_mil_z,
+  matched_model_z = matched_model_z,
 
-  # Bootstrap standard errors
+  # Bootstrap SEs (only for feols interaction models)
   bootstrap_se = list(
-    model6a = boot_model6a,
-    model6a_full = boot_model6a_full,
-    model6a_opt = boot_model6a_opt,
-    model6a_opt_non_mil = boot_model6a_opt_non_mil,
-    model6a_opt_russian = boot_model6a_opt_russian,
-    model6a_fully_saturated = boot_model6a_fully_saturated,
-    model6a_opt_pol = boot_model6a_opt_pol,
-    model6a_opt_mil = boot_model6a_opt_mil,
-    model6a_opt_econ = boot_model6a_opt_econ,
-    model6a_opt_cult = boot_model6a_opt_cult,
-    model6a_opt_oth = boot_model6a_opt_oth,
-    model6a_full_pol = boot_model6a_full_pol,
-    model6a_full_mil = boot_model6a_full_mil,
-    model6a_full_econ = boot_model6a_full_econ,
-    model6a_full_cult = boot_model6a_full_cult,
-    model6a_full_oth = boot_model6a_full_oth,
+    model6a_opt_z = boot_model6a_opt_z,
+    model6a_opt_non_mil_z = boot_model6a_opt_non_mil_z,
+    matched_model_z = boot_matched_model_z
+  ),
+
+  # Placebo
+  model_placebo_ethnic = model_placebo_ethnic,
+  optimal_bw_placebo_ethnic = optimal_bw_placebo_ethnic,
+  bootstrap_se_placebo = list(
     model_placebo_ethnic = boot_model_placebo_ethnic
   ),
 
   # Bandwidths
-  optimal_bandwidth_ethnic = optimal_bw_ethnic,
-  optimal_bw_ethnic_non_mil = optimal_bw_ethnic_non_mil,
-  optimal_bw_ethnic_pol = optimal_bw_ethnic_pol,
-  optimal_bw_ethnic_mil = optimal_bw_ethnic_mil,
-  optimal_bw_ethnic_econ = optimal_bw_ethnic_econ,
-  optimal_bw_ethnic_cult = optimal_bw_ethnic_cult,
-  optimal_bw_ethnic_oth = optimal_bw_ethnic_oth,
-
-  # Other results
-  loo_results_ethnic = loo_results_ethnic,
-  loo_summary_ethnic = loo_summary_ethnic,
-  model_placebo_ethnic = model_placebo_ethnic,
-  optimal_bw_placebo_ethnic = optimal_bw_placebo_ethnic
+  optimal_bw_ethnic_z = optimal_bw_ethnic_z,
+  optimal_bw_ethnic_non_mil_z = optimal_bw_ethnic_non_mil_z
 )
 
 saveRDS(results_ethnic_drop, file.path(DATA_INTERMEDIATE, "07_ethnic_results_drop.rds"))
