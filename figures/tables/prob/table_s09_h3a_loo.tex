@@ -1,0 +1,40 @@
+\begin{table}[!t]
+\caption*{
+{\large Table S9: H3a Leave-One-Out Country Robustness (Probabilistic Time)}
+} 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrrrr}
+\toprule
+Country Dropped & Coefficient & Std. Error & p-value & N & Bandwidth \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{6}{l}{Standard Model} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+Belarus & -0.188 & (0.136) & 0.201 & 5,664 & 75.2 \\ 
+Armenia & -0.258* & (0.102) & 0.030 & 4,884 & 37.2 \\ 
+Georgia & -0.230* & (0.101) & 0.043 & 5,830 & 41.3 \\ 
+Azerbaijan & -0.361* & (0.136) & 0.024 & 5,232 & 39.6 \\ 
+Kazakhstan & -0.249* & (0.085) & 0.015 & 5,286 & 36.3 \\ 
+Moldova & -0.326* & (0.114) & 0.015 & 5,706 & 39.0 \\ 
+Kosovo & -0.298 & (0.138) & 0.054 & 5,046 & 37.1 \\ 
+Serbia & -0.387** & (0.112) & 0.005 & 5,715 & 40.2 \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{6}{l}{Matched Model} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+Belarus & -0.203 & (0.142) & 0.186 & 5,314 & 75.2 \\ 
+Armenia & -0.344* & (0.109) & 0.010 & 4,589 & 37.2 \\ 
+Georgia & -0.280* & (0.107) & 0.024 & 5,374 & 41.3 \\ 
+Azerbaijan & -0.387* & (0.136) & 0.017 & 4,946 & 39.6 \\ 
+Kazakhstan & -0.277** & (0.076) & 0.004 & 4,971 & 36.3 \\ 
+Moldova & -0.383** & (0.110) & 0.005 & 5,288 & 39.0 \\ 
+Kosovo & -0.348* & (0.130) & 0.021 & 4,505 & 37.1 \\ 
+Serbia & -0.407** & (0.112) & 0.004 & 5,103 & 40.2 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+Leave-one-out robustness analysis. Each row shows results when excluding the
+specified country. Bandwidth is recalculated for each subset. Coefficient shown
+is for the treatment:csto interaction term. Standard errors clustered at source
+domain level.\\
+\end{minipage}
+\end{table}
+
