@@ -272,8 +272,8 @@ h2_topic_z_models <- list(
 if (any(sapply(h2_topic_z_models, is.null))) {
   cat("WARNING: Some H2 by-topic Z-score models not found. Skipping Table 3.\n")
 } else {
-  boot_keys_t3 <- c("model2a_opt_z_pol", "model2a_opt_z_mil", "model2a_opt_z_econ",
-                     "model2a_opt_z_cult", "model2a_opt_z_oth")
+  boot_keys_t3 <- c("model2a_opt_pol", "model2a_opt_mil", "model2a_opt_econ",
+                     "model2a_opt_cult", "model2a_opt_oth")
   boot_results_t3 <- lapply(boot_keys_t3, function(k) results_h2$bootstrap_se[[k]])
 
   vcov_t3 <- list(

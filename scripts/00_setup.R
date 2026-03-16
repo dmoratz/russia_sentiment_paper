@@ -476,6 +476,7 @@ override_interaction_stars <- function(tbl, boot_results, col_names, row_idx = 3
     boot_p <- boot_results[[i]]$p_val
     stars <- get_boot_stars(boot_p)
     make_fn <- function(s) {
+      force(s)
       function(x) {
         val <- gsub("[+*]+$", "", x)
         paste0(val, s)

@@ -269,57 +269,54 @@ h2_topic_z_models <- list(
   "Other"     = results_h2$model2a_opt_oth
 )
 
-if (any(sapply(h2_topic_z_models, is.null))) {
-  cat("WARNING: Some H2 by-topic Z-score models not found. Skipping Table 3.\n")
-} else {
-  boot_keys_t3 <- c("model2a_opt_z_pol", "model2a_opt_z_mil", "model2a_opt_z_econ",
-                     "model2a_opt_z_cult", "model2a_opt_z_oth")
-  boot_results_t3 <- lapply(boot_keys_t3, function(k) results_h2$bootstrap_se[[k]])
+boot_keys_t3 <- c("model2a_opt_pol", "model2a_opt_mil", "model2a_opt_econ",
+                   "model2a_opt_cult", "model2a_opt_oth")
+boot_results_t3 <- lapply(boot_keys_t3, function(k) results_h2$bootstrap_se[[k]])
 
-  vcov_t3 <- list(
-    "Political" = create_bootstrap_vcov(h2_topic_z_models[["Political"]], boot_results_t3[[1]], "treatment:state_owned"),
-    "Military"  = create_bootstrap_vcov(h2_topic_z_models[["Military"]],  boot_results_t3[[2]], "treatment:state_owned"),
-    "Economic"  = create_bootstrap_vcov(h2_topic_z_models[["Economic"]],  boot_results_t3[[3]], "treatment:state_owned"),
-    "Cultural"  = create_bootstrap_vcov(h2_topic_z_models[["Cultural"]],  boot_results_t3[[4]], "treatment:state_owned"),
-    "Other"     = create_bootstrap_vcov(h2_topic_z_models[["Other"]],     boot_results_t3[[5]], "treatment:state_owned")
-  )
+vcov_t3 <- list(
+  "Political" = create_bootstrap_vcov(h2_topic_z_models[["Political"]], boot_results_t3[[1]], "treatment:state_owned"),
+  "Military"  = create_bootstrap_vcov(h2_topic_z_models[["Military"]],  boot_results_t3[[2]], "treatment:state_owned"),
+  "Economic"  = create_bootstrap_vcov(h2_topic_z_models[["Economic"]],  boot_results_t3[[3]], "treatment:state_owned"),
+  "Cultural"  = create_bootstrap_vcov(h2_topic_z_models[["Cultural"]],  boot_results_t3[[4]], "treatment:state_owned"),
+  "Other"     = create_bootstrap_vcov(h2_topic_z_models[["Other"]],     boot_results_t3[[5]], "treatment:state_owned")
+)
 
-  n_cl_t3 <- sapply(h2_topic_z_models, get_n_clusters)
+n_cl_t3 <- sapply(h2_topic_z_models, get_n_clusters)
 
-  rows_t3 <- tibble::tribble(
-    ~term,            ~Political, ~Military, ~Economic, ~Cultural, ~Other,
-    "Source Z-Score", "X",        "X",       "X",       "X",       "X",
-    "Clusters",       n_cl_t3[1], n_cl_t3[2], n_cl_t3[3], n_cl_t3[4], n_cl_t3[5]
-  )
-  attr(rows_t3, "position") <- c(5, 6)
+rows_t3 <- tibble::tribble(
+  ~term,            ~Political, ~Military, ~Economic, ~Cultural, ~Other,
+  "Source Z-Score", "X",        "X",       "X",       "X",       "X",
+  "Clusters",       n_cl_t3[1], n_cl_t3[2], n_cl_t3[3], n_cl_t3[4], n_cl_t3[5]
+)
+attr(rows_t3, "position") <- c(5, 6)
 
-  note_t3 <- str_wrap(paste(
-    "All models use a source-level Z-Score normalization with the optimal bandwidth.",
-    "Each column restricts to the indicated topic category.", SE_NOTE
-  ), 80)
+note_t3 <- str_wrap(paste(
+  "All models use a source-level Z-Score normalization with the optimal bandwidth.",
+  "Each column restricts to the indicated topic category.", SE_NOTE
+), 80)
 
-  table_3 <- modelsummary(
-    h2_topic_z_models,
-    output = "gt",
-    fmt = fmt_significant(2),
-    stars = TRUE,
-    vcov = vcov_t3,
-    coef_map = c(
-      "treatment" = "Invasion",
-      "treatment:state_owned" = "State Owned x Treatment"
-    ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
-    title = "Table 3: H2 Diff-in-Disc by Topic — Z-Score (Probabilistic Time)",
-    add_rows = rows_t3,
-    notes = note_t3
-  )
+table_3 <- modelsummary(
+  h2_topic_z_models,
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  vcov = vcov_t3,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
+  title = "Table 3: H2 Diff-in-Disc by Topic — Z-Score (Probabilistic Time)",
+  add_rows = rows_t3,
+  notes = note_t3
+)
 
-  topic_col_names <- c("Political", "Military", "Economic", "Cultural", "Other")
-  table_3 <- override_interaction_stars(table_3, boot_results_t3, topic_col_names)
+topic_col_names <- c("Political", "Military", "Economic", "Cultural", "Other")
+table_3 <- override_interaction_stars(table_3, boot_results_t3, topic_col_names)
 
-  table_3
-  save_table(table_3, "table_03_main", TABLE_SUBDIR)
-}
+table_3
+save_table(table_3, "table_03_main", TABLE_SUBDIR)
+
 ```
 
 ## Table 4: H3a Interaction Z-Score — CSTO Alignment (Pattern B)
@@ -392,72 +389,69 @@ save_table(table_4, "table_04_main", TABLE_SUBDIR)
 ## Table 5: H3b Null Result Z-Score — Ethnic Russian Population (Pattern B)
 
 ```{r table-05b}
-# NOTE: These H3b models likely do not exist yet
 h3b_z_models_exist <- !is.null(results_ethnic$model6a_high_z) &&
                       !is.null(results_ethnic$model6a_low_z) &&
                       !is.null(results_ethnic$model6a_opt_z)
 
-if (!h3b_z_models_exist) {
-  cat("WARNING: H3b Z-score models not found. Skipping Table 5.\n")
-} else {
-  h3b_z_models <- list(
-    "(1)\u2021" = results_ethnic$model6a_high_z,
-    "(2)\u2021" = results_ethnic$model6a_low_z,
-    "(3)\u2020" = results_ethnic$model6a_opt_z,
-    "(4)\u2020" = results_ethnic$model6a_opt_non_mil_z,
-    "(5)\u2020" = results_ethnic$matched_model_z
-  )
 
-  boot_keys_t6 <- c("model6a_opt_z", "model6a_opt_non_mil_z", "matched_model_z")
-  boot_results_t6 <- lapply(boot_keys_t6, function(k) results_ethnic$bootstrap_se[[k]])
+h3b_z_models <- list(
+  "(1)\u2021" = results_ethnic$model6a_high_z,
+  "(2)\u2021" = results_ethnic$model6a_low_z,
+  "(3)\u2020" = results_ethnic$model6a_opt_z,
+  "(4)\u2020" = results_ethnic$model6a_opt_non_mil_z,
+  "(5)\u2020" = results_ethnic$matched_model_z
+)
 
-  vcov_t6 <- list(
-    "(1)\u2021" = NULL,
-    "(2)\u2021" = NULL,
-    "(3)\u2020" = create_bootstrap_vcov(results_ethnic$model6a_opt_z, boot_results_t6[[1]], "treatment:high_russia"),
-    "(4)\u2020" = create_bootstrap_vcov(results_ethnic$model6a_opt_non_mil_z, boot_results_t6[[2]], "treatment:high_russia"),
-    "(5)\u2020" = create_bootstrap_vcov(results_ethnic$matched_model_z, boot_results_t6[[3]], "treatment:high_russia")
-  )
+boot_keys_t6 <- c("model6a_opt_z", "model6a_opt_non_mil_z", "matched_model_z")
+boot_results_t6 <- lapply(boot_keys_t6, function(k) results_ethnic$bootstrap_se[[k]])
 
-  n_cl_t6 <- sapply(h3b_z_models, get_n_clusters)
+vcov_t6 <- list(
+  "(1)\u2021" = NULL,
+  "(2)\u2021" = NULL,
+  "(3)\u2020" = create_bootstrap_vcov(results_ethnic$model6a_opt_z, boot_results_t6[[1]], "treatment:high_russia"),
+  "(4)\u2020" = create_bootstrap_vcov(results_ethnic$model6a_opt_non_mil_z, boot_results_t6[[2]], "treatment:high_russia"),
+  "(5)\u2020" = create_bootstrap_vcov(results_ethnic$matched_model_z, boot_results_t6[[3]], "treatment:high_russia")
+)
 
-  rows_t6 <- tibble::tribble(
-    ~term,~row1, ~row2, ~row3, ~row4, ~row5,
-    "Source Z-Score", "X",    "X",    "X",    "X",    "X",
-    "Clusters",       n_cl_t6[1], n_cl_t6[2], n_cl_t6[3], n_cl_t6[4], n_cl_t6[5]
-  )
-  attr(rows_t6, "position") <- c(5, 6)
+n_cl_t6 <- sapply(h3b_z_models, get_n_clusters)
 
-  note_t6 <- str_wrap(paste(
-    "All models use a source-level Z-Score normalization.",
-    "Models 1-2 show separate RDD estimates for high and low ethnic Russian population countries.",
-    "Models 3-5 estimate the high Russian population x treatment interaction.",
-    "Model 3 uses the optimal bandwidth. Model 4 omits military topics.",
-    "Model 5 uses matched data.", SE_NOTE
-  ), 80)
+rows_t6 <- tibble::tribble(
+  ~term,~row1, ~row2, ~row3, ~row4, ~row5,
+  "Source Z-Score", "X",    "X",    "X",    "X",    "X",
+  "Clusters",       n_cl_t6[1], n_cl_t6[2], n_cl_t6[3], n_cl_t6[4], n_cl_t6[5]
+)
+attr(rows_t6, "position") <- c(5, 6)
 
-  table_6 <- modelsummary(
-    h3b_z_models,
-    output = "gt",
-    fmt = fmt_significant(2),
-    stars = TRUE,
-    vcov = vcov_t6,
-    coef_map = c(
-      "treatment" = "Invasion",
-      "treatment:high_russia" = "High Russian Pop x Treatment"
-    ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-    title = "Table 5: H3b Ethnic Russian Population — Null Result, Z-Score (Probabilistic Time)",
-    add_rows = rows_t6,
-    notes = note_t6
-  )
+note_t6 <- str_wrap(paste(
+  "All models use a source-level Z-Score normalization.",
+  "Models 1-2 show separate RDD estimates for high and low ethnic Russian population countries.",
+  "Models 3-5 estimate the high Russian population x treatment interaction.",
+  "Model 3 uses the optimal bandwidth. Model 4 omits military topics.",
+  "Model 5 uses matched data.", SE_NOTE
+), 80)
 
-  boot_col_names_t6 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020")
-  table_6 <- override_interaction_stars(table_6, boot_results_t6, boot_col_names_t6)
+table_6 <- modelsummary(
+  h3b_z_models,
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  vcov = vcov_t6,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
+  title = "Table 5: H3b Ethnic Russian Population — Null Result, Z-Score (Probabilistic Time)",
+  add_rows = rows_t6,
+  notes = note_t6
+)
 
-  table_6
-  save_table(table_6, "table_05_main", TABLE_SUBDIR)
-}
+boot_col_names_t6 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020")
+table_6 <- override_interaction_stars(table_6, boot_results_t6, boot_col_names_t6)
+
+table_6
+save_table(table_6, "table_05_main", TABLE_SUBDIR)
+
 ```
 
 ## Table 7: Country Classification (Pattern E)
