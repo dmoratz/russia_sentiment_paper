@@ -220,7 +220,8 @@ h2_data_non_mil_prob <- h2_data_non_mil_prob %>%
   group_by(source_domain) %>%
   mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
                    sd(sentiment_clean, na.rm = TRUE)) %>%
-  ungroup()
+  ungroup() %>%
+  filter(!is.na(sentiment_z))
 
 # Compute optimal bandwidth via rdbwselect (residualized, matching 05C)
 resid_y_h2 <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
@@ -292,7 +293,8 @@ data_align_state_non_mil_prob <- data_align_state_non_mil_prob %>%
   group_by(source_domain) %>%
   mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
                    sd(sentiment_clean, na.rm = TRUE)) %>%
-  ungroup()
+  ungroup() %>%
+  filter(!is.na(sentiment_z))
 
 # Compute optimal bandwidth (residualized, matching 06C non-mil Z-score section)
 resid_y_h3a <- feols(sentiment_z ~ 1 | topic_clean + csto,
