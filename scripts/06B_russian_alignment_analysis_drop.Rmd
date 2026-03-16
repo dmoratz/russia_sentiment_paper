@@ -1152,92 +1152,92 @@ summary(model5a_fully_saturated)
 ### Manual Wild Bootstrap Standard Errors
 
 ```{r saturated-bootstrap-drop}
-set.seed(3184)
-B <- 99
-
-# Original model
-model_original <- model5a_fully_saturated
-original_coef <- coef(model_original)["treatment:csto"]
-original_se <- se(model_original)["treatment:csto"]
-original_t <- original_coef / original_se
-
-cat("Original t-stat:", original_t, "\n")
-
-# CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
-# Remove treatment:csto from the formula
-model_restricted <- feols(
-  sentiment_clean ~ running_continuous + treatment + csto + running_continuous:treatment + running_continuous:csto +
-    running_continuous:treatment:csto |  # Keep triple interaction but not treatment:csto
-    source_domain^topic_clean + topic_clean^treatment,
-  cluster = ~source_domain,
-  data = optimal_bandwidth_data_state_non_mil
-)
-
-# Get residuals and fitted values from RESTRICTED model
-residuals_restricted <- residuals(model_restricted)
-fitted_restricted <- fitted(model_restricted)
-
-cat("Using restricted model residuals (null imposed)\n")
-
-# Get clusters
-clusters <- unique(optimal_bandwidth_data_state_non_mil$source_domain)
-n_clusters <- length(clusters)
-
-# Bootstrap
-boot_t_stats <- numeric(B)
-
-for(b in 1:B) {
-  # Generate Rademacher weights
-  cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
-
-  # Assign to observations
-  data_boot <- optimal_bandwidth_data_state_non_mil
-  data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
-    cluster_weights[which(clusters == clust)]
-  })
-
-  # Create bootstrap outcome using RESTRICTED fitted values
-  data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
-
-  # Re-estimate FULL model on bootstrap data
-  model_boot <- feols(
-    sentiment_boot ~ running_continuous * treatment * csto |
-      source_domain^topic_clean + topic_clean^treatment,
-    cluster = ~source_domain,
-    data = data_boot
-  )
-
-  boot_coef <- coef(model_boot)["treatment:csto"]
-  boot_se <- se(model_boot)["treatment:csto"]
-  boot_t_stats[b] <- boot_coef / boot_se
-
-  if(b %% 100 == 0) cat("Iteration:", b, "\n")
-}
-
-# Calculate p-value
-p_value <- mean(abs(boot_t_stats) >= abs(original_t))
-
-cat("\n=== Results ===\n")
-cat("Original t-stat:", original_t, "\n")
-cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
-cat("P-value:", p_value, "\n")
-
-# Plot
-hist(boot_t_stats, breaks=30, main="Wild Bootstrap t-statistics (Null Imposed)",
-     xlab="t-statistic")
-abline(v=original_t, col="red", lwd=2)
-abline(v=0, col="blue", lwd=2, lty=2)
-legend("topright", c("Original t", "Null (t=0)"), col=c("red","blue"), lty=c(1,2), lwd=2)
-
-# Extract bootstrap results for saturated model in standard format
-boot_model5a_fully_saturated <- list(
-  se = original_se,
-  p_val = p_value,
-  ci_lower = NA,  # Not computed in manual bootstrap
-  ci_upper = NA,  # Not computed in manual bootstrap
-  t_stat = original_t
-)
-cat("Saturated model bootstrap results extracted\n")
+# set.seed(3184)
+# B <- 99
+# 
+# # Original model
+# model_original <- model5a_fully_saturated
+# original_coef <- coef(model_original)["treatment:csto"]
+# original_se <- se(model_original)["treatment:csto"]
+# original_t <- original_coef / original_se
+# 
+# cat("Original t-stat:", original_t, "\n")
+# 
+# # CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
+# # Remove treatment:csto from the formula
+# model_restricted <- feols(
+#   sentiment_clean ~ running_continuous + treatment + csto + running_continuous:treatment + running_continuous:csto +
+#     running_continuous:treatment:csto |  # Keep triple interaction but not treatment:csto
+#     source_domain^topic_clean + topic_clean^treatment,
+#   cluster = ~source_domain,
+#   data = optimal_bandwidth_data_state_non_mil
+# )
+# 
+# # Get residuals and fitted values from RESTRICTED model
+# residuals_restricted <- residuals(model_restricted)
+# fitted_restricted <- fitted(model_restricted)
+# 
+# cat("Using restricted model residuals (null imposed)\n")
+# 
+# # Get clusters
+# clusters <- unique(optimal_bandwidth_data_state_non_mil$source_domain)
+# n_clusters <- length(clusters)
+# 
+# # Bootstrap
+# boot_t_stats <- numeric(B)
+# 
+# for(b in 1:B) {
+#   # Generate Rademacher weights
+#   cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
+# 
+#   # Assign to observations
+#   data_boot <- optimal_bandwidth_data_state_non_mil
+#   data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
+#     cluster_weights[which(clusters == clust)]
+#   })
+# 
+#   # Create bootstrap outcome using RESTRICTED fitted values
+#   data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
+# 
+#   # Re-estimate FULL model on bootstrap data
+#   model_boot <- feols(
+#     sentiment_boot ~ running_continuous * treatment * csto |
+#       source_domain^topic_clean + topic_clean^treatment,
+#     cluster = ~source_domain,
+#     data = data_boot
+#   )
+# 
+#   boot_coef <- coef(model_boot)["treatment:csto"]
+#   boot_se <- se(model_boot)["treatment:csto"]
+#   boot_t_stats[b] <- boot_coef / boot_se
+# 
+#   if(b %% 100 == 0) cat("Iteration:", b, "\n")
+# }
+# 
+# # Calculate p-value
+# p_value <- mean(abs(boot_t_stats) >= abs(original_t))
+# 
+# cat("\n=== Results ===\n")
+# cat("Original t-stat:", original_t, "\n")
+# cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
+# cat("P-value:", p_value, "\n")
+# 
+# # Plot
+# hist(boot_t_stats, breaks=30, main="Wild Bootstrap t-statistics (Null Imposed)",
+#      xlab="t-statistic")
+# abline(v=original_t, col="red", lwd=2)
+# abline(v=0, col="blue", lwd=2, lty=2)
+# legend("topright", c("Original t", "Null (t=0)"), col=c("red","blue"), lty=c(1,2), lwd=2)
+# 
+# # Extract bootstrap results for saturated model in standard format
+# boot_model5a_fully_saturated <- list(
+#   se = original_se,
+#   p_val = p_value,
+#   ci_lower = NA,  # Not computed in manual bootstrap
+#   ci_upper = NA,  # Not computed in manual bootstrap
+#   t_stat = original_t
+# )
+# cat("Saturated model bootstrap results extracted\n")
 ```
 
 # Country-Level Analysis

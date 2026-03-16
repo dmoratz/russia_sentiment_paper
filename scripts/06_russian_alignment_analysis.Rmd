@@ -1301,19 +1301,32 @@ print(paste("Non-parametric treatment effect of CSTO:", treatment_effect_csto))
 ```{r}
 # Now run the regression on just these two countries
 model_two_countries <- feols(
+  sentiment_clean ~ treatment * csto,
+  cluster = ~source_domain,
+  data = two_country_data
+)
+
+model_two_countries_fe <- feols(
+  sentiment_clean ~ treatment * csto | topic_clean + source_domain,
+  cluster = ~source_domain,
+  data = two_country_data
+)
+
+model_two_countries_sat <- feols(
   sentiment_clean ~ treatment * csto |
     source_domain^topic_clean + topic_clean^treatment,
   cluster = ~source_domain,
   data = two_country_data
 )
 
-print("Regression estimate:")
-print(coef(model_two_countries)["treatment:csto"])
 
 # Compare
 comparison <- data.frame(
-  Method = c("Non-parametric", "Regression"),
-  Estimate = c(treatment_effect_csto, coef(model_two_countries)["treatment:csto"])
+  Method = c("Non-parametric", "Regression", "Regression FE", "Regression Sat."),
+  Estimate = c(treatment_effect_csto, 
+               coef(model_two_countries)["treatment:csto"], 
+               coef(model_two_countries_fe)["treatment:csto"], 
+               coef(model_two_countries_sat)["treatment:csto"])
 )
 
 print(comparison)
