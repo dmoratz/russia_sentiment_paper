@@ -1,0 +1,704 @@
+---
+title: "09 - Bandwidth Sensitivity Analysis"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script produces bandwidth sensitivity figures for each of the 4 hypotheses. For each hypothesis, the main model is re-estimated at 10 bandwidth values from 50% to 200% of the optimal bandwidth. The resulting coefficient estimates and 95% confidence intervals (analytic, cluster-robust) are plotted across bandwidths, with a vertical dashed line at the optimal.
+
+**Hypotheses:**
+
+- H1: Effect of invasion on sentiment (all topics, Z-score, rdrobust)
+- H2: State vs independent media (non-mil, Z-score, feols interaction)
+- H3a: CSTO vs neutral alignment (non-mil, Z-score, state media, feols interaction)
+- H3b: Ethnic Russian population (non-mil, Z-score, state media, feols interaction)
+
+**Outputs:**
+
+- 4 figures saved to `FIGURES_TABLES/prob/` (probabilistic variant, primary)
+- 4 figures saved to `FIGURES_TABLES/days/` (day running variable, robustness)
+- Combined 2x2 figures for each variant
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_TABLES, "/"))
+options(digits = 10)
+
+set.seed(3184)
+```
+
+# Load Data
+
+```{r load-data}
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+
+data <- data %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
+data_non_ukraine <- data_non_ukraine %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
+
+cat("Full data:", nrow(data), "articles\n")
+cat("Non-Ukraine data:", nrow(data_non_ukraine), "articles\n")
+
+# Ensure output directories exist
+dir.create(file.path(FIGURES_TABLES, "prob"), showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(FIGURES_TABLES, "days"), showWarnings = FALSE, recursive = TRUE)
+```
+
+# Helper Functions
+
+```{r helpers}
+# Run feols at a given bandwidth and extract coefficient + CI
+bw_sensitivity_feols <- function(data, running_var, bw, formula, coef_name) {
+  d <- data %>% filter(abs(.data[[running_var]]) < bw)
+
+  n_clusters <- length(unique(d$source_domain))
+  if (nrow(d) < 50 || n_clusters < 3) {
+    return(tibble(bandwidth = bw, estimate = NA_real_, se = NA_real_,
+                  ci_lower = NA_real_, ci_upper = NA_real_,
+                  n_obs = nrow(d), n_clusters = n_clusters))
+  }
+
+  m <- tryCatch(
+    feols(as.formula(formula), cluster = ~source_domain, data = d),
+    error = function(e) NULL
+  )
+
+  if (is.null(m) || !(coef_name %in% names(coef(m)))) {
+    return(tibble(bandwidth = bw, estimate = NA_real_, se = NA_real_,
+                  ci_lower = NA_real_, ci_upper = NA_real_,
+                  n_obs = nrow(d), n_clusters = n_clusters))
+  }
+
+  coef_val <- coef(m)[coef_name]
+  se_val <- se(m)[coef_name]
+
+  tibble(
+    bandwidth = bw,
+    estimate = coef_val,
+    se = se_val,
+    ci_lower = coef_val - 1.96 * se_val,
+    ci_upper = coef_val + 1.96 * se_val,
+    n_obs = nrow(d),
+    n_clusters = n_clusters
+  )
+}
+
+# Run rdrobust at a given bandwidth and extract coefficient + CI
+bw_sensitivity_rdrobust <- function(y, x, cluster, bw, covs = NULL) {
+  m <- tryCatch(
+    rdrobust(y = y, x = x, h = bw, cluster = cluster, covs = covs),
+    error = function(e) NULL
+  )
+
+  if (is.null(m)) {
+    return(tibble(bandwidth = bw, estimate = NA_real_, se = NA_real_,
+                  ci_lower = NA_real_, ci_upper = NA_real_))
+  }
+
+  tibble(
+    bandwidth = bw,
+    estimate = m$coef[1],
+    se = m$se[1],
+    ci_lower = m$ci[1, 1],
+    ci_upper = m$ci[1, 2]
+  )
+}
+
+# Plotting function
+plot_bw_sensitivity <- function(results, optimal_bw, title, subtitle = NULL) {
+  results %>%
+    filter(!is.na(estimate)) %>%
+    ggplot(aes(x = bandwidth, y = estimate)) +
+    geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper), alpha = 0.2, fill = "steelblue") +
+    geom_line(color = "steelblue", linewidth = 0.8) +
+    geom_point(color = "steelblue", size = 2) +
+    geom_vline(xintercept = optimal_bw, linetype = "dashed", color = "red", alpha = 0.7) +
+    geom_hline(yintercept = 0, linetype = "solid", color = "grey50", alpha = 0.5) +
+    annotate("text", x = optimal_bw, y = Inf, label = "Optimal BW",
+             vjust = 2, hjust = -0.1, color = "red", size = 3) +
+    theme_classic() +
+    labs(
+      title = title,
+      subtitle = subtitle,
+      x = "Bandwidth (days)",
+      y = "Coefficient Estimate"
+    )
+}
+```
+
+# ============================================================================
+# PROBABILISTIC VARIANT (Primary)
+# ============================================================================
+
+# H1: Effect of Invasion on Sentiment (Probabilistic)
+
+```{r h1-prob-data}
+# H1 uses data_non_ukraine, all topics, Z-score DV, rdrobust
+# Following 04C_main_rdd_analysis_prob.Rmd
+
+h1_data_prob <- data_non_ukraine %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Convert running variable to days for consistent units
+h1_data_prob <- h1_data_prob %>%
+  mutate(running_prob_days = running_probabilistic / 86400)
+
+# Covariates: topic FEs (matching model5_opt in 04C)
+covs_h1_prob <- model.matrix(~ topic_clean - 1, data = h1_data_prob)
+
+# Get optimal bandwidth: run rdrobust once to get its selected bandwidth
+rd_h1_prob <- rdrobust(
+  y = h1_data_prob$sentiment_z,
+  x = h1_data_prob$running_prob_days,
+  covs = covs_h1_prob,
+  cluster = h1_data_prob$source_domain
+)
+
+optimal_bw_h1_prob <- rd_h1_prob$bws[1, 1]
+cat("H1 optimal bandwidth (prob, days):", round(optimal_bw_h1_prob, 2), "\n")
+```
+
+```{r h1-prob-sensitivity}
+bw_grid_h1_prob <- seq(0.5 * optimal_bw_h1_prob, 2 * optimal_bw_h1_prob, length.out = 10)
+
+results_bw_h1_prob <- map_df(bw_grid_h1_prob, function(h) {
+  bw_sensitivity_rdrobust(
+    y = h1_data_prob$sentiment_z,
+    x = h1_data_prob$running_prob_days,
+    cluster = h1_data_prob$source_domain,
+    bw = h,
+    covs = covs_h1_prob
+  )
+})
+
+cat("H1 sensitivity results:\n")
+print(results_bw_h1_prob)
+```
+
+```{r h1-prob-plot, fig.width=8, fig.height=5}
+p_h1_prob <- plot_bw_sensitivity(
+  results_bw_h1_prob, optimal_bw_h1_prob,
+  title = "H1: Bandwidth Sensitivity — Effect of Invasion on Sentiment",
+  subtitle = "Probabilistic Time Assignment"
+)
+
+p_h1_prob
+ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_h1.png"),
+       p_h1_prob, width = 8, height = 5)
+```
+
+# H2: State vs Independent Media (Probabilistic)
+
+```{r h2-prob-data}
+# H2 uses data_non_ukraine, non-mil, Z-score, feols interaction
+# Following 05C_diff_in_disc_analysis_prob.Rmd
+
+h2_data_prob <- data_non_ukraine %>%
+  drop_na() %>%
+  droplevels()
+
+# Convert running variable to days
+h2_data_prob <- h2_data_prob %>%
+  mutate(running_probabilistic = running_probabilistic / 86400)
+
+# Filter to non-military topics
+h2_data_non_mil_prob <- h2_data_prob %>%
+  filter(!topic_clean %in% c("Military"))
+
+# Recompute Z-score on non-mil subset (matching 05C pattern)
+h2_data_non_mil_prob <- h2_data_non_mil_prob %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute optimal bandwidth via rdbwselect (residualized, matching 05C)
+resid_y_h2 <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
+                     data = h2_data_non_mil_prob)$residuals
+
+bw_h2_prob <- rdbwselect(y = resid_y_h2,
+                          x = h2_data_non_mil_prob$running_probabilistic,
+                          kernel = "triangular",
+                          cluster = h2_data_non_mil_prob$source_domain,
+                          p = 1,
+                          bwselect = "mserd")
+
+optimal_bw_h2_prob <- bw_h2_prob$bws[1, 1]
+cat("H2 optimal bandwidth (prob, non-mil Z-score, days):", round(optimal_bw_h2_prob, 2), "\n")
+```
+
+```{r h2-prob-sensitivity}
+bw_grid_h2_prob <- seq(0.5 * optimal_bw_h2_prob, 2 * optimal_bw_h2_prob, length.out = 10)
+
+results_bw_h2_prob <- map_df(bw_grid_h2_prob, function(h) {
+  bw_sensitivity_feols(
+    data = h2_data_non_mil_prob,
+    running_var = "running_probabilistic",
+    bw = h,
+    formula = "sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean",
+    coef_name = "treatment:state_owned"
+  )
+})
+
+cat("H2 sensitivity results:\n")
+print(results_bw_h2_prob)
+```
+
+```{r h2-prob-plot, fig.width=8, fig.height=5}
+p_h2_prob <- plot_bw_sensitivity(
+  results_bw_h2_prob, optimal_bw_h2_prob,
+  title = "H2: Bandwidth Sensitivity — State vs. Independent Media",
+  subtitle = "Non-Military Topics, Probabilistic Time"
+)
+
+p_h2_prob
+ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_h2.png"),
+       p_h2_prob, width = 8, height = 5)
+```
+
+# H3a: CSTO vs Neutral Alignment (Probabilistic)
+
+```{r h3a-prob-data}
+# H3a uses full data filtered to non-NATO, state-owned, non-mil, Z-score
+# Following 06C_russian_alignment_analysis_prob.Rmd
+
+# Filter to non-NATO countries
+data_align_prob <- data %>%
+  filter(nato == 0) %>%
+  drop_na()
+
+# Filter to state-owned media and convert running variable to days
+data_align_state_prob <- data_align_prob %>%
+  filter(state_owned == 1) %>%
+  mutate(source_domain = droplevels(source_domain)) %>%
+  mutate(running_probabilistic = running_probabilistic / 86400)
+
+# Filter to non-military topics
+data_align_state_non_mil_prob <- data_align_state_prob %>%
+  filter(!topic_clean %in% "Military")
+
+# Recompute Z-score on non-mil subset (matching 06C)
+data_align_state_non_mil_prob <- data_align_state_non_mil_prob %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute optimal bandwidth (residualized, matching 06C non-mil Z-score section)
+resid_y_h3a <- feols(sentiment_z ~ 1 | topic_clean + csto,
+                      data = data_align_state_non_mil_prob)$residuals
+
+bw_h3a_prob <- rdbwselect(y = resid_y_h3a,
+                           x = data_align_state_non_mil_prob$running_probabilistic,
+                           kernel = "triangular",
+                           cluster = data_align_state_non_mil_prob$source_domain,
+                           p = 1,
+                           bwselect = "mserd")
+
+optimal_bw_h3a_prob <- bw_h3a_prob$bws[1, 1]
+cat("H3a optimal bandwidth (prob, non-mil Z-score, days):", round(optimal_bw_h3a_prob, 2), "\n")
+```
+
+```{r h3a-prob-sensitivity}
+bw_grid_h3a_prob <- seq(0.5 * optimal_bw_h3a_prob, 2 * optimal_bw_h3a_prob, length.out = 10)
+
+results_bw_h3a_prob <- map_df(bw_grid_h3a_prob, function(h) {
+  bw_sensitivity_feols(
+    data = data_align_state_non_mil_prob,
+    running_var = "running_probabilistic",
+    bw = h,
+    formula = "sentiment_z ~ running_probabilistic * treatment * csto | topic_clean",
+    coef_name = "treatment:csto"
+  )
+})
+
+cat("H3a sensitivity results:\n")
+print(results_bw_h3a_prob)
+```
+
+```{r h3a-prob-plot, fig.width=8, fig.height=5}
+p_h3a_prob <- plot_bw_sensitivity(
+  results_bw_h3a_prob, optimal_bw_h3a_prob,
+  title = "H3a: Bandwidth Sensitivity — CSTO vs. Neutral Alignment",
+  subtitle = "Non-Military Topics, State Media, Probabilistic Time"
+)
+
+p_h3a_prob
+ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_h3a.png"),
+       p_h3a_prob, width = 8, height = 5)
+```
+
+# H3b: Ethnic Russian Population (Probabilistic)
+
+```{r h3b-prob-data}
+# H3b uses full data filtered to non-NATO, state-owned, non-mil, Z-score
+# Following 07C_ethnic_russian_analysis_prob.Rmd
+
+# Filter to non-NATO countries
+data_ethnic_prob <- data %>%
+  filter(nato == 0)
+
+# Filter to state-owned media and convert running variable to days
+data_ethnic_state_prob <- data_ethnic_prob %>%
+  filter(state_owned == 1) %>%
+  mutate(source_domain = droplevels(source_domain)) %>%
+  mutate(running_probabilistic = running_probabilistic / 86400)
+
+# Filter to non-military topics
+data_ethnic_state_non_mil_prob <- data_ethnic_state_prob %>%
+  filter(!topic_clean %in% "Military")
+
+# Recompute Z-score on non-mil subset (matching 07C)
+data_ethnic_state_non_mil_prob <- data_ethnic_state_non_mil_prob %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute optimal bandwidth (residualized, matching 07C non-mil Z-score section)
+resid_y_h3b <- feols(sentiment_z ~ 1 | topic_clean + high_russia,
+                      data = data_ethnic_state_non_mil_prob)$residuals
+
+bw_h3b_prob <- rdbwselect(y = resid_y_h3b,
+                           x = data_ethnic_state_non_mil_prob$running_probabilistic,
+                           kernel = "triangular",
+                           cluster = data_ethnic_state_non_mil_prob$source_domain,
+                           p = 1,
+                           bwselect = "mserd")
+
+optimal_bw_h3b_prob <- bw_h3b_prob$bws[1, 1]
+cat("H3b optimal bandwidth (prob, non-mil Z-score, days):", round(optimal_bw_h3b_prob, 2), "\n")
+```
+
+```{r h3b-prob-sensitivity}
+bw_grid_h3b_prob <- seq(0.5 * optimal_bw_h3b_prob, 2 * optimal_bw_h3b_prob, length.out = 10)
+
+results_bw_h3b_prob <- map_df(bw_grid_h3b_prob, function(h) {
+  bw_sensitivity_feols(
+    data = data_ethnic_state_non_mil_prob,
+    running_var = "running_probabilistic",
+    bw = h,
+    formula = "sentiment_z ~ running_probabilistic * treatment * high_russia | topic_clean",
+    coef_name = "treatment:high_russia"
+  )
+})
+
+cat("H3b sensitivity results:\n")
+print(results_bw_h3b_prob)
+```
+
+```{r h3b-prob-plot, fig.width=8, fig.height=5}
+p_h3b_prob <- plot_bw_sensitivity(
+  results_bw_h3b_prob, optimal_bw_h3b_prob,
+  title = "H3b: Bandwidth Sensitivity — Ethnic Russian Population",
+  subtitle = "Non-Military Topics, State Media, Probabilistic Time"
+)
+
+p_h3b_prob
+ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_h3b.png"),
+       p_h3b_prob, width = 8, height = 5)
+```
+
+# Combined Figure (Probabilistic)
+
+```{r combined-prob, fig.width=14, fig.height=10}
+combined_prob <- (p_h1_prob + p_h2_prob) / (p_h3a_prob + p_h3b_prob) +
+  plot_annotation(title = "Bandwidth Sensitivity Analysis (Probabilistic Time Assignment)")
+
+combined_prob
+ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_combined.png"),
+       combined_prob, width = 14, height = 10)
+```
+
+# ============================================================================
+# DAYS VARIANT (Robustness)
+# ============================================================================
+
+# H1: Effect of Invasion on Sentiment (Days)
+
+```{r h1-days-data}
+# H1 days: uses data_non_ukraine with `running` variable (already in days)
+# Following 04_main_rdd_analysis.Rmd
+
+h1_data_days <- data_non_ukraine %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+covs_h1_days <- model.matrix(~ topic_clean - 1, data = h1_data_days)
+
+rd_h1_days <- rdrobust(
+  y = h1_data_days$sentiment_z,
+  x = h1_data_days$running,
+  covs = covs_h1_days,
+  cluster = h1_data_days$source_domain
+)
+
+optimal_bw_h1_days <- rd_h1_days$bws[1, 1]
+cat("H1 optimal bandwidth (days):", round(optimal_bw_h1_days, 2), "\n")
+```
+
+```{r h1-days-sensitivity}
+bw_grid_h1_days <- seq(0.5 * optimal_bw_h1_days, 2 * optimal_bw_h1_days, length.out = 10)
+
+results_bw_h1_days <- map_df(bw_grid_h1_days, function(h) {
+  bw_sensitivity_rdrobust(
+    y = h1_data_days$sentiment_z,
+    x = h1_data_days$running,
+    cluster = h1_data_days$source_domain,
+    bw = h,
+    covs = covs_h1_days
+  )
+})
+
+cat("H1 days sensitivity results:\n")
+print(results_bw_h1_days)
+```
+
+```{r h1-days-plot, fig.width=8, fig.height=5}
+p_h1_days <- plot_bw_sensitivity(
+  results_bw_h1_days, optimal_bw_h1_days,
+  title = "H1: Bandwidth Sensitivity — Effect of Invasion on Sentiment",
+  subtitle = "Day Running Variable"
+)
+
+p_h1_days
+ggsave(file.path(FIGURES_TABLES, "days", "bw_sensitivity_h1.png"),
+       p_h1_days, width = 8, height = 5)
+```
+
+# H2: State vs Independent Media (Days)
+
+```{r h2-days-data}
+# Following 05_diff_in_disc_analysis.Rmd (days variant)
+
+h2_data_days <- data_non_ukraine %>%
+  drop_na() %>%
+  droplevels()
+
+# Z-score on full data first, then filter
+h2_data_days <- h2_data_days %>%
+  group_by(source_domain) %>%
+  filter(sd(sentiment_clean, na.rm = TRUE) > 0) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                       sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup() %>%
+  droplevels()
+
+# Filter to non-military
+h2_data_non_mil_days <- h2_data_days %>%
+  filter(!topic_clean %in% c("Military"))
+
+# Recompute Z-score on non-mil subset
+h2_data_non_mil_days <- h2_data_non_mil_days %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute optimal bandwidth
+resid_y_h2_days <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
+                          data = h2_data_non_mil_days)$residuals
+
+bw_h2_days <- rdbwselect(y = resid_y_h2_days,
+                          x = h2_data_non_mil_days$running,
+                          kernel = "triangular",
+                          cluster = h2_data_non_mil_days$source_domain,
+                          p = 1,
+                          bwselect = "mserd")
+
+optimal_bw_h2_days <- bw_h2_days$bws[1, 1]
+cat("H2 optimal bandwidth (days, non-mil Z-score):", round(optimal_bw_h2_days, 2), "\n")
+```
+
+```{r h2-days-sensitivity}
+bw_grid_h2_days <- seq(0.5 * optimal_bw_h2_days, 2 * optimal_bw_h2_days, length.out = 10)
+
+results_bw_h2_days <- map_df(bw_grid_h2_days, function(h) {
+  bw_sensitivity_feols(
+    data = h2_data_non_mil_days,
+    running_var = "running",
+    bw = h,
+    formula = "sentiment_z ~ running * treatment * state_owned | topic_clean",
+    coef_name = "treatment:state_owned"
+  )
+})
+
+cat("H2 days sensitivity results:\n")
+print(results_bw_h2_days)
+```
+
+```{r h2-days-plot, fig.width=8, fig.height=5}
+p_h2_days <- plot_bw_sensitivity(
+  results_bw_h2_days, optimal_bw_h2_days,
+  title = "H2: Bandwidth Sensitivity — State vs. Independent Media",
+  subtitle = "Non-Military Topics, Day Running Variable"
+)
+
+p_h2_days
+ggsave(file.path(FIGURES_TABLES, "days", "bw_sensitivity_h2.png"),
+       p_h2_days, width = 8, height = 5)
+```
+
+# H3a: CSTO vs Neutral Alignment (Days)
+
+```{r h3a-days-data}
+# Following 06_russian_alignment_analysis.Rmd (days variant)
+
+data_align_days <- data %>%
+  filter(nato == 0) %>%
+  drop_na()
+
+data_align_state_days <- data_align_days %>%
+  filter(state_owned == 1) %>%
+  mutate(source_domain = droplevels(source_domain))
+
+# Filter to non-military
+data_align_state_non_mil_days <- data_align_state_days %>%
+  filter(!topic_clean %in% "Military")
+
+# Recompute Z-score on non-mil subset
+data_align_state_non_mil_days <- data_align_state_non_mil_days %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute optimal bandwidth
+resid_y_h3a_days <- feols(sentiment_z ~ 1 | topic_clean + csto,
+                           data = data_align_state_non_mil_days)$residuals
+
+bw_h3a_days <- rdbwselect(y = resid_y_h3a_days,
+                           x = data_align_state_non_mil_days$running,
+                           kernel = "triangular",
+                           cluster = data_align_state_non_mil_days$source_domain,
+                           p = 1,
+                           bwselect = "mserd")
+
+optimal_bw_h3a_days <- bw_h3a_days$bws[1, 1]
+cat("H3a optimal bandwidth (days, non-mil Z-score):", round(optimal_bw_h3a_days, 2), "\n")
+```
+
+```{r h3a-days-sensitivity}
+bw_grid_h3a_days <- seq(0.5 * optimal_bw_h3a_days, 2 * optimal_bw_h3a_days, length.out = 10)
+
+results_bw_h3a_days <- map_df(bw_grid_h3a_days, function(h) {
+  bw_sensitivity_feols(
+    data = data_align_state_non_mil_days,
+    running_var = "running",
+    bw = h,
+    formula = "sentiment_z ~ running * treatment * csto | topic_clean",
+    coef_name = "treatment:csto"
+  )
+})
+
+cat("H3a days sensitivity results:\n")
+print(results_bw_h3a_days)
+```
+
+```{r h3a-days-plot, fig.width=8, fig.height=5}
+p_h3a_days <- plot_bw_sensitivity(
+  results_bw_h3a_days, optimal_bw_h3a_days,
+  title = "H3a: Bandwidth Sensitivity — CSTO vs. Neutral Alignment",
+  subtitle = "Non-Military Topics, State Media, Day Running Variable"
+)
+
+p_h3a_days
+ggsave(file.path(FIGURES_TABLES, "days", "bw_sensitivity_h3a.png"),
+       p_h3a_days, width = 8, height = 5)
+```
+
+# H3b: Ethnic Russian Population (Days)
+
+```{r h3b-days-data}
+# Following 07_ethnic_russian_analysis.Rmd (days variant)
+
+data_ethnic_days <- data %>%
+  filter(nato == 0)
+
+data_ethnic_state_days <- data_ethnic_days %>%
+  filter(state_owned == 1) %>%
+  mutate(source_domain = droplevels(source_domain))
+
+# Filter to non-military
+data_ethnic_state_non_mil_days <- data_ethnic_state_days %>%
+  filter(!topic_clean %in% "Military")
+
+# Recompute Z-score on non-mil subset
+data_ethnic_state_non_mil_days <- data_ethnic_state_non_mil_days %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute optimal bandwidth
+resid_y_h3b_days <- feols(sentiment_z ~ 1 | topic_clean + high_russia,
+                           data = data_ethnic_state_non_mil_days)$residuals
+
+bw_h3b_days <- rdbwselect(y = resid_y_h3b_days,
+                           x = data_ethnic_state_non_mil_days$running,
+                           kernel = "triangular",
+                           cluster = data_ethnic_state_non_mil_days$source_domain,
+                           p = 1,
+                           bwselect = "mserd")
+
+optimal_bw_h3b_days <- bw_h3b_days$bws[1, 1]
+cat("H3b optimal bandwidth (days, non-mil Z-score):", round(optimal_bw_h3b_days, 2), "\n")
+```
+
+```{r h3b-days-sensitivity}
+bw_grid_h3b_days <- seq(0.5 * optimal_bw_h3b_days, 2 * optimal_bw_h3b_days, length.out = 10)
+
+results_bw_h3b_days <- map_df(bw_grid_h3b_days, function(h) {
+  bw_sensitivity_feols(
+    data = data_ethnic_state_non_mil_days,
+    running_var = "running",
+    bw = h,
+    formula = "sentiment_z ~ running * treatment * high_russia | topic_clean",
+    coef_name = "treatment:high_russia"
+  )
+})
+
+cat("H3b days sensitivity results:\n")
+print(results_bw_h3b_days)
+```
+
+```{r h3b-days-plot, fig.width=8, fig.height=5}
+p_h3b_days <- plot_bw_sensitivity(
+  results_bw_h3b_days, optimal_bw_h3b_days,
+  title = "H3b: Bandwidth Sensitivity — Ethnic Russian Population",
+  subtitle = "Non-Military Topics, State Media, Day Running Variable"
+)
+
+p_h3b_days
+ggsave(file.path(FIGURES_TABLES, "days", "bw_sensitivity_h3b.png"),
+       p_h3b_days, width = 8, height = 5)
+```
+
+# Combined Figure (Days)
+
+```{r combined-days, fig.width=14, fig.height=10}
+combined_days <- (p_h1_days + p_h2_days) / (p_h3a_days + p_h3b_days) +
+  plot_annotation(title = "Bandwidth Sensitivity Analysis (Day Running Variable)")
+
+combined_days
+ggsave(file.path(FIGURES_TABLES, "days", "bw_sensitivity_combined.png"),
+       combined_days, width = 14, height = 10)
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```

@@ -488,6 +488,22 @@ step8d_time <- difftime(Sys.time(), step8d_start, units = "secs")
 cat("Completed in", round(step8d_time, 1), "seconds\n")
 ```
 
+## Step 9: Bandwidth Sensitivity Analysis
+
+```{r step9}
+step9_start <- Sys.time()
+cat("Running 09_bandwidth_sensitivity.Rmd...\n")
+
+rmarkdown::render(
+  "09_bandwidth_sensitivity.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step9_time <- difftime(Sys.time(), step9_start, units = "secs")
+cat("Completed in", round(step9_time, 1), "seconds\n")
+```
+
 # Cleanup
 
 ```{r cleanup}
@@ -532,6 +548,7 @@ cat("  08a_pub_outputs_prob:    ", round(step8a_time, 1), "s\n")
 cat("  08b_pub_outputs_days:    ", round(step8b_time, 1), "s\n")
 cat("  08c_pub_outputs_cont:    ", round(step8c_time, 1), "s\n")
 cat("  08d_pub_outputs_drop:    ", round(step8d_time, 1), "s\n")
+cat("  09_bw_sensitivity:       ", round(step9_time, 1), "s\n")
 cat("  ─────────────────────────────\n")
 cat("  Total:                   ", round(pipeline_total, 2), "min\n")
 cat("\n")
