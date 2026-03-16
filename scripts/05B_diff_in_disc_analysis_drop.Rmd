@@ -113,7 +113,7 @@ cat("Unique clusters:", length(unique(data_state_only$source_domain)), "\n")
 model2_state_rdd_z <- rdrobust(
   y = data_state_only$sentiment_z,
   x = data_state_only$running_continuous,
-  covs = model.matrix(~ source_domain + topic_clean - 1, data = data_state_only),
+  covs = model.matrix(~ topic_clean - 1, data = data_state_only),
   cluster = data_state_only$source_domain, kernel = "triangular", p = 1
 )
 
@@ -148,7 +148,7 @@ cat("Unique clusters:", length(unique(data_ind_only$source_domain)), "\n")
 model2_ind_rdd_z <- rdrobust(
   y = data_ind_only$sentiment_z,
   x = data_ind_only$running_continuous,
-  covs = model.matrix(~ source_domain + topic_clean - 1, data = data_ind_only),
+  covs = model.matrix(~ topic_clean - 1, data = data_ind_only),
   cluster = data_ind_only$source_domain, kernel = "triangular", p = 1
 )
 
@@ -443,7 +443,7 @@ optimal_bandwidth_data_non_mil <- data_non_mil %>%
 
 model2b_z <- feols(sentiment_z ~ running_continuous * treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
-                   data = data_non_mil)
+                   data = optimal_bandwidth_data_non_mil)
 boot_model2b_z <- run_wild_bootstrap(model2b_z, "treatment:state_owned")
 cat("Z-score model2b — Bootstrap p-value:", boot_model2b_z$p_val, "\n")
 ```
@@ -923,11 +923,9 @@ data_dec %>%
 
 ```{r matching-h2-drop}
 # Subset to data of interest (non-military, optimal bandwidth)
-matching_data <- data_non_mil %>%
-  filter(running_continuous < optimal_bw, running_continuous > -optimal_bw) %>%
+matching_data <- optimal_bandwidth_data_non_mil %>%
   select(sentiment_clean, sentiment_z, running, running_continuous, treatment, state_owned,
-         topic_clean, source_domain, country)%>%
-  droplevels()
+         topic_clean, source_domain, country)
 
 # Match on topic and publication day
 ps_model <- matchit(
@@ -1569,7 +1567,6 @@ results_h2_drop <- list(
     model2a_opt_z = boot_model2a_opt_z,
     model2b_z = boot_model2b_z,
     model2d_z = boot_model2d_z,
-    model3a_z = boot_model3a_z,
     model3a_z = boot_model3a_z
   ),
 
