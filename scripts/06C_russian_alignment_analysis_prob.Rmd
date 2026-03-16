@@ -586,7 +586,7 @@ data_align_state_russian <- data_align_state_russian %>%
 resid_y <- feols(sentiment_z ~ 1 | topic_clean + csto, 
                  data = data_align_state_russian)$residuals
 
-bw_align_non_mil <- rdbwselect(y = resid_y,
+bw_align_russian <- rdbwselect(y = resid_y,
                                x = data_align_state_russian$running_probabilistic,
                                kernel = "triangular",
                                cluster = data_align_state_russian$source_domain,

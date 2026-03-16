@@ -670,7 +670,7 @@ boot_model2a_full_oth <- run_wild_bootstrap(model2a_full_oth, "treatment:state_o
 
 ```{r topic-opt-bw}
 # Political
-resid_y_pol <- feols(sentiment_clean ~ 1 | state_owned, data = data_pol)$residuals
+resid_y_pol <- feols(sentiment_z ~ 1 | state_owned, data = data_pol)$residuals
 bw_pol <- rdbwselect(y = resid_y_pol, x = data_pol$running,
                      kernel = "triangular", cluster = data_pol$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_pol <- bw_pol$bws[1, 1]
@@ -678,7 +678,7 @@ cat("Political optimal bandwidth:", round(optimal_bw_pol, 1), "days\n")
 opt_data_pol <- data_pol %>% filter(running < optimal_bw_pol, running > -optimal_bw_pol) %>% droplevels()
 
 # Military
-resid_y_mil <- feols(sentiment_clean ~ 1 | state_owned, data = data_mil)$residuals
+resid_y_mil <- feols(sentiment_z ~ 1 | state_owned, data = data_mil)$residuals
 bw_mil <- rdbwselect(y = resid_y_mil, x = data_mil$running,
                      kernel = "triangular", cluster = data_mil$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_mil <- bw_mil$bws[1, 1]
@@ -686,7 +686,7 @@ cat("Military optimal bandwidth:", round(optimal_bw_mil, 1), "days\n")
 opt_data_mil <- data_mil %>% filter(running < optimal_bw_mil, running > -optimal_bw_mil) %>% droplevels()
 
 # Economic
-resid_y_econ <- feols(sentiment_clean ~ 1 | state_owned, data = data_econ)$residuals
+resid_y_econ <- feols(sentiment_z ~ 1 | state_owned, data = data_econ)$residuals
 bw_econ <- rdbwselect(y = resid_y_econ, x = data_econ$running,
                       kernel = "triangular", cluster = data_econ$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_econ <- bw_econ$bws[1, 1]
@@ -694,7 +694,7 @@ cat("Economic optimal bandwidth:", round(optimal_bw_econ, 1), "days\n")
 opt_data_econ <- data_econ %>% filter(running < optimal_bw_econ, running > -optimal_bw_econ) %>% droplevels()
 
 # Culture
-resid_y_cult <- feols(sentiment_clean ~ 1 | state_owned, data = data_cult)$residuals
+resid_y_cult <- feols(sentiment_z ~ 1 | state_owned, data = data_cult)$residuals
 bw_cult <- rdbwselect(y = resid_y_cult, x = data_cult$running,
                       kernel = "triangular", cluster = data_cult$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_cult <- bw_cult$bws[1, 1]
@@ -702,7 +702,7 @@ cat("Culture optimal bandwidth:", round(optimal_bw_cult, 1), "days\n")
 opt_data_cult <- data_cult %>% filter(running < optimal_bw_cult, running > -optimal_bw_cult) %>% droplevels()
 
 # Other
-resid_y_oth <- feols(sentiment_clean ~ 1 | state_owned, data = data_oth)$residuals
+resid_y_oth <- feols(sentiment_z ~ 1 | state_owned, data = data_oth)$residuals
 bw_oth <- rdbwselect(y = resid_y_oth, x = data_oth$running,
                      kernel = "triangular", cluster = data_oth$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_oth <- bw_oth$bws[1, 1]

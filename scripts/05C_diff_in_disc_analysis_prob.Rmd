@@ -80,6 +80,7 @@ heterogeneity analysis (file 06), but applied to state vs independent media.
 
 ## State-Owned Media Only (RDD)
 
+### Sentiment Clean
 ```{r state-only-rdd-prob}
 # Filter to state-owned media only
 data_state_only <- data_non_ukraine %>%
@@ -101,7 +102,11 @@ cat("State-Owned Media Only RDD (Probabilistic)\n")
 summary(model2_state_rdd)
 cat("N (state-owned, non-military):", nrow(data_state_only), "\n")
 cat("Unique clusters:", length(unique(data_state_only$source_domain)), "\n")
+```
 
+### Sentiment Z
+
+```{r state-only-rdd-prob}
 model2_state_rdd_z <- rdrobust(
   y = data_state_only$sentiment_z,
   x = data_state_only$running_probabilistic,
@@ -114,6 +119,8 @@ summary(model2_state_rdd_z)
 ```
 
 ## Independent Media Only (RDD)
+
+### Sentiment Clean
 
 ```{r ind-only-rdd-prob}
 # Filter to independent media only
@@ -136,7 +143,11 @@ cat("Independent Media Only RDD (Probabilistic)\n")
 summary(model2_ind_rdd)
 cat("N (independent, non-military):", nrow(data_ind_only), "\n")
 cat("Unique clusters:", length(unique(data_ind_only$source_domain)), "\n")
+```
 
+### Sentiment Z
+
+```{r ind-only-rdd-prob}
 model2_ind_rdd_z <- rdrobust(
   y = data_ind_only$sentiment_z,
   x = data_ind_only$running_probabilistic,
@@ -300,6 +311,7 @@ cat("Bootstrap p-value:", boot_model2a_opt$p_val, "\n")
 model2a_opt_full_fe <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned |
                               topic_clean + source_domain,
                               cluster = ~source_domain, data = optimal_bandwidth_data)
+
 boot_model2a_opt_full_fe <- run_wild_bootstrap(model2a_opt_full_fe, "treatment:state_owned")
 cat("Bootstrap SE for treatment:state_owned:", boot_model2a_opt_full_fe$se, "\n")
 cat("Bootstrap p-value:", boot_model2a_opt_full_fe$p_val, "\n")
@@ -643,6 +655,8 @@ optimal_bandwidth_data_russian_z <- data_russian_related %>%
 model3a_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
                    cluster = ~source_domain,
                    data = optimal_bandwidth_data_russian_z)
+summary(model3a_z)
+
 boot_model3a_z <- run_wild_bootstrap(model3a_z, "treatment:state_owned")
 cat("Z-score model3a — Bootstrap p-value:", boot_model3a_z$p_val, "\n")
 ```
@@ -674,19 +688,26 @@ model2a_full_oth <- feols(sentiment_z ~ running_probabilistic * treatment * stat
                           cluster = ~source_domain,
                           data = data_oth)
 
+summary(model2a_full_pol)
+
 # Wild cluster bootstrap for topic-specific models (full data)
 boot_model2a_full_pol <- run_wild_bootstrap(model2a_full_pol, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_full_pol$p_val, "\n")
 boot_model2a_full_mil <- run_wild_bootstrap(model2a_full_mil, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_full_mil$p_val, "\n")
 boot_model2a_full_econ <- run_wild_bootstrap(model2a_full_econ, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_full_econ$p_val, "\n")
 boot_model2a_full_cult <- run_wild_bootstrap(model2a_full_cult, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_full_cult$p_val, "\n")
 boot_model2a_full_oth <- run_wild_bootstrap(model2a_full_oth, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_full_oth$p_val, "\n")
 ```
 
 ## Per-Topic Optimal Bandwidth
 
 ```{r topic-opt-bw-prob}
 # Political
-resid_y_pol <- feols(sentiment_clean ~ 1 | state_owned, data = data_pol)$residuals
+resid_y_pol <- feols(sentiment_z ~ 1 | state_owned, data = data_pol)$residuals
 bw_pol <- rdbwselect(y = resid_y_pol, x = data_pol$running_probabilistic,
                      kernel = "triangular", cluster = data_pol$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_pol <- bw_pol$bws[1, 1]
@@ -695,7 +716,7 @@ opt_data_pol <- data_pol %>% filter(running_probabilistic < optimal_bw_pol, runn
   droplevels()
 
 # Military
-resid_y_mil <- feols(sentiment_clean ~ 1 | state_owned, data = data_mil)$residuals
+resid_y_mil <- feols(sentiment_z ~ 1 | state_owned, data = data_mil)$residuals
 bw_mil <- rdbwselect(y = resid_y_mil, x = data_mil$running_probabilistic,
                      kernel = "triangular", cluster = data_mil$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_mil <- bw_mil$bws[1, 1]
@@ -704,7 +725,7 @@ opt_data_mil <- data_mil %>% filter(running_probabilistic < optimal_bw_mil, runn
   droplevels()
 
 # Economic
-resid_y_econ <- feols(sentiment_clean ~ 1 | state_owned, data = data_econ)$residuals
+resid_y_econ <- feols(sentiment_z ~ 1 | state_owned, data = data_econ)$residuals
 bw_econ <- rdbwselect(y = resid_y_econ, x = data_econ$running_probabilistic,
                       kernel = "triangular", cluster = data_econ$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_econ <- bw_econ$bws[1, 1]
@@ -713,7 +734,7 @@ opt_data_econ <- data_econ %>% filter(running_probabilistic < optimal_bw_econ, r
   droplevels()
 
 # Culture
-resid_y_cult <- feols(sentiment_clean ~ 1 | state_owned, data = data_cult)$residuals
+resid_y_cult <- feols(sentiment_z ~ 1 | state_owned, data = data_cult)$residuals
 bw_cult <- rdbwselect(y = resid_y_cult, x = data_cult$running_probabilistic,
                       kernel = "triangular", cluster = data_cult$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_cult <- bw_cult$bws[1, 1]
@@ -722,7 +743,7 @@ opt_data_cult <- data_cult %>% filter(running_probabilistic < optimal_bw_cult, r
   droplevels()
 
 # Other
-resid_y_oth <- feols(sentiment_clean ~ 1 | state_owned, data = data_oth)$residuals
+resid_y_oth <- feols(sentiment_z ~ 1 | state_owned, data = data_oth)$residuals
 bw_oth <- rdbwselect(y = resid_y_oth, x = data_oth$running_probabilistic,
                      kernel = "triangular", cluster = data_oth$source_domain, p = 1, bwselect = "mserd")
 optimal_bw_oth <- bw_oth$bws[1, 1]
@@ -759,10 +780,15 @@ summary(model2a_opt_oth)
 
 # Wild cluster bootstrap for topic-specific models (optimal BW)
 boot_model2a_opt_pol <- run_wild_bootstrap(model2a_opt_pol, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_opt_pol$p_val, "\n")
 boot_model2a_opt_mil <- run_wild_bootstrap(model2a_opt_mil, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_opt_mil$p_val, "\n")
 boot_model2a_opt_econ <- run_wild_bootstrap(model2a_opt_econ, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_opt_econ$p_val, "\n")
 boot_model2a_opt_cult <- run_wild_bootstrap(model2a_opt_cult, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_opt_cult$p_val, "\n")
 boot_model2a_opt_oth <- run_wild_bootstrap(model2a_opt_oth, "treatment:state_owned")
+cat("Bootstrap p-value:", boot_model2a_opt_oth$p_val, "\n")
 ```
 
 # Robustness
