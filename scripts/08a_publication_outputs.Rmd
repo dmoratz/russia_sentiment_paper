@@ -200,12 +200,13 @@ h2_z_models <- list(
   "(3)\u2020" = results_h2$model2a_opt_z,
   "(4)\u2020" = results_h2$model2b_z,
   "(5)\u2020" = results_h2$model2d_z,
-  "(6)\u2020" = results_h2$model3a_z,
-  "(7)\u2020" = results_h2$matched_model_z
+#  "(6)\u2020" = results_h2$model3a_z,
+  "(6)\u2020" = results_h2$matched_model_z
 )
 
 boot_keys_t2 <- c("model2a_opt_z", "model2b_z", "model2d_z",
-                   "model3a_z", "matched_model_z")
+                  # "model3a_z", 
+                  "matched_model_z")
 boot_results_t2 <- lapply(boot_keys_t2, function(k) results_h2$bootstrap_se[[k]])
 
 # Build vcov list: NULL for rdrobust, create_bootstrap_vcov for felm
@@ -215,16 +216,16 @@ vcov_t2 <- list(
   "(3)\u2020" = create_bootstrap_vcov(results_h2$model2a_opt_z, boot_results_t2[[1]], "treatment:state_owned"),
   "(4)\u2020" = create_bootstrap_vcov(results_h2$model2b_z, boot_results_t2[[2]], "treatment:state_owned"),
   "(5)\u2020" = create_bootstrap_vcov(results_h2$model2d_z, boot_results_t2[[3]], "treatment:state_owned"),
-  "(6)\u2020" = create_bootstrap_vcov(results_h2$model3a_z, boot_results_t2[[4]], "treatment:state_owned"),
-  "(7)\u2020" = create_bootstrap_vcov(results_h2$matched_model_z, boot_results_t2[[5]], "treatment:state_owned")
+#  "(6)\u2020" = create_bootstrap_vcov(results_h2$model3a_z, boot_results_t2[[4]], "treatment:state_owned"),
+  "(6)\u2020" = create_bootstrap_vcov(results_h2$matched_model_z, boot_results_t2[[4]], "treatment:state_owned")
 )
 
 n_cl_t2 <- map_chr(h2_z_models, get_n_clusters)
 
 rows_t2 <- tibble::tribble(
-  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  "Source Z-Score", "X",    "X",    "X",    "X",    "X",    "X",    "X",
-  "Clusters",       n_cl_t2[1], n_cl_t2[2], n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6], n_cl_t2[7]
+  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6,# ~row7,
+  "Source Z-Score", "X",    "X",    "X",    "X",    "X",    "X",#    "X",
+  "Clusters",       n_cl_t2[1], n_cl_t2[2], n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6],# n_cl_t2[7]
 )
 attr(rows_t2, "position") <- c(5, 6)
 
@@ -234,8 +235,8 @@ note_t2 <- str_wrap(paste(
   "Models 3-7 estimate the state-owned x treatment interaction.",
   "Model 3 uses the optimal bandwidth.",
   "Model 4 omits military topics. Model 5 omits NATO allies.",
-  "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
-  "Model 7 uses exact matching for topic and publication date on the Non-Nato data.", SE_NOTE
+#  "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
+  "Model 6 uses exact matching for topic and publication date on the Non-Nato data.", SE_NOTE
 ), 80)
 
 table_2 <- modelsummary(
@@ -254,7 +255,7 @@ table_2 <- modelsummary(
   notes = note_t2
 )
 
-boot_col_names_t2 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020", "(6)\u2020", "(7)\u2020")
+boot_col_names_t2 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020", "(6)\u2020")#, "(7)\u2020")
 table_2 <- override_interaction_stars(table_2, boot_results_t2, boot_col_names_t2)
 
 table_2
@@ -330,12 +331,13 @@ h3a_z_models <- list(
   "(2) Neutral\u2021" = results_align$model5a_neutral_z,
   "(3)\u2020" = results_align$model5a_opt_z,
   "(4)\u2020" = results_align$model5a_opt_non_mil_z,
-  "(5)\u2020" = results_align$model5a_opt_russian_z,
-  "(6)\u2020" = results_align$matched_model
+#  "(5)\u2020" = results_align$model5a_opt_russian_z,
+  "(5)\u2020" = results_align$matched_model
 )
 
 boot_keys_t4 <- c("model5a_opt_z", "model5a_opt_non_mil_z",
-                   "model5a_opt_russian_z", "matched_model")
+                  # "model5a_opt_russian_z", 
+                  "matched_model")
 boot_results_t4 <- lapply(boot_keys_t4, function(k) results_align$bootstrap_se[[k]])
 
 vcov_t4 <- list(
@@ -343,16 +345,16 @@ vcov_t4 <- list(
   "(2) Neutral\u2021" = NULL,
   "(3)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_z, boot_results_t4[[1]], "treatment:csto"),
   "(4)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_non_mil_z, boot_results_t4[[2]], "treatment:csto"),
-  "(5)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_russian_z, boot_results_t4[[3]], "treatment:csto"),
-  "(6)\u2020" = create_bootstrap_vcov(results_align$matched_model, boot_results_t4[[4]], "treatment:csto")
+#  "(5)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_russian_z, boot_results_t4[[3]], "treatment:csto"),
+  "(5)\u2020" = create_bootstrap_vcov(results_align$matched_model, boot_results_t4[[3]], "treatment:csto")
 )
 
 n_cl_t4 <- sapply(h3a_z_models, get_n_clusters)
 
 rows_t4 <- tibble::tribble(
-  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  "Source Z-Score", "X",    "X",    "X",    "X",    "X",    "X",
-  "Clusters",       n_cl_t4[1], n_cl_t4[2], n_cl_t4[3], n_cl_t4[4], n_cl_t4[5], n_cl_t4[6]
+  ~term,~row1, ~row2, ~row3, ~row4, ~row5,# ~row6,
+  "Source Z-Score", "X",    "X",    "X",    "X",    "X",#    "X",
+  "Clusters",       n_cl_t4[1], n_cl_t4[2], n_cl_t4[3], n_cl_t4[4], n_cl_t4[5],# n_cl_t4[6]
 )
 attr(rows_t4, "position") <- c(5, 6)
 
@@ -360,10 +362,11 @@ note_t4 <- str_wrap(paste(
   "All models use a source-level Z-Score normalization.",
   "Sample restricted to state-owned media in non-NATO countries.",
   "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries, filtered to omit military topics.",
-  "Models 3-6 estimate the CSTO x treatment interaction.",
+  "Models 3-5 estimate the CSTO x treatment interaction.",
   "Model 3 uses the optimal bandwidth.",
-  "Model 4 omits military topics. Model 5 restricts to Russian-related articles.",
-  "Model 6 uses exact matching on topic and date of publication for the non-military data.", SE_NOTE
+  "Model 4 omits military topics.", 
+  #"Model 5 restricts to Russian-related articles.",
+  "Model 5 uses exact matching on topic and date of publication for the non-military data.", SE_NOTE
 ), 80)
 
 table_4 <- modelsummary(
@@ -382,7 +385,7 @@ table_4 <- modelsummary(
   notes = note_t4
 )
 
-boot_col_names_t4 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020", "(6)\u2020")
+boot_col_names_t4 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020")#, "(6)\u2020")
 table_4 <- override_interaction_stars(table_4, boot_results_t4, boot_col_names_t4)
 
 table_4

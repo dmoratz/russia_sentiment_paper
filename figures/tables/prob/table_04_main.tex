@@ -1,32 +1,33 @@
-\begin{table}[!t]
+\begin{table}[t]
 \caption{Table 4: H3a Alignment Interaction — Z-Score (Probabilistic Time)} 
-\fontsize{12.0pt}{14.4pt}\selectfont
-\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccc}
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
 \toprule
-  & (1)‡ & (2)‡ & (3)† & (4)† & (5)† & (6)† \\ 
+  & (1) CSTO‡ & (2) Neutral‡ & (3)† & (4)† & (5)† \\ 
 \midrule\addlinespace[2.5pt]
-Invasion & -0.220* & 0.055 & -0.068 & 0.098 & 0.042 & 0.098 \\ 
- & (0.099) & (0.101) & (0.080) & (0.070) & (0.086) & (0.069) \\ 
-CSTO x Treatment &  &  & -0.19 & -0.33* & -0.37+ & -0.38* \\ 
-{} & {} & {} & {(0.11)} & {(0.11)} & {(0.13)} & {(0.11)} \\ 
-Source Z-Score & X & X & X & X & X & X \\ 
-Clusters & — & — & 13 & 13 & 13 & 13 \\ 
-Num.Obs. & 17733 & 4802 & 7164 & 6094 & 4776 & 5721 \\ 
-R2 &  &  & 0.025 & 0.015 & 0.018 & 0.014 \\ 
-R2 Adj. &  &  & 0.024 & 0.013 & 0.016 & 0.013 \\ 
+Invasion & -0.220* & 0.055 & -0.068 & 0.098 & 0.098 \\ 
+ & (0.099) & (0.101) & (0.080) & (0.070) & (0.069) \\ 
+CSTO x Treatment &  &  & -0.19 & -0.33* & -0.38* \\ 
+{} & {} & {} & {(0.11)} & {(0.11)} & {(0.11)} \\ 
+Source Z-Score & X & X & X & X & X \\ 
+Clusters & — & — & 13 & 13 & 13 \\ 
+Num.Obs. & 17733 & 4802 & 7164 & 6094 & 5721 \\ 
+R2 &  &  & 0.025 & 0.015 & 0.014 \\ 
+R2 Adj. &  &  & 0.024 & 0.013 & 0.013 \\ 
 \bottomrule
 \end{tabular*}
 \begin{minipage}{\linewidth}
+\vspace{.05em}
 + p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
 All models use a source-level Z-Score normalization. Sample restricted to
 state-owned media in non-NATO countries. Models 1-2 show separate RDD estimates
 for CSTO-aligned and neutral countries, filtered to omit military topics.
-Models 3-6 estimate the CSTO x treatment interaction. Model 3 uses the optimal
-bandwidth. Model 4 omits military topics. Model 5 restricts to Russian-related
-articles. Model 6 uses matched data. † Standard errors computed via wild cluster
-restricted (WCR) bootstrap (Cameron, Gelbach \& Miller 2008) with Webb six-point
-weights (B=9999, null imposed), clustered by source domain. ‡ Cluster-robust SEs
-from rdrobust.\\
+Models 3-5 estimate the CSTO x treatment interaction. Model 3 uses the optimal
+bandwidth. Model 4 omits military topics. Model 5 uses exact matching on topic
+and date of publication for the non-military data. † Standard errors computed
+via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach \& Miller 2008)
+with Webb six-point weights (B=4999, null imposed), clustered by source domain.
+‡ Cluster-robust SEs from rdrobust.\\
 \end{minipage}
 \end{table}
 
