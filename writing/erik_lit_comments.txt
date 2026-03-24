@@ -1,0 +1,339 @@
+
+Page 1 | Highlight | Erik Wibbels
+Anchored text: reflects unconstrained sentiment
+
+Comment: seems unlikely given that many of them have low levels of press freedom.
+------------------------------------------------------------
+
+Page 1 | Highlight | Erik Wibbels
+Anchored text: sentiment toward Russia
+
+Comment: how is this related to "strategic signaling"?
+------------------------------------------------------------
+
+Page 1 | Highlight | Erik Wibbels
+Anchored text: isolate sentiment toward Russia from general war-related topical shifts—an approach
+that outperforms traditional BERT-based classifiers in capturing nuanced elite cues.
+
+Comment: i think everyone knows this is often the case, so it doesn't seem worth mentioning in the abstract.
+------------------------------------------------------------
+
+Page 1 | Highlight | Erik Wibbels
+Anchored text: sentiment declined
+
+Comment: what does this mean?
+------------------------------------------------------------
+
+Page 1 | Highlight | Erik Wibbels
+Anchored text: significantly muted in state-owned outlets. Crucially, we find that states bound by
+Russian security agreements utilized media sentiment to signal strategic dissatisfaction
+even when formal diplomatic condemnation remained politically impossible.
+These
+
+Comment: this seems like this should be a crucial part of justifying the approach rather than an interpretation of the results.
+------------------------------------------------------------
+
+Page 1 | Highlight | Erik Wibbels
+Anchored text: Abstract
+
+Comment: 
+------------------------------------------------------------
+
+Page 1 | Highlight | Erik Wibbels
+Anchored text: Abstract
+
+Comment: this isn't clear on what the puzzle is or why media is a good approach to addressing whatever the puzzle is.
+------------------------------------------------------------
+
+Page 1 | Text | Erik Wibbels
+Anchored text: signif
+R
+i
+
+Comment: substantively, if these are russian allies, why is it more effective to communicate indirectly via state-sponsored media rather than having a closed-door conversation with their russian counterparts?
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: How do constrained states signal genuine preferences when formal diplomatic channels
+are too costly to use? The Russian invasion of Ukraine in February 2022 serves as a sem-
+
+Comment: i don't understand why diplomatic channels would be so costly in this case. is the signaling to russia? or is it to the west?
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: US political rhetoric questioned alliance commitments
+
+Comment: ?
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: retaliation from Moscow.
+
+Comment: or the west? the game you seem to have in mind isn;t explicit, so such a clause is confusing. .
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: which shapes public opinion
+
+Comment: so the signaling is to the public? and which public--domestic or russian or the west?
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: these elite cues
+
+Comment: what elite cues? i'm sorry, but this is all seeming quite confusing.
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: deniable informal signaling
+
+Comment: if this is true, how can it indicate "true preferences" per the first sentence?
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: observable in the sentiment divergence between state and independent media during
+the 2022 invasion.
+
+Comment: 
+------------------------------------------------------------
+
+Page 2 | Text | Erik Wibbels
+Anchored text: obser
+h 2
+
+Comment: this paragraph is confusing general analytical issues with case-specific ones
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: how strategic elites
+
+Comment: who are these elites, and what is their relationship to media sentiment?
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: We present three findings.
+
+Comment: you've described measurement, but you haven't described anything about countries/cases/media outlets or what you're estimating so it's too early for findings.
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: We present three findings. First, the invasion caused a significant decline in media
+sentiment across all topics, separate from the shift toward war coverage. Second, we
+
+Comment: 
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: separate from the shift toward war coverage
+
+Comment: 
+------------------------------------------------------------
+
+Page 2 | Highlight | Erik Wibbels
+Anchored text: ment. Finally, we show that states with Russian security agreements expressed greater
+negative sentiment post-invasion than neutral countries, despite refusing to condemn
+2
+
+Comment: i don't understand the logic. also, above it's "formal diplomatic channels" but here it is "formal statements".  there's a lot of slippage over the course of a page.
+------------------------------------------------------------
+
+Page 3 | Highlight | Erik Wibbels
+Anchored text: the invasion publicly. This suggests these states utilize media to communicate genuine
+preferences when formal statements are politically impossible.
+
+Comment: 
+------------------------------------------------------------
+
+Page 3 | Highlight | Erik Wibbels
+Anchored text: preferences when formal diplomatic channels, such as UN votes, are constrained by
+high political costs.
+The invasion of Ukraine represents a crisis where states may
+
+Comment: UN votes are distinctly public. What about diplomatic meetings and other relatively means through which preferences can be conveyed?
+------------------------------------------------------------
+
+Page 4 | Text | Erik Wibbels
+Anchored text: 
+Comment: at the end of the intro, i'm unclear on the basic puzzle wrt signaling, what role the media plays in it, how state-sponsored media in different settings (and specifically in this set of countries) relates to the state or independent media, how any of the above relates to the range of signaling tools available to govts, what the set of country cases is, or what you're estimating. I think it's worth making a more fulsome shot at this intro before moving on to theory/hypotheses.
+------------------------------------------------------------
+
+Page 4 | Highlight | Erik Wibbels
+Anchored text: Intuitively, the idea that state and independent media might react differently to a
+violation of an international border is not a novel concept. The two media sources
+might have very different mandates as well as funding sources. In addition, as a tool
+of the state, state-owned media is restricted by the states’ decisions on how to make
+
+Comment: way before you get to this you need an explanation for why the media is interesting/important.
+------------------------------------------------------------
+
+Page 4 | Highlight | Erik Wibbels
+Anchored text: Weaker states often choose to balance in an effort to maintain their place in the
+system (Waltz, 2010). When states do this, they are choosing the weaker side due to
+the perceived threat of the stronger state. States might also choose to bandwagon, that
+is join the stronger side (Waltz, 2010; Walt, 2007). States may choose to align with
+those who have the most aggregate offensive capabilities, who are located most closely,
+and who have the most aggressive perceived intentions. While bandwagoning might
+seem more attractive, Walt suggests that balancing is more common among states that
+matter and who have more capabilities (Walt, 2007).
+
+Comment: doesn't seem relevant.
+------------------------------------------------------------
+
+Page 4 | Highlight | Erik Wibbels
+Anchored text: While security concerns are likely to drive alliance preferences, states may also
+choose to join alliances that more closely adhere to their state views. Ideologically
+similar alliances are more common than alliances among countries of opposing ideo-
+logical systems (Walt, 2007). However, politicians might use ideological similarities
+
+Comment: ditto. what does this alliance stuff have to do with it?
+------------------------------------------------------------
+
+Page 5 | Highlight | Erik Wibbels
+Anchored text: States may also enter into alliances designed to constrain. While some alliances
+are capability aggregation measures, meant to stand firm against external threats, al-
+liances also may serve to tie squabbling partners together (Weitsman, 2004).
+The
+
+Comment: same
+------------------------------------------------------------
+
+Page 5 | Highlight | Erik Wibbels
+Anchored text: By making public statements,
+
+Comment: things start moving in the right direction here.
+------------------------------------------------------------
+
+Page 6 | Highlight | Erik Wibbels
+Anchored text: The distinction between state-owned and private media firms is unclear in the lit-
+erature. Public choice theory suggests that government-owned media outlets “distort
+
+Comment: first you say there are two types and then you immediately say that it's unclear what the difference is. confusing!
+------------------------------------------------------------
+
+Page 6 | Highlight | Erik Wibbels
+Anchored text: erature. Public choice theory suggests that government-owned media outlets “distort
+and manipulate information” to prop up the incumbent regimes, while privately owned
+
+Comment: as a rule? what about the BBC? what about estonian public broadcasting? are those the same as uzbek and tajik state media?
+------------------------------------------------------------
+
+Page 6 | Highlight | Erik Wibbels
+Anchored text: signals. There are two general types of media in most states: state-owned and private,
+or independent media.
+
+Comment: i'm not sure why you're introducing this distinction here.
+------------------------------------------------------------
+
+Page 6 | Highlight | Erik Wibbels
+Anchored text: to when they make judgements. Importantly, the media can help to transmit elite
+signals. There are two general types of media in most states: state-owned and private,
+
+Comment: does "elite" = government?
+------------------------------------------------------------
+
+Page 6 | Highlight | Erik Wibbels
+Anchored text: rate information (Djankov et al., 2003). State-owned media might also be more closely
+aligned with past authoritarian regimes (Moehler & Singh, 2011). On the other hand,
+state-owned firms might provide more fair and balanced accounts, given their govern-
+mental affiliation and monetary backing (Djankov et al., 2003). Independent media,
+
+Comment: so what's the implication--that state media can go any which way?
+------------------------------------------------------------
+
+Page 6 | Highlight | Erik Wibbels
+Anchored text: likely to report more accurately.
+
+Comment: what does this have to do with signaling or the broader aim of the paper?
+------------------------------------------------------------
+
+Page 7 | Highlight | Erik Wibbels
+Anchored text: Treisman, 2022).
+
+Comment: what paper is this?
+------------------------------------------------------------
+
+Page 7 | Highlight | Erik Wibbels
+Anchored text: et al., 2020; De Mesquita et al., 2004). However, there has been a recent revitalization of
+research into the strategic use of media signalling to influence international audiences.
+
+Comment: what is this lit? this is really where a bunch of your discussion should be rather than this one sentence.
+------------------------------------------------------------
+
+Page 7 | Highlight | Erik Wibbels
+Anchored text: for the underlying media environment within a state.
+In particular, Weeks (2008)
+argues that different autocracies have systematic differences in their behavior in the
+international sphere. We argue that a result of these systematic differences is variation
+
+Comment: the previous papers are all about domestic info/public management, now you're back to the international sphere. i'm not following your characterization of the lit.
+------------------------------------------------------------
+
+Page 7 | Highlight | Erik Wibbels
+Anchored text: in their capacity
+
+Comment: what does "their" refer to?
+------------------------------------------------------------
+
+Page 7 | Highlight | Erik Wibbels
+Anchored text: this communication for two reasons. First, there is historical reliance by many countries
+in our sample on state-owned media for international signaling (Cohen, 1987). Second,
+
+Comment: where's the evidence for this?
+------------------------------------------------------------
+
+Page 7 | Highlight | Erik Wibbels
+Anchored text: in our sample on state-owned media for international signaling (Cohen, 1987). Second,
+the explicit rise in efforts by western countries to systematically study state media
+(Manor, 2019; USIC, 2024) gives senders reason to believe that the signal will be
+
+Comment: ditto. above is a pretty vague discussion. here you have two crucial claims that need considerable elaboration.
+------------------------------------------------------------
+
+Page 7 | Highlight | Erik Wibbels
+Anchored text: internal political
+
+Comment: back to internal. it's hard to follow.
+------------------------------------------------------------
+
+Page 8 | Highlight | Erik Wibbels
+Anchored text: involved with the running of the outlet itself which may reflect different competing
+internal voices. Expressions of dissent even in the most constrained autocracies are
+consistent with different factional interests (Malesky & Schuler, 2010). We argue that
+the signals sent by state-owned media should be considered important instruments of
+authoritarian communication and in particular, we should pay careful attention when
+
+Comment: these sentences seem incommensurate. if the signal is noisy, how is it credible?
+------------------------------------------------------------
+
+Page 8 | Highlight | Erik Wibbels
+Anchored text: two mechanisms,
+
+Comment: mechanisms of what?
+------------------------------------------------------------
+
+Page 8 | Text | Erik Wibbels
+Anchored text: 
+Comment: you're back to lit review. recommend a rewrite the concisely summarizes the lit and then uses it to help clearly develop your argument.
+------------------------------------------------------------
+
+Page 11 | Highlight | Erik Wibbels
+Anchored text: crises at all three levels
+
+Comment: what three levels?
+------------------------------------------------------------
+
+Page 11 | Text | Erik Wibbels
+Anchored text: 
+Comment: i don't understand this paragraph
+------------------------------------------------------------
+
+Page 11 | Highlight | Erik Wibbels
+Anchored text: issue-level
+
+Comment: what is this?
+------------------------------------------------------------
+
+Page 12 | Text | Erik Wibbels
+Anchored text: 
+Comment: going into the hypotheses, i'm quite confused.
+------------------------------------------------------------
