@@ -1,0 +1,97 @@
+\documentclass[12pt]{article}
+%\usepackage{Sweave}
+\usepackage[margin=1in]{geometry}
+%\usepackage[parfill]{parskip}
+%\usepackage[hidelinks]{hyperref}
+\usepackage[colorlinks = true,
+            linkcolor = black,
+            urlcolor  = blue,
+            citecolor = black,
+            anchorcolor = black]{hyperref}
+\usepackage{rotating}
+%\usepackage[backend=biber, style=apa, natbib=true]{biblatex}
+\usepackage[citestyle=authoryear, style = apa, natbib=true, backend=bibtex, maxcitenames=2]{biblatex}
+\addbibresource{references.bib}
+\newtheorem{hyp}{H}
+\newtheorem{hypo}{Hypothesis}
+\usepackage[compact]{titlesec}
+%\usepackage{titlesec}
+\titleformat*{\section}{\bfseries\fontsize{14}{18}\selectfont}
+\titleformat*{\subsection}{\bfseries\fontsize{12}{16}\selectfont}
+%\usepackage{natbib}
+\usepackage{csquotes}
+\usepackage{xfrac}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{lscape}
+\usepackage{amsmath}
+\usepackage[export]{adjustbox}
+\usepackage{graphics}
+\usepackage{array}
+\usepackage[font=small,skip=1pt]{caption}
+\usepackage{subcaption} 
+\usepackage{ragged2e}
+\usepackage{float}
+\usepackage[section]{placeins}
+\usepackage{hyperref}
+\usepackage{multicol}
+\usepackage{setspace}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage{afterpage}
+\usepackage{soul}
+\usepackage{xr}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{siunitx}
+\usepackage{caption}
+\usepackage{threeparttable}
+\usepackage{makecell} 
+\usepackage{tabularx}
+\newcommand{\tabitem}{\textbullet~~}
+\allowdisplaybreaks
+
+% Set caption to be left-aligned
+\captionsetup{justification=raggedright, singlelinecheck=false}
+
+% Configure siunitx
+\sisetup{
+  group-separator = {,},
+  group-minimum-digits = 4 % Start grouping from 4 digits
+}
+
+\doublespacing
+
+\title{%
+  The Signaling Gap: \\
+  \large State-Owned Media and the Strategic Management of Sentiment during the Russian Invasion of Ukraine}
+\author{Donald Moratz and Sarah Gerstein}
+\date{\today}
+
+%\title{The Signaling Gap: State-Owned Media and the Strategic Management of Sentiment during the Russian Invasion of Ukraine}
+
+\begin{document}
+
+\maketitle
+
+
+\abstract{How do states strategically signal positions during international crises? This paper investigates the 2022 Russian invasion of Ukraine as a seminal shock to analyze the divergent responses of state-controlled and independent media in post-Soviet and satellite states. While independent media reflects unconstrained sentiment, we argue that state-owned media serves as a strategic signaling device. Utilizing a corpus of several hundred thousand articles, we employ a Large Language Model (GPT-4o) to isolate sentiment toward Russia from general war-related topical shifts—an approach that outperforms traditional BERT-based classifiers in capturing nuanced elite cues. Our findings reveal that while sentiment declined across our sample, the drop was significantly muted in state-owned outlets. Crucially, we find that states bound by Russian security agreements utilized media sentiment to signal strategic dissatisfaction even when formal diplomatic condemnation remained politically impossible. These results highlight the role of controlled media in communicating "true" intent during geopolitical upheaval and demonstrate the power of generative AI in identifying latent elite signaling within massive text corpora.}
+
+\section*{Introduction}
+
+How do media sources respond to significant disruptions in the international status quo? The Russian invasion of Ukraine in February 2022 serves as a seminal shock to the post-Cold War era. As NATO debated invasion preparations \citep{jakes_for_2024} and US political rhetoric questioned alliance commitments \citep{sanger_outburst_2024}, it is critical to study how states signaled their evolving strategic alignments. While state media is recognized as a primary tool for influencing public opinion \citep{guriev_theory_2020} through selective attribution and sentiment \citep{rozenas_how_2019}, the international relations literature has focused primarily on how these elite cues impact domestic audiences \citep{guisinger_mapping_2017}. Consequently, the divergence between state and private media sentiment, and the specific utility of media as an international signaling device, remains under-explored.
+
+Signaling is a cornerstone of international relations literature. While theoretical work often centers on signaling credibility to rivals \citep{fearon_signaling_1997} or allies \citep{blankenship_trivial_2022}, research has largely focused on the domestic agenda-setting role of media \citep{mccombs_agenda-setting_2002}. In this article, we argue that the role of state-owned media as an international signaling device has been overlooked. Building on \citet{cohen_theatre_1987}, we contend that states strategically control sentiment toward Russia not only for domestic audiences but also to signal preferences to the international community. Such media signals reveal true intentions when formal diplomatic channels, such as UN votes, are constrained by high political costs. The invasion of Ukraine represents a crisis where states may publicly maintain one position while signaling a different intent through controlled media. This strategic behavior stands in contrast to independent media which remains unconstrained by state signaling imperatives.
+
+Previously, data limitations hindered large-scale examination of these dynamics. However, advances in natural language processing provide new avenues for inquiry. We study how state-controlled media in former Soviet, satellite, and allied states responded to the invasion compared to independent sources. Utilizing a corpus of several hundred thousand articles from the period surrounding February 24, 2022, we applied a keyword-based approach to identify Russia-centric coverage. We then employed a generative AI model (GPT-4o) to conduct sentiment analysis, validating the model's performance against a human-coded gold standard. Our validation yielded a Krippendorff's alpha of 0.86, indicating high inter-coder reliability on an ordinal sentiment scale. This approach allows us to causally identify how coverage changed around the discontinuity of the invasion while controlling for topical shifts.
+
+By using a generative AI model rather than traditional BERT-based classifiers, we isolate sentiment specifically toward Russia while controlling for topic. This ensures we capture shifts in attitude toward Russia itself, separate from the confounding influence of general war reporting. This approach allows us to identify how strategic elites responded to the crisis and clarifies the relationship between elites and foreign policy. We present three findings. First, the invasion caused a significant decline in media sentiment across all topics, separate from the shift toward war coverage. Second, we find a differential causal effect between independent and state-owned media, highlighting the strategic management of sentiment. Finally, we show that states with Russian security agreements expressed greater negative sentiment post-invasion than neutral countries, despite refusing to condemn the invasion publicly. This suggests these states utilize media to communicate true feelings when formal statements are politically impossible.
+
+
+\newpage
+
+\printbibliography
+
+%\bibliographystyle{apalike}
+%\bibliography{references.bib}
+
+\end{document}

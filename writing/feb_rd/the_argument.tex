@@ -1,0 +1,120 @@
+\documentclass[12pt]{article}
+%\usepackage{Sweave}
+\usepackage[margin=1in]{geometry}
+%\usepackage[parfill]{parskip}
+%\usepackage[hidelinks]{hyperref}
+\usepackage[colorlinks = true,
+            linkcolor = black,
+            urlcolor  = blue,
+            citecolor = black,
+            anchorcolor = black]{hyperref}
+\usepackage{rotating}
+%\usepackage[backend=biber, style=apa, natbib=true]{biblatex}
+\usepackage[citestyle=authoryear, style = apa, natbib=true, backend=bibtex, maxcitenames=2]{biblatex}
+\addbibresource{references.bib}
+\newtheorem{hyp}{H}
+\newtheorem{hypo}{Hypothesis}
+\usepackage[compact]{titlesec}
+%\usepackage{titlesec}
+\titleformat*{\section}{\bfseries\fontsize{14}{18}\selectfont}
+\titleformat*{\subsection}{\bfseries\fontsize{12}{16}\selectfont}
+%\usepackage{natbib}
+\usepackage{csquotes}
+\usepackage{xfrac}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{lscape}
+\usepackage{amsmath}
+\usepackage[export]{adjustbox}
+\usepackage{graphics}
+\usepackage{array}
+\usepackage[font=small,skip=1pt]{caption}
+\usepackage{subcaption} 
+\usepackage{ragged2e}
+\usepackage{float}
+\usepackage[section]{placeins}
+\usepackage{hyperref}
+\usepackage{multicol}
+\usepackage{setspace}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage{afterpage}
+\usepackage{soul}
+\usepackage{xr}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{siunitx}
+\usepackage{caption}
+\usepackage{threeparttable}
+\usepackage{makecell} 
+\usepackage{tabularx}
+\newcommand{\tabitem}{\textbullet~~}
+\allowdisplaybreaks
+
+% Set caption to be left-aligned
+\captionsetup{justification=raggedright, singlelinecheck=false}
+
+% Configure siunitx
+\sisetup{
+  group-separator = {,},
+  group-minimum-digits = 4 % Start grouping from 4 digits
+}
+
+\doublespacing
+
+\title{%
+  The Signaling Gap: \\
+  \large State-Owned Media and the Strategic Management of Sentiment during the Russian Invasion of Ukraine}
+\author{Donald Moratz and Sarah Gerstein}
+\date{\today}
+
+%\title{The Signaling Gap: State-Owned Media and the Strategic Management of Sentiment during the Russian Invasion of Ukraine}
+
+\begin{document}
+
+\maketitle
+
+
+\abstract{How do states strategically signal positions during international crises? This paper investigates the 2022 Russian invasion of Ukraine as a seminal shock to analyze the divergent responses of state-controlled and independent media in post-Soviet and satellite states. While independent media reflects unconstrained sentiment, we argue that state-owned media serves as a strategic signaling device. Utilizing a corpus of several hundred thousand articles, we employ a Large Language Model (GPT-4o) to isolate sentiment toward Russia from general war-related topical shifts—an approach that outperforms traditional BERT-based classifiers in capturing nuanced elite cues. Our findings reveal that while sentiment declined across our sample, the drop was significantly muted in state-owned outlets. Crucially, we find that states bound by Russian security agreements utilized media sentiment to signal strategic dissatisfaction even when formal diplomatic condemnation remained politically impossible. These results highlight the role of controlled media in communicating "true" intent during geopolitical upheaval and demonstrate the power of generative AI in identifying latent elite signaling within massive text corpora.}
+
+
+%%%%%%%%%%%%%%%%%%%%%% Folding into Lit Review %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section*{The Argument}
+
+Given the literature on the alignment of independent media with western, liberal values and the pre-existing post-Cold War order, we expect that media will respond negatively to Russia's invasion of Ukraine. If this is the case, we would expect that sentiment will decline severely around the discontinuity of the invasion:
+
+\textbf{Hypothesis 1:} Given the post-Cold War order, the overall media environment should respond negatively toward Russia after the invasion of Ukraine. 
+
+However, it might be the case that rather than reporting more negative sentiment towards Russia, coverage simply shifts towards more reporting on the war itself, and military topics more generally. If this is the case, and these topics are more frequently coded as a negative, then our analysis might actually be capturing a change in the substance of coverage, rather than a change in sentiment. To support our hypothesis that sentiment towards Russia will become more negative, we propose hypothesis 1A:
+
+\textbf{Hypothesis 1A:} Even in topics unrelated to military matters, given the international liberal order, the overall media environment should respond negatively toward Russia after the invasion of Ukraine. 
+
+While the independent media might have more freedom to engage in critiques of Russia, state-owned media might be more constrained. Given the nature of the relationships between the states in this analysis and Russia, we expect that state-owned media will strategically manage reporting after the onset of the invasion. We hypothesize that nations located in the Russian near abroad might show caution in their use of official media sources to signal condemnation for Russian actions. By signalling through state-owned media, states might engage in balancing between their opposition to Russian action and the threat that Russia plays to their own security. This leads to hypothesis 2:
+
+\textbf{Hypothesis 2:} State-owned media will report negative sentiment towards Russia after the invasion to a lesser extent than independent media.
+
+However, as for hypothesis one, it is possible that some level of strategic reporting will concern topic coverage rather than control of sentiment. It is plausible that independent media might report on the war more than state-owned media, and if coverage of the war is in general negative, then what we would capture in hypothesis 2 is not a difference in sentiment, but rather a difference in coverage. Therefore, we propose hypothesis 2A:
+
+\textbf{Hypothesis 2A:} Even in topics unrelated to military matters, state-owned media and independent media will display different sentiments towards Russia after the invasion of Ukraine. 
+
+Finally, we have discussed a case for considering the different strategic position states find themselves in with respect to the international sphere. Neutral states, less constrained in their formal diplomatic channels, may still seek to balance formal condemnation with careful press coverage of the invasion in order to minimize antagonism of Russia. Conversely, states locked into formal security agreements with Russia must instead balance between this formal arrangement and their economic integration with the west. Given the high cost of formal diplomatic statements in condemning Russia, we hypothesize that these states are more likely to use their state-owned media as an informal channel to criticize the Russia invasion. This leads to hypothesis 3:
+
+\textbf{Hypothesis 3:} State-owned media in states with formal security agreements with Russia will respond more negatively to the invasion than state-owned media in neutral states.
+
+%Sources still to be included:
+
+%\begin{itemize}
+%    \item \citet{bjola_digital_2024}
+%    \item \citet{gilboa_internet_2002}
+%    \item \citet{gilboa_media_1998}
+%    \item Others
+%\end{itemize}
+
+\newpage
+
+\printbibliography
+
+%\bibliographystyle{apalike}
+%\bibliography{references.bib}
+
+\end{document}

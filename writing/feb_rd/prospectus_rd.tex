@@ -1,0 +1,270 @@
+\documentclass[12pt]{article}
+%\usepackage{Sweave}
+\usepackage[margin=1in]{geometry}
+%\usepackage[parfill]{parskip}
+%\usepackage[hidelinks]{hyperref}
+\usepackage[colorlinks = true,
+            linkcolor = black,
+            urlcolor  = blue,
+            citecolor = black,
+            anchorcolor = black]{hyperref}
+\usepackage{rotating}
+%\usepackage[backend=biber, style=apa, natbib=true]{biblatex}
+\usepackage[citestyle=authoryear,natbib=true,backend=bibtex, maxcitenames=2]{biblatex}
+\addbibresource{references.bib}
+\newtheorem{hyp}{H}
+\newtheorem{hypo}{Hypothesis}
+\usepackage[compact]{titlesec}
+%\usepackage{titlesec}
+\titleformat*{\section}{\bfseries\fontsize{14}{18}\selectfont}
+\titleformat*{\subsection}{\bfseries\fontsize{12}{16}\selectfont}
+%\usepackage{natbib}
+\usepackage{csquotes}
+\usepackage{xfrac}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{lscape}
+\usepackage{amsmath}
+\usepackage[export]{adjustbox}
+\usepackage{graphics}
+\usepackage{array}
+\usepackage[font=small,skip=1pt]{caption}
+\usepackage{subcaption} 
+\usepackage{ragged2e}
+\usepackage{float}
+\usepackage[section]{placeins}
+\usepackage{hyperref}
+\usepackage{multicol}
+\usepackage{setspace}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage{afterpage}
+\usepackage{soul}
+\usepackage{xr}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{siunitx}
+\usepackage{caption}
+\usepackage{threeparttable}
+\usepackage{makecell} 
+\usepackage{tabularx}
+\newcommand{\tabitem}{\textbullet~~}
+\allowdisplaybreaks
+
+% Set caption to be left-aligned
+\captionsetup{justification=raggedright, singlelinecheck=false}
+
+% Configure siunitx
+\sisetup{
+  group-separator = {,},
+  group-minimum-digits = 4 % Start grouping from 4 digits
+}
+
+\doublespacing
+
+\title{%
+  Prospectus:
+  ``Big Data and Causal Inference in International Relations''}
+\author{Donald Moratz}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\abstract{}
+
+\section*{Research Questions}
+Motivating Question: How do media ecosystems respond to dramatic shifts in the use of hard power and soft power in international relations? This prospectus proposes to answer three questions:
+
+\begin{itemize}
+    \item How can we combine natural language processing (NLP) tools with causal inference methods to study phenomena lacking plausible paths to experimentation?
+    \item How do state-owned and independent media respond to the invasion of Ukraine? When and why do state-owned media engage in moderation of criticism of Russia?
+    \item How do media outlets respond to the loss of US funding support under President Trump? Can we measure the impact of the decline of US soft power efforts?
+\end{itemize}
+
+\section*{Intellectual Merit}
+
+The intellectual merit of the dissertation lies in two parts. From a methodological perspective, the dissertation leverages cutting edge natural language processing (NLP) tools to engage in media analysis on the scale of hundreds of thousands of articles. It serves as a framework for conducting this type of analysis that other researchers can leverage moving forward. It also engages with the regression difference-in-discontinuities design framework and identifies challenges to causal identification and opportunities for learning within the framework. From a theory perspective, the dissertation provides insight into two strands of the literature. First, it examines the strategic use of state-owned media in international relations, returning to a literature first popularized in the Cold War that frames media usage as both internal and external facing. Second, it measures the impact of a dramatic shift in soft power due the funding cuts enacted under President Trump. This provides an opportunity to quantify the extent to which soft power efforts affect narrative frames in low and middle income countries, providing key insight into the extent to which soft power influences foreign perspectives.
+
+\section*{Overview}
+
+% Match on cosine similarity of vectorization of the title
+% RDID paper- lay out what rdid is supposed to solve (i.e. when it is causal), discuss limitations of causal inference outside this scope, discuss moving towards causality, finish by discussing practical considerations
+
+My plan for the dissertation will proceed in three stages with the goal of generating research that moves the field forward with respect to causal inference, computational methods, and IR theory. The first paper will focus on the method called "regression difference-in-discontinuity design" (RDID), an extension of the popular regression discontinuity design (RDD). This method has seen recent use in several applications within political science, but the method itself is just beginning to be formalized. In the first paper of my dissertation I will discuss the original intention of the method, reasonable extensions, motivate robustness tools and discuss practical considerations. I will discuss the assumptions that grant causal inference under a panel framework and highlight the use-case for non-causal inference based work. I plan to discuss how tools like matching and Rosenbaum bounds can lend credence to analysis that falls short of causal under the identifying assumptions. I will finish by discussing practical considerations, such as covariate adjustments, and their limitations under the RDID framework.
+
+In my second paper\footnote{Coauthored with Sarah Gerstein} I intend to address the question of how media sources respond when there is a significant disruption to the status quo in international system? The Russian invasion of Ukraine in February 2022 was one of the most significant shocks to the international system in the post-Cold War era, the effects of which are still being parsed by researchers and politicians three years later. As the North Atlantic Treaty Organization (NATO) debated how best to prepare for the possibility of an invasion of Ukraine \autocite{jakes_for_2024} and a US presidential candidate openly encouraged Russia to invade NATO countries \autocite{sanger_outburst_2024}, it is important for researchers to study how states are responding to the invasion with respect to their relationship with Russia. State media accounts form an important tool for states seeking to influence public opinion \autocite{guriev_theory_2020} and evidence suggests that selective attribution and sentiment play an important role in how news is displayed \autocite{rozenas_how_2019}. Furthermore, how elite cues impact public opinion is an important topic that has received significant attention within the international relations literature \autocite{guisinger_mapping_2017}. The shock of the invasion of Ukraine presents an opportunity to study the strategic decision-making that goes into state-owned media. This paper will look to study two trends in the media environment. First, how state-owned media in regional neighbors differs in the coverage of the invasion from independent media. Given that independent media tends to be more reliable and unbiased \autocite{djankov_who_2003}, we hypothesize that state-owned media will be more subdued in their coverage, reflecting a strategic decision. Second, how the presence or lack of security agreements influences state-owned media coverage. While formal statements in the UN are one avenue towards understanding how states feel about ongoing events, their depiction in their own media can serve as an important signal to their true feelings. We hypothesize that given the high likelihood of sanctions post-invasion and their reliance on EU countries for trade, countries with a security agreement with Russia will use their state-owned media to engage in harsher criticism of the regime compared to neutral countries.
+
+In the third paper, I move to understanding a different kind of shock to the international system- the dramatic cut of USAID funding under Trump in 2025. Recent U.S. foreign assistance cuts have reduced support for press freedom in many countries around the world, yet we have no systematic evidence on how press coverage and media freedom are changing in response to those cuts. Existing media-freedom indices provide valuable annual snapshots of press freedom but are too slow and too coarse to capture repression as it unfolds. Using the pre-existing Machine Learning for Peace (MLP) architecture, I will analyze a corpus of more than 130 million local-language articles from over 300 outlets across 65 countries in the Global South to track whether sentiment toward the USG government changes and whether attention to politically sensitive issues like corruption and protests diminishes-- both within previously USG-supported media outlets and across the wider media environment. Using an actor-targeted sentiment model that provides clearer, more nuanced measures of political direction, I will also examine how the resulting shifts have changed coverage of the U.S. These actor-targeted measures allow for careful separation of the overall tone of the article, which can be influenced by the valence of specific activities, from the sentiment directed towards a specific actor within the article. Assessing the impact of US government budget cuts to media is important for research on media, democratic backsliding, and on the impacts of soft power in international relations. 
+
+
+\section*{Literature Review}
+
+\subsection*{RDID Paper}
+
+Current list of key sources:
+\begin{itemize}
+    \item \citet{wooldridge_two-way_2021}
+    \item \citet{callaway_difference--differences_2024}
+    \item \citet{grembi_fiscal_2016}
+    \item \citet{galindo-silva_fuzzy_2018}
+    \item \citet{tramontin_shinoki_difference--discontinuities_2024}
+    \item \citet{zubizarreta_covariate_2023}
+    \item \citet{cattaneo_extrapolating_2021}
+    \item \citet{cattaneo_regression_2022}
+    \item \citet{cattaneo_practical_2019}
+    \item \citet{cattaneo_practical_2024}
+    \item \citet{bansak_effect_2022}
+\end{itemize}
+
+\subsection*{Russia Invasion Paper}
+
+Intuitively, the idea that state and independent media might react differently to a violation of an international border is not a novel concept. The two media sources might have very different mandates as well as funding sources. In addition, as a tool of the state, state-owned media is restricted by the states' decisions on how to make and signal alliance commitments. The international relations literature has grappled with several important questions related to alliances. Do states align with those most powerful and closest to them? Do states keep their friends closer, and their enemies closer? Upon deciding who to align with, how can small states, without powerful weapons and additional troops to send abroad, signal their commitment? The lack of concrete theory to help explain this variation in media response means that we must look to alliance, signaling, and media literature to help us begin to understand why we might see a difference in media sentiment. 
+
+Weaker states often choose to balance in an effort to maintain their place in the system \autocite{waltz_theory_2010}. When states do this, they are choosing the weaker side due to the perceived threat of the stronger state. States might also choose to bandwagon, that is join the stronger side \autocite{waltz_theory_2010, walt_origins_2007}. States may choose to align with those who have the most aggregate offensive capabilities, who are located most closely, and who have the most aggressive perceived intentions. While bandwagoning might seem more attractive, Walt suggests that balancing is more common among states that matter and who have more capabilities \autocite{walt_origins_2007}. 
+
+While security concerns are likely to drive alliance preferences, states may also choose to join alliances that more closely adhere to their state views. Ideologically similar alliances are more common than alliances among countries of opposing ideological systems \autocite{walt_origins_2007}. However, politicians might use ideological similarities to tout the strength of an alliance, though this level of closeness might be a facade, designed to inspire feelings of in-group favoritism. 
+
+States may also enter into alliances designed to constrain. While some alliances are capability aggregation measures, meant to stand firm against external threats, alliances also may serve to tie squabbling partners together \autocite{weitsman_dangerous_2004}. The alliance paradox suggests that allies are not only frequently unreliable, but also prone to confrontation. When states tether themselves by aligning with a powerful ally, they facilitate communication and mitigate potential hostilities, but this strategy constrains their partners. Tethering happens most often in relatively higher threat relationships; states that see themselves threatened by low levels of threat are more likely to hedge. States that are less threatened will "allow the hedging state to draw others into its sphere of influence as long as the course of action is not overly costly or too provocative to potential enemies" \autocite{weitsman_dangerous_2004}. Small states located near powerful, threatening states might therefore choose to tether themselves to the regional pole, hoping to remain sovereign. 
+
+Once states have decided on the best partners, how can they signal that they are committed? Signalling might involve words or deeds \autocite{fuhrmann_signaling_2014}. Most political science literature focuses on how states might signal to rival states their level of capability and resolve \autocite{fearon_signaling_1997, kertzer_resolve_2016}. Others have noted that signalling to allies is particularly difficult \autocite{schelling_arms_1967}. Committed allies might make public statements or they might deploy troops or weapons to allied locations \autocite{fuhrmann_signaling_2014, blankenship_trivial_2022}. 
+
+By making public statements, countries could signal to their allies that they are committed to maintaining alliances. One of the most effective ways to broadcast these statements might be through the use of the media, including television, newspapers, and social media. This allows these statements to be public, helping to tie hands \autocite{fearon_signaling_1997}. The news media is often used to set agendas and prime audiences as well as signal elite cues \autocite{iyengar_news_2010, chong_framing_2007}. The news media can set agendas by identifying and publicizing issues for the mass public. The media can also prime by influencing the issues that the public pays attention to when they make judgements. Importantly, the media can help to transmit elite signals. There are two general types of media in most states: state-owned and private, or independent media. 
+
+The distinction between state-owned and private media firms is unclear in the literature. Public choice theory suggests that government-owned media outlets “distort and manipulate information” to prop up the incumbent regimes, while privately owned and independent media sources offer alternative views with largely unbiased and accurate information \autocite{djankov_who_2003}. State-owned media might also be more closely aligned with past authoritarian regimes \autocite{moehler_whose_2011}. On the other hand, state-owned firms might provide more fair and balanced accounts, given their governmental affiliation and monetary backing \autocite{djankov_who_2003}. Independent media, unhindered by government regulation may be more free to seek out the full story, or they may be backed by private firms that seek to provide a narrative more aligned with a desired end state. Privately owned media outlets might be more responsive to the public and open to opposing perspectives \autocite{moehler_whose_2011}. Independent media in states that are more fully aligned with western values, with journalists interested in maintaining the freedom of the press that comes as a part of the international liberal order should be more likely to report more accurately. This will help them to maintain credibility as well as demonstrate their commitment to showing what is going on in the world. 
+
+BELOW NEEDS FURTHER DEVELOPMENT!
+
+Within the sphere of state-owned media, there are two primary strategic threads discussed in the literature. The dominant strand has focused on the use of state-owned media in communication with domestic audiences. For example, \citet{mccombs_agenda-setting_2002} emphasizes the power of the news media to focus public attention and shape perspectives. Careful framing of issues within media can have a dramatic impact on public support for government actions \citep{gershkoff_shaping_2005}. Political parties wield significant control over their followers' opinions and can wield this influence to effect dramatic changes in support for policies \citep{slothuus_how_2021}. This is in conjunction with an emphasis within the broader discipline on domestic affairs \citep{tomz_public_2020, de_mesquita_testing_2004}. However, there has been a recent revitalization of research into the strategic use of media signalling to influence international audiences. 
+
+\citet{cohen_theatre_1987} emphasizes the role of diplomatic signaling through the media. He argues that these media signals are are ambiguous by design, allowing deniability, but are well understood by the intended recipients (other states). Indeed, during the Cold War, western analysts meticulously studied the state-owned media of the USSR and its satellites to understand the Soviet foreign policy. Soviet officials strategically used this fact to signal to the West in ways that they could not do through formal channels \citep{cohen_theatre_1987}.
+
+Sources still to be included:
+
+\begin{itemize}
+    \item \citet{bjola_digital_2024}
+    \item \citet{gilboa_internet_2002}
+    \item \citet{gilboa_media_1998}
+    \item Others
+\end{itemize}
+
+\subsection*{USAID Funding Cuts}
+
+TBD
+
+%Current list of key sources:
+%https://doi.org/10.1163/1871191X-14101013
+%https://www.fpri.org/article/2020/09/the-problem-with-soft-power/
+%Soft Power: The Means to Success in World Politics
+
+
+\section*{Research Design}
+
+\subsection*{RDID Paper}
+
+As a methods paper, the research design for the paper focused on RDID is a little different. The goal of the paper is to serve as a tool for researchers interested in the design and to develop intuition for the tool to be used in the paper on the invasion of Ukraine. From that perspective, it is important to begin by clearly establishing the original goal of the method. From there, I will discuss criticisms of the method and highlight prospective use cases that can utilize the specification even if they fall short of causal identification, which is the case for my own use case. In order to help strengthen the approach in light of causal-identification assumption violations, I will discuss efforts that can be done to increase confidence in the results of analysis that violates one of the core assumptions of the method, including the use of matching and Rosenbaum bounds. Finally, I will discuss practical considerations, highlighting how much of the work that has been done in the realm of traditional RDDs.
+
+\subsection*{Russia Invasion Paper}
+
+This paper will focus on three hypotheses. First, we will test whether the invasion does create a cut-off in the data. To do so, we will use an RDD design to look at sentiment towards Russia expressed in the newspapers we have collected data from before and after the invasion. Second, we will examine whether there is a differential effect within independent media and state-owned media. The work in the RDID paper will emphasize that this difference should be considered an association, not a causal difference, but robustness checks should lend credence to the idea that the driving force is the ownership structure of the outlet. Finally, the paper will look at the difference in state-owned media response between sources controlled by formal Russian allies versus sources controlled by neutral states. Again, these differences will be non-causal, but we will apply a battery of robustness checks to show that the relationship is a meaningful one.
+
+\subsubsection*{The Data}
+
+To study how the invasion changes sentiment towards Russia in state-sponsored media versus independent media, we utilized a corpus of news articles collected as part of \href{https://web.sas.upenn.edu/mlp-devlab/}{Machine Learning for Peace Project}. These articles were collected via an extensive scraping process that targets both international and domestic news sources around the world. As part of the collection process, we traced ownership of each newspaper to identify those which are either directly state-owned or are indirectly captured by the state. Both independent and state-owned newspapers were carefully scraped via custom parsers in their original language and then human coders checked each newspaper for errors in the collection process. We then utilized a system of \href{https://huggingface.co/}{Hugging Face Transformers} to translate articles into English. These translations have undergone human validation to ensure accuracy and usability. Once articles have been translated, we utilized a carefully curated keyword list of over 500 words associated with Russia, including prominent politicians and companies, to identify articles related to Russia.\footnote{For more information on the process of article collection, please see \href{https://web.sas.upenn.edu/mlp-devlab/technical-details-research/}{the MLP Pipeline Report.}}
+
+We collected articles from the 6 months on either side of the invasion, spanning from August 1$^{\text{st}}$, 2021 till August 30$^{\text{th}}$, 2022. Our curration process yielded 225,000 articles from 12 countries\footnote{Albania, Azerbaijan, Armenia, Belarus, Hungary, Kazakhstan, Kosovo, Moldova, Serbia, Turkey, Ukraine, and Georgia} and 70 sources, including at least one state-owned media source for each country. We chose these 12 countries according to two primary criteria. First, we chose a selection of former USSR and USSR-aligned states. Second, to ensure that Hungary, as a current NATO ally, was not unique, we added Turkey and Albania. Finally, we included Serbia as a non-NATO, non-former-USSR country, but with a government that has been decidedly pro-Russian in recent history to expand the analysis. For our main specifications in this article, we omit Ukraine to highlight the behavior in countries not directly affected by the invasion, but the inclusion of Ukraine does not meaningfully change the results.\footnote{To be included in future appendix.} After omitting Ukraine, we were left with 174,000 articles from 62 sources. 
+
+To conduct our analysis, we utilized a zero-shot GPT 4.0 Turbo model to code articles across three dimensions; article topic (1 of 5), whether the article features Russia as a main actor (binary), and the sentiment of the article towards Russia (ternary). This coding was applied to the article title as well as the first two sentences.\footnote{Unlike the GPT classifier, the human codings utilized both the title as well as the whole article. There were not significant performance gains from applying the GPT classifier to the whole article, and thus the classifier was applied to a truncated portion of the article to save both computational and monetary costs.} Russia was considered to encompass both the broader state, as well as features of the state apparatus including the Russian military and ministers of the Russian government as well as the head of the state, Vladimir Putin. The topics were classified as one of ``Political,'' ``Economic,'' ``Military,'' ``Culture,'' or ``Other.'' Sentiment was allowed to take the values of -1 (negative), 0 (neutral) or 1 (positive). To ensure accuracy, we compared the model's performance against a test set of 100 randomly selected human-coded articles. The human coding process was adversarial double-coded by the coauthors who then debated the codings to settle on a final coding for each dimension for each article. The overall agreement rate for initial human-codings was 79\% with respect to sentiment, 91\% with respect to Russian-Related, and 93\% for topic. The final results from the GPT model with respect to sentiment are presented in Figure 1. Overall, the F1 score for the sentiment classifier is .92, for the Russian involvement classifier is .83, and for the Topic classifier is .80, with the confusion matrices reported in the appendix. The classifier raises two areas of concern. First, it is overly likely to classify political articles as other compared to human-coders. Second, it is overly likely to classify articles as not having Russian involvement compared to human-coders. Neither are likely to bias the findings reported in this article as any bias resulting from either issue would be towards a null result.
+
+We leverage two types of methods to test our hypotheses. First, we use a regression discontinuity design (RDD) to show that the sentiment of independent media coverage towards Russia becomes significantly more negative after the invasion (hypothesis 1). This increase in negative sentiment extends beyond articles related directly to the military (hypothesis 1A). Second, we use a difference-in-discontinuities (diff-in-discs) design \autocite{grembi_fiscal_2016}, \autocite{toral_how_2024} to show that the invasion causes a differential effect on sentiment in state-owned media as opposed to independent media (hypothesis 2). This difference in sentiment is pronounced even in non-military coverage (hypothesis 2A). Together, these two sets of causally identified evidence demonstrate that the invasion has a negative impact on sentiment towards Russia, but that state-owned media strategically tailors its coverage of Russia post-invasion.
+
+\subsubsection*{The Invasion Makes Independent Media Sentiment Towards Russia More Negative: Regression Discontinuity Evidence}
+
+To test whether independent media sentiment towards Russia becomes more negative as a result of the invasion, we leverage an RDD around the day of the invasion. We find that the invasion decreases sentiment towards Russia by .27 standard deviations (p<.001). Similarly, for articles that were not classified as military related, we find that invasion decreases sentiment towards Russia by .25 standard deviations (p<.001).
+
+\subsubsubsection*{Design}
+
+We exploit the discontinuity around the date of the invasion (February 24$^{\text{th}}$, 2022) to measure the causal effect of the invasion on sentiment towards Russia expressed in independent news articles from our 11 countries. The key assumption of this design is that potential outcomes are continuous around the invasion. We believe this assumption is reasonable given the nature of time as a forcing variable in the context of article publications. Formally, treatment T is assigned by the difference between the date of article publication (D$_{p}$) and the date of the invasion (D$_I$) according to:
+
+\begin{align}
+    T &= \begin{cases}
+        \text{1 if D$_p$ \geq D$_I$} \\
+        \text{0 if D$_p$ < D$_I$}
+    \end{cases} 
+\end{align}
+
+The estimand of interest is $\gamma = \EX[Y_p(1) - Y_p(0)]$, where $Y_p(1)$ and $Y_p(0)$ represent the potential outcome of interest (sentiment towards Russia) post-invasion and pre-invasion, respectively. We can identify the local average treatment effect (LATE) around the cutoff of the invasion by taking the difference in means before and after the invasion threshold:
+
+\begin{align}
+    \widehat{\gamma_{rdd}} &= \lim_{D_P \downarrow D_I} \EX [Y_p(1)|D_P=D_I] - \lim_{D_P \uparrow D_I} \EX [Y_p(0)|D_P=D_I]
+\end{align}
+
+\subsubsection*{State-owned Media Responds Less Negatively to the Invasion than does Independent Media: Difference-in-Discontinuities Evidence}
+
+If state-owned media strategically controlled sentiment towards Russia in it's coverage following the invasion of Ukraine, then the invasion should have a differential impact on article sentiment for independent sources and state-owned sources. If our theory is correct, independent media sentiment towards Russia should be significantly more negative after the invasion than the sentiment expressed in state-owned media. 
+
+To test whether state-owned media responds less negatively to the invasion than independent media, we leverage a diff-in-discs around the day of the invasion. Following \autocite{toral_how_2024} and \autocite{grembi_fiscal_2016}, this design combines a classic difference-in-differences (comparing state-owned articles and independent media articles) analysis with a regression discontinuity (comparing the sentiment towards Russia pre-invasion and post-invasion).
+
+\subsubsubsection*{Design}
+
+This design exploits two factors. First, we exploit whether a source is state-owned or independent (called O$_p$) and second, we exploit the discontinuity around the date of the invasion (February 24$^{\text{th}}$, 2022) (called D$_p$). This allows us to measure the association of the invasion on sentiment towards Russia expressed in independent news articles from our 11 countries compared to the effect on sentiment in state-owned media. Formally, ``treatment'' T is assigned by the difference between the date of article publication (D$_{p}$) and the date of the invasion (D$_I$) according to:
+
+\begin{align}
+    T &= \begin{cases}
+        \text{1 if D$_p$ \geq D$_I$} \\
+        \text{0 if D$_p$ < D$_I$}
+    \end{cases} 
+\end{align}
+
+However, to separate the effect of whether an article is published by an independent media source or a state-owned media source, O$_p$ is assigned according to:
+
+\begin{align}
+    O_p &= \begin{cases}
+        \text{1 if the source is state-owned} \\
+        \text{0 if the source is independent}
+    \end{cases} 
+\end{align}
+
+Potential outcomes, therefore, are a function of both O$_p$ and D$_p$. We define the potential outcome as Y$_p(o,d)$. With that notation, the estimand of interest is:
+
+\begin{align}
+\begin{split}
+    \gamma = &\EX[Y_p(1,1) - Y_p(0,1)|D_p=D_I,O_p=1] \\
+    &- \EX[Y_p(1,0) - Y_p(0,0)|D_p=D_I,O_p=0]
+\end{split}
+\end{align}
+
+We can identify the local average associational effect (LAAE) around the cutoff of the invasion by taking the difference in means before and after the invasion threshold:
+
+\begin{align}
+\begin{split}
+    \widehat{\gamma_{ddisc}} =\ &(\lim_{D_P \downarrow D_I} \EX [Y_p(1,1)|D_P=D_I,O_p=1] \\
+    &- \lim_{D_P \uparrow D_I} \EX [Y_p(0,1)|D_P=D_I,O_p=1]) \\
+    &-(\lim_{D_P \downarrow D_I} \EX [Y_p(1,0)|D_P=D_I,O_p=0] \\
+    &- \lim_{D_P \uparrow D_I} \EX [Y_p(0,0)|D_P=D_I,O_p=0])
+\end{split}
+\end{align}
+
+\subsubsection*{State-owned Media in Russian Allies Responds More Negatively to the Invasion than does State-owned Media in Neutral Countries: Difference-in-Discontinuities Evidence}
+
+If state-owned media strategically controlled sentiment towards Russia in it's coverage following the invasion of Ukraine, then the invasion should have a differential impact on article sentiment in state-owned sources depending on the relationship between the state and Russia. If our hypothesis is correct, state-owned media sentiment amongst Russian allies (RA State Media) towards Russia should be significantly more negative after the invasion than the sentiment expressed in state-owned media of neutral countries (N State Media). 
+
+To test whether RA State Media responds more negatively to the invasion than N State Media, we leverage a diff-in-discs around the day of the invasion. Following \autocite{toral_how_2024} and \autocite{grembi_fiscal_2016}, this design combines a classic difference-in-differences (comparing state-owned articles and independent media articles) analysis with a regression discontinuity (comparing the sentiment towards Russia pre-invasion and post-invasion). This design exploits identical factors as the state-owned versus independent design.
+
+
+\subsection*{USAID Funding Cuts Paper}
+
+This paper will leverage two datasources. I will compile a verified list of previously USG-supported media outlets from the existing Machine Learning for Peace (MLP) database (https://web.sas.upenn.edu/mlp-devlab/). I will complement those USG-supported sources with a broader set of media across the political spectrum in each country. The MLP project has compiled a corpus of more than 130 million local-language newspaper articles from more than 300 local news outlets across 65 countries in the Global South, which will be leveraged for this project. I will select a subset of these articles to apply both BERT coding and utilize a LLM model like GPT to conduct actor-targetted sentiment analysis as in the Russia Invasion paper.
+
+This paper will focus on two hypotheses. First, I will test whether the funding cut creates a shift in sentiment towards the US. To do so, I will use a difference-in-difference design to look at sentiment towards the US expressed in the newspapers we have collected data from for the six months before and after the funding cuts. I will identify newspapers that were receiving funding, either directly or indirectly, from USAID and compare them to sources within the same countries that were not receiving funding. Second, I will examine whether there is a change in the types of articles covered in sources that were receiving funding. Given that a key motivator behind much of the funding was to improve democratic accountability within developing countries, I will use the same difference-in-difference design to look at coverage levers with respect to sensitive activities such as corruption, censorship, and purges.
+
+
+
+\newpage
+
+\printbibliography
+
+%\bibliographystyle{apalike}
+%\bibliography{references.bib}
+
+\end{document}

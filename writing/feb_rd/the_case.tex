@@ -1,0 +1,143 @@
+\documentclass[12pt]{article}
+%\usepackage{Sweave}
+\usepackage[margin=1in]{geometry}
+%\usepackage[parfill]{parskip}
+%\usepackage[hidelinks]{hyperref}
+\usepackage[colorlinks = true,
+            linkcolor = black,
+            urlcolor  = blue,
+            citecolor = black,
+            anchorcolor = black]{hyperref}
+\usepackage{rotating}
+%\usepackage[backend=biber, style=apa, natbib=true]{biblatex}
+\usepackage[citestyle=authoryear, style = apa, natbib=true, backend=bibtex, maxcitenames=2]{biblatex}
+\addbibresource{references.bib}
+\newtheorem{hyp}{H}
+\newtheorem{hypo}{Hypothesis}
+\usepackage[compact]{titlesec}
+%\usepackage{titlesec}
+\titleformat*{\section}{\bfseries\fontsize{14}{18}\selectfont}
+\titleformat*{\subsection}{\bfseries\fontsize{12}{16}\selectfont}
+%\usepackage{natbib}
+\usepackage{csquotes}
+\usepackage{xfrac}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{lscape}
+\usepackage{amsmath}
+\usepackage[export]{adjustbox}
+\usepackage{graphics}
+\usepackage{array}
+\usepackage[font=small,skip=1pt]{caption}
+\usepackage{subcaption} 
+\usepackage{ragged2e}
+\usepackage{float}
+\usepackage[section]{placeins}
+\usepackage{hyperref}
+\usepackage{multicol}
+\usepackage{setspace}
+\usepackage[hang,flushmargin]{footmisc}
+\usepackage{afterpage}
+\usepackage{soul}
+\usepackage{xr}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{siunitx}
+\usepackage{caption}
+\usepackage{threeparttable}
+\usepackage{makecell} 
+\usepackage{tabularx}
+\newcommand{\tabitem}{\textbullet~~}
+\allowdisplaybreaks
+
+% Set caption to be left-aligned
+\captionsetup{justification=raggedright, singlelinecheck=false}
+
+% Configure siunitx
+\sisetup{
+  group-separator = {,},
+  group-minimum-digits = 4 % Start grouping from 4 digits
+}
+
+\doublespacing
+
+\title{%
+  The Signaling Gap: \\
+  \large State-Owned Media and the Strategic Management of Sentiment during the Russian Invasion of Ukraine}
+\author{Donald Moratz and Sarah Gerstein}
+\date{\today}
+
+%\title{The Signaling Gap: State-Owned Media and the Strategic Management of Sentiment during the Russian Invasion of Ukraine}
+
+\begin{document}
+
+\maketitle
+
+
+\abstract{How do states strategically signal positions during international crises? This paper investigates the 2022 Russian invasion of Ukraine as a seminal shock to analyze the divergent responses of state-controlled and independent media in post-Soviet and satellite states. While independent media reflects unconstrained sentiment, we argue that state-owned media serves as a strategic signaling device. Utilizing a corpus of several hundred thousand articles, we employ a Large Language Model (GPT-4o) to isolate sentiment toward Russia from general war-related topical shifts—an approach that outperforms traditional BERT-based classifiers in capturing nuanced elite cues. Our findings reveal that while sentiment declined across our sample, the drop was significantly muted in state-owned outlets. Crucially, we find that states bound by Russian security agreements utilized media sentiment to signal strategic dissatisfaction even when formal diplomatic condemnation remained politically impossible. These results highlight the role of controlled media in communicating "true" intent during geopolitical upheaval and demonstrate the power of generative AI in identifying latent elite signaling within massive text corpora.}
+
+
+\section*{The Case}
+
+\subsection*{Rewrite}
+
+On 24 February 2022, Russia launched a full-scale invasion of Ukraine, initiating the largest land war in Europe since World War II. The invasion was a direct violation of the UN Charter's prohibition on the use of force against the territorial integrity of a sovereign state \citep{nations_charter_1945}--- a norm that Russia, as a permanent member of the Security Council, had formally committed to uphold. The international community largely condemned the attack. The Council of Europe suspended Russian participation, and the UN Security Council took up a draft resolution condemning the invasion, which Russia vetoed \citep{walker_conflict_2024}. For most states, the path to a public response was straightforward. For the states in our sample, it was not.
+
+The twelve states we study occupy very different positions relative to Russia, and this variation is central to our empirical design. We organize them into three broad categories based on their security and economic relationships with Russia at the time of the invasion. The first category comprises states with formal Russian security agreements: Armenia, Belarus, and Kazakhstan are all members of the Collective Security Treaty Organization (CSTO), Russia's primary multilateral security alliance in the post-Soviet space. Azerbaijan, while not a CSTO member, signed a Declaration on Allied Interaction with Russia in February 2022, just a day before the invasion \citep{huseynov_azerbaijan_2022}, placing it in a similar position of formal alignment. These states faced the greatest constraints on formal condemnation; openly criticizing a security patron carries real costs, and CSTO membership in particular creates institutional pressure toward solidarity. At the same time, all four states also maintained substantial trade relationships with Western nations, giving them a real economic interest in condemning the invasion even where formal security commitments constrained them from doing so\footnote{The level of trade reliance expressed as a percent of total trade (imports plus exports) originating from the west (Europe and North America) for each country in 2021 was Belarus: 22\%, Armenia: 34\%, Kazakhstan: 46\%, and Azerbaijan: 72\% \citep{world_bank_world_2021}}.
+
+The second category comprises states we treat as broadly neutral: Georgia, Moldova, Kosovo, and Serbia. Each of these states has maintained distance from both Russian security structures and full Western integration, though for different reasons and with different relationships to Russia's sphere of influence. Georgia and Moldova have both faced Russian territorial incursions in recent times\citep{cheterian_august_2009, potter_unrecognized_2022}, while Serbia and Kosovo's distance from both Russia and western integration reflects different dynamics entirely. The third category comprises states aligned with Western institutions: Albania and Hungary are both full NATO members, and Ukraine, while not a NATO member at the time of the invasion, had formally declared NATO membership a strategic objective. Turkey presents a more complex case: formally a NATO member since 1952, Ankara declined to join Western sanctions against Russia and instead positioned itself as a mediator between the two parties, reflecting the increasingly independent foreign policy orientation it had pursued since normalizing relations with Moscow after 2016 \citep{mankoff_turkeys_2022}. We treat Turkey as NATO-aligned for the purposes of our sample construction, while acknowledging that its behavior during the invasion did not fully mirror that of other alliance members. Ukraine is included in our dataset but excluded from the main analysis given its direct role as the invaded party. We describe our media sources for each country in the data section.
+
+The constraints facing Russian-aligned states in February 2022 did not emerge overnight. Russia's willingness to use force in its near abroad had been established clearly by 2014, when Russia annexed Crimea following political upheaval in Ukraine and backed separatist forces in the Donbas. The Minsk Agreements, brokered by Western nations, called for a ceasefire and reaffirmation of Ukrainian sovereignty, but violence continued to escalate through the intervening years \citep{walker_conflict_2023}. By November 2021, Russia had mobilized troops along the Ukrainian border, and intelligence from both the U.S. and U.K. was indicating that a full-scale invasion was imminent \citep{walker_conflict_2023}. Russia simultaneously demanded that NATO commit to admitting no new members--- explicitly naming Ukraine and Georgia--- signaling that states in its near abroad would face consequences for Western alignment \citep{al_jazeera_us_2022}. For CSTO members and Russian-aligned states, this context made formal diplomatic condemnation of the invasion not just politically costly but institutionally constrained. State-owned media in the post-Soviet space has historically functioned as a tool for managing exactly these kinds of politically sensitive moments, projecting carefully calibrated signals to both domestic and international audiences while preserving official deniability \citep{cohen_theatre_1987, oates_television_2006, guriev_spin_2022}.
+
+February 24 nonetheless represents a discrete and dramatic rupture in the information environment. While the troop buildup had proceeded for months, the full-scale invasion--- with missile strikes on Kyiv and ground forces crossing the border simultaneously--- was of a different order than the slow escalation that preceded it. Russia had conducted large-scale military exercises with Belarus near the Ukrainian border on February 10, with western intelligence reporting up to 140,000 troops positioned at the border \citep{walker_conflict_2024}. Even so, the decision to launch a comprehensive invasion rather than a more limited operation represented a threshold that most observers, including many within the states in our sample, had not fully anticipated. This discontinuity is the basis for our identification strategy: we treat February 24 as a sharp break in the media environment and use the variation in coverage before and after it to identify the causal effect of the invasion on state media sentiment. We develop this design in detail in the methods section.
+
+%%%%%%%%%%%%%%%%%%% Original %%%%%%%%%%%%%%%%%%%%%
+
+\subsection*{Original}
+
+The dissolution of the Soviet Union in 1991 was a significant disruption to the international system. Not just unexpected, it was also peaceful, moving the world from a bipolar one to a unipolar one \citep{waltz_theory_2010, monteiro_theory_2014}. This abrupt transition surprised academics and policymakers alike. While academics do not have a well-developed theory accounting for change in the structure of the international system, most attribute alterations to conflict and the settlements after war \citep{waltz_theory_2010, ikenberry_after_2001}. The lack of a competitor allowed for the U.S. led liberal world order to flourish, with former client states of the Soviet Union largely encouraged to join institutions that allowed for greater cooperation and prosperity. Many states also adopted the trappings of democracy, with elections and nominal freedoms granted to their citizens. 
+
+In the case of Russia, in the years after the fall of the Soviet Union, the state held elections, allowed for some level of press openness, and made overtures towards continued cooperation with the west. The states that allied with Russia also sought to build democratic institutions, though these were often thin institutions and sometimes failed to provide the true freedoms of the press and speech. 
+
+Many former Soviet states maintained close ties with Russia. Other former allies of the Soviet Union often chose new partners, with many realigning their politics to look toward the West. Some sought to join the North Atlantic Treaty Organization (NATO) and the European Union (EU). Russia even joined Partnership for Peace, signalling a commitment to security cooperation and global institutions.  
+
+The twelve countries in our dataset are all in relative proximity to Russia. Even prior to the 2022 invasion of Ukraine, Russia's ability to project power into to allies around the world was well-known, with Russia supporting efforts in Syria, South Africa, and Venezuela \citep{radin_what_2019, charap_understanding_2019, bbc_us-russian_2018}. The Russians also maintained the ability to project greater volumes of military power into its near abroad. Knowing this, states must make choices: do they bandwagon with Russia or do they choose to balance against the state? 
+
+Seven of the twelve countries in our dataset, Armenia, Azerbaijan, Belarus, Georgia, Kazakhstan, Moldova, and Ukraine all became independent states after having been Republics of the Soviet Union \citep{masters_belarus-russia_2023}. With the exception of Ukraine, the former Soviet states joined the Commonwealth of Independent States (CIS) in 1993. The CIS encourages cooperation in economic, political, and military matters \citep{nations_charter_1945}. After the Russo-Georgian War in 2008, Georgia left the CIS \citep{team_georgia_2006}. Though Ukraine had refused to formally join the organization, the country had continued to participate until 2018 \citep{rferl_ukraine_2018}. Additionally, Moldova has recently announced its intention to withdraw by the end of 2024, due to territorial incursions by Russia \citep{chiu_moldova_2023}. 
+
+Former allies of the Soviet Union also reconsidered their foreign relations. Albania and Hungary, two former Soviet Allies, both joined NATO, choosing Western alliances \citep{nato_nato_2024}. While Hungary officially joined the European Union (EU), Albania is still working toward accession negotiations. Yugoslavia, a former ally of the Soviet Union, saw a brutal war in the 1990s. Serbia is a former constituent republic of Yugoslavia, forming a new federation with Montenegro in 1992, ultimately declaring independence in 2006. Kosovo, a former autonomous province within Yugoslavia, currently has partial diplomatic recognition with 104 member states of the UN recognizing it as a sovereign state. For the purposes of this project, we will treat Kosovo as a full state \citep{mcbride_russias_2023}. Finally, Turkey was an important member of the anti-Soviet bloc during the Cold War. A member of NATO since 1951, Turkey has since cultivated closer ties with Russia, normalizing relations after 2016 and the Syrian crisis. Turkey did not join the rest of the West in imposing sanctions on Russia, though President Recep Tayyip Erdoğan also vowed not to accept territorial changes made through the use of force. 
+
+All twelve states, and importantly, Russia, have acceded to the United Nations Charter, which explicitly guarantees that "all Members shall refrain in their international relations from the threat or use of force against the territorial integrity or political independence of any state" \citep{nations_charter_1945}. We should thus expect that Russia, as well as all successor states and former allies would respect state sovereignty and refrain from using force to change the facts on the ground of other states. 
+
+While Russia succeeded the Soviet Union seat in the the UN, over the past twenty years, Russia has also assisted South Ossetia and Abkhazia in their pursuit of independence from Georgia and pursued claimed ``de-Nazification'' programs in nearby Ukraine. Observers have criticized these efforts as unwarranted aggression in Russia's near abroad. Russia's 2014 annexation of Crimea occurred after political upheaval in Ukraine and despite efforts to end the conflict, including the Minsk Agreements, brokered by Western nations, violence has only escalated. The Minsk Agreements called for an immediate ceasefire as well as the restoration of state borders, while reaffirming the sovereignty of the state of Ukraine. Ostensibly, Russia invaded Ukraine to support pro-Russia separatists fighting for independent states \citep{walker_conflict_2023}. A referendum held after the annexation reportedly had 95.5 percent of voters supporting a union with Russia. However, these results are not internationally recognized. The use of democratic concepts, including allowing citizens to vote on state matters, suggests that Russia understands the power of appearing to adhere to the international order. 
+
+Though Russian leader President Vladmir Putin claimed that the results suggested that the people of Crimea sought self-determination, much of the world condemned his actions. The leaders of the G7, including Canada, France, Germany, Italy, Japan, the United Kingdom and the United States, condemned the "Russia's continued actions to undermine Ukraine's sovereignty" \citep{foreign_and_commonwealth_office_g7_2014}. Additionally, the G7 leaders placed coordinated sanctions on Russia, imposing travel bans as well as freezing funds. The UN General Assembly condemned the invasion and subsequent referendum, with a vote of 100 to 11 against recognizing the results of the voting \citep{gumuchian_un_2014}. The United Kingdom Foreign Secretary suggested that "the result reinforces the fundamental principles upon which the UN was founded: principles of territorial integrity and of the non-use of force" \citep{walker_conflict_2023}.
+
+Between 2014 and 2021, the international community continued to support Ukraine's bid for sovereignty. Ukraine signed a Comprehensive Assistance Package with NATO and voted to restore NATO membership as a strategic foreign policy objective. Additionally, the country signed an association agreement with the EU. These actions suggest that Ukraine's desired foreign policy alignment is with the West. 
+
+In November of 2021, Russia mobilized troops along the Ukrainian border and Ukrainian President Zelenskyy continued to press for commitments from NATO for membership \citep{walker_conflict_2023}. Though President Joe Biden declined to provide this assurance from NATO, in a December 7, 2021 conversation with Russian President Putin, he did warn Putin of sweeping Western economic sanctions if an invasion occurred. The G7 also issued a statement, warning of Russian aggression, calling on Russia to “deescalate, pursue diplomatic channels, and abide by its international commitments on transparency of military activities" \citep{foreign_and_commonwealth_office_g7_2014}. 
+
+In response to this public condemnation, Russia demanded that NATO remove troops and weapons from states that joined post 1997, including the Baltic states and Poland. Russia also demanded that NATO admit no new states, including Ukraine and Georgia, signalling that while some states were allowed to choose their post-Soviet alliances, others would be more constrained. Both the U.S. and NATO rejected the proposal, though the U.S. offered to participate in arms control negotiations. NATO Secretary-General Jens Stoltenberg also called for deescalation and dialogue, with the option of formal ties between Russia and NATO to avoid additional fighting \citep{al_jazeera_us_2022}. While Russia initially suggested that the government would study the proposal, both the U.S. and U.K. announced that they had intelligence suggesting that a Russian invasion of Ukraine was imminent. 
+
+On February 10, 2022, Russia launched massive military exercises with Belarus close to the Ukrainian border. These exercises were touted as practice for “suppressing and repelling external aggression during a defensive operation" \citep{walker_conflict_2024}. Instead of the reported 30,000 personnel participating, western intelligence sources reported that up to 140,000 troops were located on the border with Ukraine \citep{walker_conflict_2024}. Even with ongoing Western pressure, Russian president Putin continued to exercise his troops, including his strategic nuclear forces, testing a variety of hypersonic and cruise missiles. 
+
+Finally, on 24 February 2022, President Putin announced that Russian forces would carry out a special military operation in Ukraine. The incursion began with missile strikes and just days later, fighting starts in Kyiv. Putin highlighted the threat that the need to “de-Nazify” and “de-militarize” Ukraine (ukraine backgrounder/conflict crossroads). The international community largely condemned the attack, with the Council of Europe suspending Russian participation. The UNSC rejected a draft resolution, put forth by Albania, condemning the attack, because Russia vetoed the measure \citep{walker_conflict_2024}. The war continues today, with both sides launching multiple offensives to take and retake ground. 
+
+
+%Sources still to be included:
+
+%\begin{itemize}
+%    \item \citet{bjola_digital_2024}
+%    \item \citet{gilboa_internet_2002}
+%    \item \citet{gilboa_media_1998}
+%    \item Others
+%\end{itemize}
+
+\newpage
+
+\printbibliography
+
+%\bibliographystyle{apalike}
+%\bibliography{references.bib}
+
+\end{document}
