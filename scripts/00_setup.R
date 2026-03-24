@@ -509,7 +509,7 @@ save_table <- function(tbl, name, subdir = NULL) {
   invisible(tbl)
 }
 
-SE_NOTE_BOOT <- "† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach & Miller 2008) with Webb six-point weights (B=9999, null imposed), clustered by source domain."
+SE_NOTE_BOOT <- "† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach & Miller 2008) with Webb six-point weights (B=4999, null imposed), clustered by source domain."
 SE_NOTE_RDROBUST <- "‡ Cluster-robust SEs from rdrobust."
 SE_NOTE_CLUSTER <- "All standard errors are clustered at the source level."
 SE_NOTE <- paste(SE_NOTE_BOOT, SE_NOTE_RDROBUST)
