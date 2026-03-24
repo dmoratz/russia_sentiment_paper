@@ -923,7 +923,7 @@ data_dec %>%
 
 ```{r matching-h2-drop}
 # Subset to data of interest (non-military, optimal bandwidth)
-matching_data <- optimal_bandwidth_data_non_mil %>%
+matching_data <- optimal_bandwidth_data_non_nato %>%
   select(sentiment_clean, sentiment_z, running, running_continuous, treatment, state_owned,
          topic_clean, source_domain, country)
 

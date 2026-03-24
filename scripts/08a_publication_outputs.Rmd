@@ -235,7 +235,7 @@ note_t2 <- str_wrap(paste(
   "Model 3 uses the optimal bandwidth.",
   "Model 4 omits military topics. Model 5 omits NATO allies.",
   "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
-  "Model 7 uses matched data.", SE_NOTE
+  "Model 7 uses exact matching for topic and publication date on the Non-Nato data.", SE_NOTE
 ), 80)
 
 table_2 <- modelsummary(
@@ -363,7 +363,7 @@ note_t4 <- str_wrap(paste(
   "Models 3-6 estimate the CSTO x treatment interaction.",
   "Model 3 uses the optimal bandwidth.",
   "Model 4 omits military topics. Model 5 restricts to Russian-related articles.",
-  "Model 6 uses matched data.", SE_NOTE
+  "Model 6 uses exact matching on topic and date of publication for the non-military data.", SE_NOTE
 ), 80)
 
 table_4 <- modelsummary(

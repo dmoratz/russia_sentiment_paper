@@ -936,7 +936,7 @@ data_dec %>%
 
 ```{r matching-h2-prob}
 # Subset to data of interest (non-military, optimal bandwidth)
-matching_data <- optimal_bandwidth_data_non_mil %>%
+matching_data <- optimal_bandwidth_data_non_nato %>%
   select(sentiment_clean, sentiment_z, running, running_probabilistic, treatment, state_owned,
          topic_clean, source_domain, country)
 
@@ -989,7 +989,10 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 matched_model_z <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned |
                           topic_clean,
                           cluster = ~source_domain, data = matched_data)
+
+# Wild cluster bootstrap for matched model
 boot_matched_model_z <- run_wild_bootstrap(matched_model_z, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned:", boot_matched_model_z$se, "\n")
 cat("Z-score matched model — Bootstrap p-value:", boot_matched_model_z$p_val, "\n")
 ```
 
