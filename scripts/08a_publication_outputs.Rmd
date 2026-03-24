@@ -13,6 +13,9 @@ output:
 
 This file generates publication-quality tables for the **probabilistic (KDE) time assignment** data variant. All tables are saved to `FIGURES_TABLES/prob/`.
 
+# To Do
+Add Russia models (results_h2$model3a_z, results_align$model5a_opt_russian_z) back into appendix, currently removed
+
 ```{r setup}
 source("00_setup.R")
 
@@ -192,8 +195,8 @@ save_table(table_1, "table_01_main", TABLE_SUBDIR)
 ```{r table-02}
 # Define model list and bootstrap keys
 h2_z_models <- list(
-  "(1)\u2021" = results_h2$model2_state_rdd_z,
-  "(2)\u2021" = results_h2$model2_ind_rdd_z,
+  "(1) State-Owned\u2021" = results_h2$model2_state_rdd_z,
+  "(2) Independent\u2021" = results_h2$model2_ind_rdd_z,
   "(3)\u2020" = results_h2$model2a_opt_z,
   "(4)\u2020" = results_h2$model2b_z,
   "(5)\u2020" = results_h2$model2d_z,
@@ -207,8 +210,8 @@ boot_results_t2 <- lapply(boot_keys_t2, function(k) results_h2$bootstrap_se[[k]]
 
 # Build vcov list: NULL for rdrobust, create_bootstrap_vcov for felm
 vcov_t2 <- list(
-  "(1)\u2021" = NULL,
-  "(2)\u2021" = NULL,
+  "(1) State-Owned\u2021" = NULL,
+  "(2) Independent\u2021" = NULL,
   "(3)\u2020" = create_bootstrap_vcov(results_h2$model2a_opt_z, boot_results_t2[[1]], "treatment:state_owned"),
   "(4)\u2020" = create_bootstrap_vcov(results_h2$model2b_z, boot_results_t2[[2]], "treatment:state_owned"),
   "(5)\u2020" = create_bootstrap_vcov(results_h2$model2d_z, boot_results_t2[[3]], "treatment:state_owned"),
@@ -323,8 +326,8 @@ save_table(table_3, "table_03_main", TABLE_SUBDIR)
 
 ```{r table-04}
 h3a_z_models <- list(
-  "(1)\u2021" = results_align$model5a_csto_z,
-  "(2)\u2021" = results_align$model5a_neutral_z,
+  "(1) CSTO\u2021" = results_align$model5a_csto_z,
+  "(2) Neutral\u2021" = results_align$model5a_neutral_z,
   "(3)\u2020" = results_align$model5a_opt_z,
   "(4)\u2020" = results_align$model5a_opt_non_mil_z,
   "(5)\u2020" = results_align$model5a_opt_russian_z,
@@ -336,8 +339,8 @@ boot_keys_t4 <- c("model5a_opt_z", "model5a_opt_non_mil_z",
 boot_results_t4 <- lapply(boot_keys_t4, function(k) results_align$bootstrap_se[[k]])
 
 vcov_t4 <- list(
-  "(1)\u2021" = NULL,
-  "(2)\u2021" = NULL,
+  "(1) CSTO\u2021" = NULL,
+  "(2) Neutral\u2021" = NULL,
   "(3)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_z, boot_results_t4[[1]], "treatment:csto"),
   "(4)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_non_mil_z, boot_results_t4[[2]], "treatment:csto"),
   "(5)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_russian_z, boot_results_t4[[3]], "treatment:csto"),
@@ -395,8 +398,8 @@ h3b_z_models_exist <- !is.null(results_ethnic$model6a_high_z) &&
 
 
 h3b_z_models <- list(
-  "(1)\u2021" = results_ethnic$model6a_high_z,
-  "(2)\u2021" = results_ethnic$model6a_low_z,
+  "(1) High\u2021" = results_ethnic$model6a_high_z,
+  "(2) Low\u2021" = results_ethnic$model6a_low_z,
   "(3)\u2020" = results_ethnic$model6a_opt_z,
   "(4)\u2020" = results_ethnic$model6a_opt_non_mil_z,
   "(5)\u2020" = results_ethnic$matched_model_z
