@@ -496,7 +496,7 @@ plot_data <- optimal_bandwidth_data_state_non_mil %>%
                names_to = "Type", values_to = "Value")
 
 # Plotting the comparison
-ggplot(plot_data, aes(x = Value, y = source_domain, fill = Type)) +
+zscore_comp <- ggplot(plot_data, aes(x = Value, y = source_domain, fill = Type)) +
   geom_density_ridges(alpha = 0.5, scale = 0.9) +
   facet_wrap(~Type, scales = "free_x") +
   theme_minimal() +
@@ -506,7 +506,9 @@ ggplot(plot_data, aes(x = Value, y = source_domain, fill = Type)) +
        y = "Media Outlet") +
   scale_fill_manual(values = c("sentiment_clean" = "#69b3a2", "sentiment_z" = "#404080"))
 
-ggsave(plot = last_plot(),
+zscore_comp
+
+ggsave(plot = zscore_comp,
        file.path(FIGURES_HETEROGENEITY_PROB, "sentiment_zscore_comparison_prob.png"),
        width = 10, height = 7)
 ```
@@ -1020,7 +1022,7 @@ benchmark_df <- data.frame(
 # Rebuild with wider x limit
 contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
 
-ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
+sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   geom_contour(colour = "grey60",
                breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
   geom_contour(breaks = 0,
@@ -1056,7 +1058,9 @@ ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
     legend.position = "none"
   )
 
-ggsave(plot = last_plot(),
+sensitivity_plot
+
+ggsave(plot = sensitivity_plot,
        file.path(FIGURES_HETEROGENEITY_PROB, "sensitivity_ovb_csto.png"),
        width = 10, height = 7)
 ```
