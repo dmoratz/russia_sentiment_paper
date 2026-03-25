@@ -72,7 +72,9 @@ cat("CSTO:", sum(data_align$csto), "\n")
 cat("Neutral:", sum(data_align$csto == 0), "\n")
 ```
 
-## Visualization: Independent Media by Alignment
+## Visualizations
+
+### Independent Media by Alignment
 
 ```{r align-ind-plot, fig.width=10, fig.height=7}
 agg_data_align_ind <- data_align %>%
@@ -99,7 +101,7 @@ data_align %>%
   )
 ```
 
-## Visualization: State Media by Alignment
+### State Media by Alignment
 
 ```{r align-state-plot, fig.width=10, fig.height=7}
 agg_data_align_state <- data_align %>%
@@ -131,6 +133,52 @@ ggsave(plot = state_align_discs_graph,
        file.path(FIGURES_HETEROGENEITY_DAYS, "state_align_discs.png"),
        width = 10, height = 7)
 ```
+
+
+### State Media by Alignment, Presentation
+
+```{r align-state-plot-present, fig.width=10, fig.height=7}
+agg_data_align_state <- data_align %>%
+  filter(state_owned == 1) %>%
+  group_by(running, csto) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+state_align_discs_graph_present <- data_align %>%
+  filter(state_owned == 1) %>%
+  mutate(align_indicator = as.factor(align_indicator)) %>%
+  mutate(align_indicator = fct_recode(align_indicator,
+    "Russia-Aligned Pre" = "Pre. State CSTO",
+    "Neutral Pre" = "Pre. State Neut",
+    "Russia-Aligned Post" = "Post State CSTO",
+    "Neutral Post" = "Post State Neut"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
+  geom_point(data = agg_data_align_state,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm", linewidth = 1.2) +
+  scale_color_manual(values = COLORS_DISCS, name = NULL) +
+  scale_size(guide = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = c(0.85, 0.85),
+    legend.text = element_text(size = 16),
+    plot.title = element_blank(),
+    plot.subtitle = element_blank()
+  ) +
+  labs(
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+state_align_discs_graph_present
+
+ggsave(plot = state_align_discs_graph_present,
+       file.path(FIGURES_HETEROGENEITY_DAYS, "state_align_discs_present.png"),
+       width = 10, height = 7)
+```
+
 
 ## State Media Alignment Regressions
 
