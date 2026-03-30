@@ -1142,117 +1142,778 @@ matched_loo_summary <- map_df(names(matched_loo_results), function(cntry) {
 print(matched_loo_summary)
 ```
 
+## Pooled Fully Saturated Regression
+
+```{r}
+library(data.table)
+
+# ---- 0. DATA PREP -----------------------------------------------------------
+ 
+dt <- as.data.table(optimal_bandwidth_data_state_non_mil)
+ 
+# Ensure key variables are the right type
+invisible(dt[, treatment_num  := as.numeric(treatment)])
+invisible(dt[, running_num    := as.numeric(running_probabilistic)])
+invisible(dt[, treat_x_run    := treatment_num * running_num])
+ 
+# Create a clean source×topic cell identifier
+invisible(dt[, cell := paste(source_domain, topic_clean, sep = " :: ")])
+invisible(dt[, cell := factor(cell)])
+ 
+# Cell-level metadata: N, source, csto flag
+cell_info <- dt[, .(
+  N             = .N,
+  source_domain = source_domain[1],
+  csto          = csto[1],
+  n_treated     = sum(treatment_num),
+  n_control     = sum(1 - treatment_num)
+), by = cell]
+ 
+cat("=== Cell structure ===\n")
+print(cell_info[order(-N)])
+cat("\nTotal cells:", nrow(cell_info), "\n")
+cat("CSTO cells:", sum(cell_info$csto == 1),
+    "  |  Non-CSTO cells:", sum(cell_info$csto == 0), "\n\n")
+ 
+# Flag cells that can't identify a treatment effect (need obs on both sides)
+cell_info[, estimable := (n_treated >= 2 & n_control >= 2)]
+cat("Estimable cells:", sum(cell_info$estimable), "/", nrow(cell_info), "\n")
+cat("Dropped cells (insufficient variation):\n")
+if (any(!cell_info$estimable)) {
+  print(cell_info[estimable == FALSE])
+} else {
+  cat("  (none)\n")
+}
+ 
+# Restrict data to estimable cells
+estimable_cells <- cell_info[estimable == TRUE, cell]
+dt_est <- dt[cell %in% estimable_cells]
+invisible(dt_est[, cell := droplevels(cell)])
+ 
+# Update cell_info to estimable only
+cell_info_est <- cell_info[estimable == TRUE]
+```
+
+
+```{r}
+# ---- 1. FULLY SATURATED MODEL -----------------------------------------------
+# Formula: each cell gets its own intercept, running slope, treatment effect,
+#          and treatment×running interaction.
+#
+# sentiment = Σ_c [ α_c + β_c·running + τ_c·treatment + γ_c·treatment·running ]
+#
+# The τ_c coefficients are the cell-specific RDD treatment effects at the cutoff.
+ 
+model_saturated <- feols(
+  sentiment_z ~ cell + cell:running_num + cell:treatment_num + cell:treat_x_run - 1,
+  vcov = "hetero",
+  data   = dt_est
+)
+ 
+cat("\n=== Model summary (first 20 coefficients) ===\n")
+print(summary(model_saturated), n = 20)
+```
+
+
+```{r}
+# ---- 2. EXTRACT CELL-SPECIFIC TREATMENT EFFECTS (τ_c) -----------------------
+ 
+all_coefs <- coef(model_saturated)
+V_full    <- vcov(model_saturated)
+ 
+# Identify the treatment coefficients: named "cell<level>:treatment_num"
+treat_names <- grep(":treatment_num$", names(all_coefs), value = TRUE)
+ 
+theta   <- all_coefs[treat_names]
+V_theta <- V_full[treat_names, treat_names]
+ 
+# Map coefficient names back to cell labels
+coef_cells <- sub(":treatment_num$", "", treat_names)
+coef_cells <- sub("^cell", "", coef_cells)
+ 
+# Match to metadata
+match_idx      <- match(coef_cells, as.character(cell_info_est$cell))
+matched_info   <- cell_info_est[match_idx]
+ 
+# Sanity check: did all coefficients match?
+stopifnot(!any(is.na(match_idx)))
+ 
+cat("\n=== Cell-specific treatment effects (τ_c) ===\n")
+cell_results <- data.table(
+  cell   = coef_cells,
+  source = matched_info$source_domain,
+  csto   = matched_info$csto,
+  N      = matched_info$N,
+  theta  = as.numeric(theta),
+  se     = sqrt(diag(V_theta))
+)
+cell_results[, `:=`(t_stat = theta / se, p_val = 2 * pnorm(-abs(theta / se)))]
+print(cell_results[order(csto, source, cell)])
+```
+
+
+```{r}
+# ---- 3. BUILD WEIGHT VECTORS (R MATRIX) & WALD TESTS ------------------------
+# Weight = N_c / Σ N_c within the CSTO group
+# The weighted average τ_group = w' θ  is a linear combination of coefficients.
+# Var(τ_group) = w' V_θ w   (using clustered VCV)
+# Wald stat = τ_group² / Var(τ_group) ~ χ²(1)
+ 
+N_vec <- matched_info$N
+csto_flag <- matched_info$csto
+ 
+# --- 3a. CSTO group ---
+csto_mask <- (csto_flag == 1)
+w_csto    <- ifelse(csto_mask, N_vec / sum(N_vec[csto_mask]), 0)
+ 
+theta_csto <- as.numeric(crossprod(w_csto, theta))
+var_csto   <- as.numeric(t(w_csto) %*% V_theta %*% w_csto)
+se_csto    <- sqrt(var_csto)
+ 
+# --- 3b. Non-CSTO group ---
+non_mask    <- (csto_flag == 0)
+w_non       <- ifelse(non_mask, N_vec / sum(N_vec[non_mask]), 0)
+ 
+theta_non <- as.numeric(crossprod(w_non, theta))
+var_non   <- as.numeric(t(w_non) %*% V_theta %*% w_non)
+se_non    <- sqrt(var_non)
+ 
+# --- 3c. Difference (CSTO minus Non-CSTO) ---
+w_diff     <- w_csto - w_non
+theta_diff <- as.numeric(crossprod(w_diff, theta))
+var_diff   <- as.numeric(t(w_diff) %*% V_theta %*% w_diff)
+se_diff    <- sqrt(var_diff)
+ 
+# --- Wald statistics and p-values ---
+wald_results <- data.table(
+  group     = c("CSTO", "Non-CSTO", "Difference (CSTO - Non)"),
+  estimate  = c(theta_csto, theta_non, theta_diff),
+  se        = c(se_csto, se_non, se_diff),
+  z_stat    = c(theta_csto / se_csto, theta_non / se_non, theta_diff / se_diff),
+  p_value   = c(
+    2 * pnorm(-abs(theta_csto / se_csto)),
+    2 * pnorm(-abs(theta_non / se_non)),
+    2 * pnorm(-abs(theta_diff / se_diff))
+  ),
+  N_total   = c(sum(N_vec[csto_mask]), sum(N_vec[non_mask]),
+                sum(N_vec[csto_mask]) + sum(N_vec[non_mask])),
+  n_cells   = c(sum(csto_mask), sum(non_mask), sum(csto_mask) + sum(non_mask))
+)
+ 
+cat("\n")
+cat("=====================================================================\n")
+cat("  WALD TEST RESULTS: N-Weighted Treatment Effects by CSTO Group\n")
+cat("=====================================================================\n")
+print(wald_results, digits = 4)
+cat("=====================================================================\n")
+cat("Notes:\n")
+cat("  - HC-robust SEs (cells nest within clusters, so cell estimates\n")
+cat("    are independent and cluster-robust SEs are unnecessary)\n")
+cat("  - Weights proportional to N within each CSTO group\n")
+cat("  - Treatment effect = RDD estimate at the cutoff (running = 0)\n")
+cat("=====================================================================\n\n")
+```
+
+
+```{r}
+# ---- 4. DIAGNOSTICS ---------------------------------------------------------
+ 
+# Show the weight each cell contributes
+cat("=== Cell weights within CSTO groups ===\n")
+weight_table <- data.table(
+  cell   = coef_cells,
+  source = matched_info$source_domain,
+  csto   = matched_info$csto,
+  N      = N_vec,
+  weight = ifelse(csto_flag == 1, w_csto, w_non)
+)
+print(weight_table[order(csto, -weight)])
+ 
+# Check: weights sum to 1 within each group
+cat("\nWeight sums (should be 1.0 each):\n")
+cat("  CSTO:    ", sum(w_csto), "\n")
+cat("  Non-CSTO:", sum(w_non), "\n")
+```
+
+### Bootstrap SEs for Wald Approach
+
+Not possible because each source (cluster)
+
+```{r}
+# ---- 1A. SETUP ---------------------------------------------------------------
+ 
+# We need: model residuals, cluster IDs, design matrix, weight vectors
+ 
+# Residuals and fitted values from the unrestricted saturated model
+resids  <- residuals(model_saturated)
+fitted_ <- fitted(model_saturated)
+ 
+# Cluster vector (aligned with estimation sample)
+clusters <- dt_est$source_domain
+unique_clusters <- unique(clusters)
+G <- length(unique_clusters)
+ 
+cat("Wild cluster bootstrap setup:\n")
+cat("  Clusters (G):", G, "\n")
+cat("  Obs (N):", nrow(dt_est), "\n")
+cat("  Note: G =", G, "is small — bootstrap inference is more reliable than\n")
+cat("        asymptotic Wald with this few clusters.\n\n")
+ 
+# Pre-compute: which rows belong to each cluster
+cluster_indices <- lapply(unique_clusters, function(g) which(clusters == g))
+names(cluster_indices) <- unique_clusters
+ 
+# The weight vectors from Approach 1 (already computed)
+# w_csto, w_non, w_diff — vectors of length = # estimable cells
+```
+
+
+```{r}
+# ---- 1B. WEBB 6-POINT WEIGHTS -----------------------------------------------
+# Webb (2014) 6-point distribution: better than Rademacher when G is small
+ 
+webb_weights <- c(-sqrt(3/2), -sqrt(2/2), -sqrt(1/2),
+                   sqrt(1/2),  sqrt(2/2),  sqrt(3/2))
+ 
+ 
+# ---- 1C. BOOTSTRAP LOOP -----------------------------------------------------
+ 
+run_wild_cluster_bootstrap_wald <- function(
+    dt_est, fitted_, resids, clusters, cluster_indices,
+    unique_clusters, G, w_csto, w_non, w_diff,
+    theta_csto, theta_non, theta_diff,
+    B = 4999
+) {
+ 
+  # Storage for bootstrap estimates only (no t-statistics needed)
+  theta_star_csto <- numeric(B)
+  theta_star_non  <- numeric(B)
+  theta_star_diff <- numeric(B)
+  n_valid <- 0
+ 
+  for (b in seq_len(B)) {
+ 
+    if (b %% 500 == 0) cat("  Bootstrap iteration", b, "/", B, "\n")
+ 
+    # 1. Draw Webb weights for each cluster
+    v <- sample(webb_weights, G, replace = TRUE)
+ 
+    # 2. Perturb residuals: e*_i = v_{g(i)} * e_i
+    perturbed_resids <- resids  # copy
+    for (g_idx in seq_along(unique_clusters)) {
+      rows_g <- cluster_indices[[g_idx]]
+      perturbed_resids[rows_g] <- v[g_idx] * resids[rows_g]
+    }
+ 
+    # 3. Bootstrap outcome: Y* = fitted + e*
+    dt_est[, y_star := fitted_ + perturbed_resids]
+ 
+    # 4. Re-estimate saturated model with Y* (no clustering needed —
+    #    we only need point estimates, not the VCV)
+    model_b <- tryCatch(
+      feols(
+        y_star ~ cell + cell:running_num + cell:treatment_num + cell:treat_x_run - 1,
+        data = dt_est
+      ),
+      error = function(e) NULL
+    )
+ 
+    if (is.null(model_b)) next
+ 
+    # 5. Extract cell-specific treatment effects
+    coefs_b <- coef(model_b)
+    treat_names_b <- grep(":treatment_num$", names(coefs_b), value = TRUE)
+    theta_b <- coefs_b[treat_names_b]
+ 
+    # If any cells dropped (singularity), skip this iteration
+    if (length(theta_b) != length(w_csto)) next
+ 
+    n_valid <- n_valid + 1
+ 
+    # 6. Compute bootstrap estimates of group-level effects
+    theta_star_csto[n_valid] <- as.numeric(crossprod(w_csto, theta_b))
+    theta_star_non[n_valid]  <- as.numeric(crossprod(w_non,  theta_b))
+    theta_star_diff[n_valid] <- theta_star_csto[n_valid] - theta_star_non[n_valid]
+  }
+ 
+  # Trim to valid iterations
+  theta_star_csto <- theta_star_csto[seq_len(n_valid)]
+  theta_star_non  <- theta_star_non[seq_len(n_valid)]
+  theta_star_diff <- theta_star_diff[seq_len(n_valid)]
+ 
+  cat("  Valid bootstrap iterations:", n_valid, "/", B, "\n")
+ 
+  # Bootstrap SEs (SD of bootstrap distribution)
+  se_boot_csto <- sd(theta_star_csto)
+  se_boot_non  <- sd(theta_star_non)
+  se_boot_diff <- sd(theta_star_diff)
+ 
+  # Percentile CIs
+  ci_csto <- quantile(theta_star_csto, c(0.025, 0.975))
+  ci_non  <- quantile(theta_star_non,  c(0.025, 0.975))
+  ci_diff <- quantile(theta_star_diff, c(0.025, 0.975))
+ 
+  # P-values: fraction of bootstrap distribution crossing zero (two-sided)
+  p_boot_csto <- 2 * min(mean(theta_star_csto >= 0), mean(theta_star_csto <= 0))
+  p_boot_non  <- 2 * min(mean(theta_star_non  >= 0), mean(theta_star_non  <= 0))
+  p_boot_diff <- 2 * min(mean(theta_star_diff >= 0), mean(theta_star_diff <= 0))
+ 
+  list(
+    results = data.table(
+      group        = c("CSTO", "Non-CSTO", "Difference"),
+      estimate     = c(theta_csto, theta_non, theta_diff),
+      se_bootstrap = c(se_boot_csto, se_boot_non, se_boot_diff),
+      p_bootstrap  = c(p_boot_csto, p_boot_non, p_boot_diff),
+      ci_lower     = c(ci_csto[1], ci_non[1], ci_diff[1]),
+      ci_upper     = c(ci_csto[2], ci_non[2], ci_diff[2])
+    ),
+    boot_dist = list(
+      csto = theta_star_csto,
+      non  = theta_star_non,
+      diff = theta_star_diff
+    )
+  )
+}
+ 
+cat("Running wild cluster bootstrap for Approach 1...\n")
+boot1 <- run_wild_cluster_bootstrap_wald(
+  dt_est, fitted_, resids, clusters, cluster_indices,
+  unique_clusters, G, w_csto, w_non, w_diff,
+  theta_csto, theta_non, theta_diff,
+  B = 499
+)
+ 
+cat("\n")
+cat("=====================================================================\n")
+cat("  APPROACH 1: Wild Cluster Bootstrap Results\n")
+cat("=====================================================================\n")
+print(boot1$results, digits = 4)
+cat("=====================================================================\n\n")
+ 
+# Cleanup the temp column
+invisible(dt_est[, y_star := NULL])
+```
+
+
+## Mini-Regressions Approach
+
+```{r}
+# ---- 2A. MINI-REGRESSIONS WITHIN EACH SOURCE × TOPIC CELL -------------------
+# Estimate: sentiment ~ running + treatment + treatment×running
+# within each source_domain × topic_clean cell.
+# τ_c = coefficient on `treatment` = RDD effect at cutoff.
+ 
+cat("=== APPROACH 2: Mini-Regressions ===\n\n")
+ 
+cells_to_estimate <- cell_info_est[estimable == TRUE]
+ 
+mini_results <- rbindlist(lapply(seq_len(nrow(cells_to_estimate)), function(i) {
+  cc <- cells_to_estimate$cell[i]
+  d  <- dt_est[cell == cc]
+ 
+  m <- tryCatch(
+    lm(sentiment_z ~ running_num + treatment_num + treat_x_run, data = d),
+    error = function(e) NULL
+  )
+ 
+  if (is.null(m)) {
+    return(data.table(
+      cell = as.character(cc), source = cells_to_estimate$source_domain[i],
+      topic = NA_character_, csto = cells_to_estimate$csto[i],
+      N = nrow(d), theta = NA_real_, se = NA_real_,
+      converged = FALSE
+    ))
+  }
+ 
+  # Extract treatment coefficient
+  cf <- summary(m)$coefficients
+  if (!"treatment_num" %in% rownames(cf)) {
+    return(data.table(
+      cell = as.character(cc), source = cells_to_estimate$source_domain[i],
+      topic = NA_character_, csto = cells_to_estimate$csto[i],
+      N = nrow(d), theta = NA_real_, se = NA_real_,
+      converged = FALSE
+    ))
+  }
+ 
+  data.table(
+    cell   = as.character(cc),
+    source = cells_to_estimate$source_domain[i],
+    topic  = sub("^.* :: ", "", as.character(cc)),
+    csto   = cells_to_estimate$csto[i],
+    N      = nrow(d),
+    theta  = cf["treatment_num", "Estimate"],
+    se     = cf["treatment_num", "Std. Error"],
+    converged = TRUE
+  )
+}))
+ 
+mini_results <- mini_results[converged == TRUE & !is.na(theta)]
+ 
+cat("Mini-regression results (cell-level):\n")
+print(mini_results[order(csto, source, topic)], digits = 4)
+```
+
+
+```{r}
+# ---- 2B. VERIFY: POINT ESTIMATES MATCH APPROACH 1 ---------------------------
+ 
+cat("\n=== VERIFICATION: Approach 1 vs Approach 2 point estimates ===\n")
+ 
+# N-weighted average within CSTO groups
+verify <- mini_results[, .(
+  theta_mini = weighted.mean(theta, N),
+  N_total    = sum(N),
+  n_cells    = .N
+), by = csto]
+ 
+cat("\nApproach 2 (mini-regressions):\n")
+print(verify, digits = 6)
+ 
+cat("\nApproach 1 (pooled saturated):\n")
+cat("  CSTO:     ", round(theta_csto, 6), "\n")
+cat("  Non-CSTO: ", round(theta_non, 6), "\n")
+ 
+cat("\nDifference (should be ~0 or very small):\n")
+cat("  CSTO:     ", round(verify[csto == 1, theta_mini] - theta_csto, 8), "\n")
+cat("  Non-CSTO: ", round(verify[csto == 0, theta_mini] - theta_non, 8), "\n\n")
+```
+
+
+```{r}
+# ---- 2C. SOURCE-LEVEL PAIRS BOOTSTRAP ---------------------------------------
+# For each bootstrap iteration:
+#   1. Resample 13 sources with replacement from the full set of 13
+#   2. Carry along ALL their topic-level estimates and Ns
+#   3. Classify drawn sources by their csto flag
+#   4. Compute N-weighted average within CSTO / Non-CSTO groups
+#   5. Store CSTO effect, Non-CSTO effect, and difference
+ 
+run_source_pairs_bootstrap <- function(mini_results, B = 9999) {
+ 
+  sources <- unique(mini_results$source)
+  n_sources <- length(sources)
+ 
+  source_data <- lapply(sources, function(s) {
+    mini_results[source == s, .(topic, csto, N, theta)]
+  })
+  names(source_data) <- sources
+ 
+  theta_boot_csto <- numeric(B)
+  theta_boot_non  <- numeric(B)
+  theta_boot_diff <- numeric(B)
+  n_valid <- 0
+ 
+  for (b in seq_len(B)) {
+    drawn_idx <- sample(n_sources, n_sources, replace = TRUE)
+    drawn_sources <- sources[drawn_idx]
+    boot_data <- rbindlist(source_data[drawn_sources])
+ 
+    csto_rows <- boot_data[csto == 1]
+    non_rows  <- boot_data[csto == 0]
+ 
+    if (nrow(csto_rows) == 0 || nrow(non_rows) == 0) next
+ 
+    n_valid <- n_valid + 1
+    theta_boot_csto[n_valid] <- weighted.mean(csto_rows$theta, csto_rows$N)
+    theta_boot_non[n_valid]  <- weighted.mean(non_rows$theta, non_rows$N)
+    theta_boot_diff[n_valid] <- theta_boot_csto[n_valid] - theta_boot_non[n_valid]
+  }
+ 
+  theta_boot_csto <- theta_boot_csto[seq_len(n_valid)]
+  theta_boot_non  <- theta_boot_non[seq_len(n_valid)]
+  theta_boot_diff <- theta_boot_diff[seq_len(n_valid)]
+ 
+  cat("  Valid bootstrap samples:", n_valid, "/", B, "\n")
+ 
+  orig_csto <- weighted.mean(mini_results[csto == 1, theta], mini_results[csto == 1, N])
+  orig_non  <- weighted.mean(mini_results[csto == 0, theta], mini_results[csto == 0, N])
+  orig_diff <- orig_csto - orig_non
+ 
+  list(
+    results = data.table(
+      group     = c("CSTO", "Non-CSTO", "Difference"),
+      estimate  = c(orig_csto, orig_non, orig_diff),
+      se_boot   = c(sd(theta_boot_csto), sd(theta_boot_non), sd(theta_boot_diff)),
+      p_boot    = c(
+        2 * min(mean(theta_boot_csto >= 0), mean(theta_boot_csto <= 0)),
+        2 * min(mean(theta_boot_non  >= 0), mean(theta_boot_non  <= 0)),
+        2 * min(mean(theta_boot_diff >= 0), mean(theta_boot_diff <= 0))
+      ),
+      ci_lower  = c(quantile(theta_boot_csto, 0.025), quantile(theta_boot_non, 0.025), quantile(theta_boot_diff, 0.025)),
+      ci_upper  = c(quantile(theta_boot_csto, 0.975), quantile(theta_boot_non, 0.975), quantile(theta_boot_diff, 0.975))
+    ),
+    boot_dist = list(csto = theta_boot_csto, non = theta_boot_non, diff = theta_boot_diff)
+  )
+}
+ 
+ 
+# ---- 2D. BAYESIAN BOOTSTRAP (Rubin 1981) ------------------------------------
+# For each bootstrap iteration:
+#   1. Draw Dirichlet(1,1,...,1) weights for all 13 sources
+#   2. Every source always contributes — no source is ever dropped
+#   3. Effective weight for each topic = dirichlet_weight_source × N_topic
+#   4. Compute weighted average within CSTO / Non-CSTO groups
+#   5. Store CSTO effect, Non-CSTO effect, and difference
+ 
+run_bayesian_bootstrap <- function(mini_results, B = 9999) {
+ 
+  # Source-level structure
+  sources   <- unique(mini_results$source)
+  n_sources <- length(sources)
+ 
+  # Map each source to an index, and store its csto flag
+  source_idx  <- setNames(seq_along(sources), sources)
+  source_csto <- mini_results[, .(csto = csto[1]), by = source]
+  csto_flag   <- source_csto$csto  # length n_sources, aligned with sources
+ 
+  # Pre-compute cell-level vectors aligned with mini_results rows
+  cell_source_idx <- source_idx[mini_results$source]
+  cell_csto       <- mini_results$csto
+  cell_N          <- mini_results$N
+  cell_theta      <- mini_results$theta
+  n_cells         <- nrow(mini_results)
+ 
+  # Masks for CSTO / Non-CSTO cells
+  csto_mask <- (cell_csto == 1)
+  non_mask  <- (cell_csto == 0)
+ 
+  # Storage
+  theta_boot_csto <- numeric(B)
+  theta_boot_non  <- numeric(B)
+  theta_boot_diff <- numeric(B)
+ 
+  for (b in seq_len(B)) {
+ 
+    # 1. Draw Dirichlet(1,1,...,1) weights for all sources
+    #    Dirichlet draw = normalize independent Gamma(1,1) draws
+    gam_draws <- rgamma(n_sources, shape = 1, rate = 1)
+    dir_weights <- gam_draws / sum(gam_draws)
+ 
+    # 2. Effective weight for each cell = source's Dirichlet weight × cell N
+    cell_weights <- dir_weights[cell_source_idx] * cell_N
+ 
+    # 3. Weighted averages within each CSTO group
+    w_csto <- cell_weights[csto_mask]
+    w_non  <- cell_weights[non_mask]
+ 
+    theta_boot_csto[b] <- sum(w_csto * cell_theta[csto_mask]) / sum(w_csto)
+    theta_boot_non[b]  <- sum(w_non  * cell_theta[non_mask])  / sum(w_non)
+    theta_boot_diff[b] <- theta_boot_csto[b] - theta_boot_non[b]
+  }
+ 
+  cat("  Bayesian bootstrap iterations:", B, "\n")
+  cat("  (All iterations valid — no sources are ever dropped)\n")
+ 
+  # Point estimates (from original data, standard N-weighting)
+  orig_csto <- weighted.mean(
+    mini_results[csto == 1, theta], mini_results[csto == 1, N]
+  )
+  orig_non <- weighted.mean(
+    mini_results[csto == 0, theta], mini_results[csto == 0, N]
+  )
+  orig_diff <- orig_csto - orig_non
+ 
+  # Posterior SEs (SD of bootstrap distribution)
+  se_csto <- sd(theta_boot_csto)
+  se_non  <- sd(theta_boot_non)
+  se_diff <- sd(theta_boot_diff)
+ 
+  # Percentile CIs (95% credible intervals)
+  ci_csto <- quantile(theta_boot_csto, c(0.025, 0.975))
+  ci_non  <- quantile(theta_boot_non,  c(0.025, 0.975))
+  ci_diff <- quantile(theta_boot_diff, c(0.025, 0.975))
+ 
+  # P-values: posterior probability of sign reversal (two-sided)
+  p_csto <- 2 * min(mean(theta_boot_csto >= 0), mean(theta_boot_csto <= 0))
+  p_non  <- 2 * min(mean(theta_boot_non  >= 0), mean(theta_boot_non  <= 0))
+  p_diff <- 2 * min(mean(theta_boot_diff >= 0), mean(theta_boot_diff <= 0))
+ 
+  list(
+    results = data.table(
+      group     = c("CSTO", "Non-CSTO", "Difference"),
+      estimate  = c(orig_csto, orig_non, orig_diff),
+      se_boot   = c(se_csto, se_non, se_diff),
+      p_boot    = c(p_csto, p_non, p_diff),
+      ci_lower  = c(ci_csto[1], ci_non[1], ci_diff[1]),
+      ci_upper  = c(ci_csto[2], ci_non[2], ci_diff[2])
+    ),
+    boot_dist = list(
+      csto = theta_boot_csto,
+      non  = theta_boot_non,
+      diff = theta_boot_diff
+    )
+  )
+}
+ 
+cat("Running source-level pairs bootstrap for Approach 2...\n")
+boot2_pairs <- run_source_pairs_bootstrap(mini_results, B = 9999)
+ 
+cat("\n")
+cat("=====================================================================\n")
+cat("  APPROACH 2a: Source-Level Pairs Bootstrap Results\n")
+cat("=====================================================================\n")
+print(boot2_pairs$results, digits = 4)
+cat("=====================================================================\n\n")
+```
+
+
+```{r}
+cat("Running Bayesian bootstrap for Approach 2...\n")
+boot2_bayes <- run_bayesian_bootstrap(mini_results, B = 9999)
+ 
+cat("\n")
+cat("=====================================================================\n")
+cat("  APPROACH 2b: Bayesian Bootstrap Results (Rubin 1981)\n")
+cat("=====================================================================\n")
+print(boot2_bayes$results, digits = 4)
+cat("=====================================================================\n\n")
+```
+
+```{r}
+# Write out of data
+# Source-level treatment effects (N-weighted average across topics within source)
+source_level_effects <- mini_results[, .(
+  theta  = weighted.mean(theta, N),
+  N      = sum(N),
+  csto   = csto[1],
+  n_topics = .N
+), by = source]
+setorder(source_level_effects, csto, source)
+ 
+# Group-level summary (CSTO / Non-CSTO / Difference)
+decomposition_results <- list(
+  # Cell-level estimates (source x topic)
+  cell_effects   = mini_results[order(csto, source, topic)],
+  # Source-level estimates (averaged across topics)
+  source_effects = source_level_effects,
+  # Group-level estimates with both bootstrap methods
+  group_effects_pairs = boot2_pairs$results,
+  group_effects_bayes = boot2_bayes$results,
+  # Bootstrap distributions (for plotting if needed)
+  boot_distributions_pairs = boot2_pairs$boot_dist,
+  boot_distributions_bayes = boot2_bayes$boot_dist,
+  # Metadata
+  n_sources_csto     = sum(source_level_effects$csto == 1),
+  n_sources_non_csto = sum(source_level_effects$csto == 0),
+  n_cells            = nrow(mini_results),
+  B                  = length(boot2_pairs$boot_dist$csto)
+)
+```
+
+
+
 
 ## Heavily Saturated Non-Mil Model
 
 ```{r}
-# Change source and topic to factor
-optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
-  mutate(
-    source_domain = as.factor(source_domain),
-    topic_clean = as.factor(topic_clean)
-  )
-
-# Heavily saturated model
-model5a_fully_saturated <- feols(
-  sentiment_clean ~ running_probabilistic * treatment * csto |
-    source_domain^topic_clean + topic_clean^treatment,
-  cluster = ~source_domain,
-  data = optimal_bandwidth_data_state_non_mil
-)
-
-summary(model5a_fully_saturated)
+# # Change source and topic to factor
+# optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
+#   mutate(
+#     source_domain = as.factor(source_domain),
+#     topic_clean = as.factor(topic_clean)
+#   )
+# 
+# # Heavily saturated model
+# model5a_fully_saturated <- feols(
+#   sentiment_clean ~ running_probabilistic * treatment * csto * source_domain * topic_clean |
+#     0,
+#   cluster = ~source_domain,
+#   data = optimal_bandwidth_data_state_non_mil
+# )
+# 
+# summary(model5a_fully_saturated)
 ```
 
 ### Manual Wild Bootstrap Standard Errors
 
 ```{r}
-set.seed(3184)
-B <- 99
-
-# Original model
-model_original <- model5a_fully_saturated
-original_coef <- coef(model_original)["treatment:csto"]
-original_se <- se(model_original)["treatment:csto"]
-original_t <- original_coef / original_se
-
-cat("Original t-stat:", original_t, "\n")
-
-# CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
-# Remove treatment:csto from the formula
-model_restricted <- feols(
-  sentiment_clean ~ running_probabilistic + treatment + csto + running_probabilistic:treatment + running_probabilistic:csto +
-    running_probabilistic:treatment:csto |  # Keep triple interaction but not treatment:csto
-    source_domain^topic_clean + topic_clean^treatment,
-  cluster = ~source_domain,
-  data = optimal_bandwidth_data_state_non_mil
-)
-
-# Get residuals and fitted values from RESTRICTED model
-residuals_restricted <- residuals(model_restricted)
-fitted_restricted <- fitted(model_restricted)
-
-cat("Using restricted model residuals (null imposed)\n")
-
-# Get clusters
-clusters <- unique(optimal_bandwidth_data_state_non_mil$source_domain)
-n_clusters <- length(clusters)
-
-# Bootstrap
-boot_t_stats <- numeric(B)
-
-for(b in 1:B) {
-  # Generate Rademacher weights
-  cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
-
-  # Assign to observations
-  data_boot <- optimal_bandwidth_data_state_non_mil
-  data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
-    cluster_weights[which(clusters == clust)]
-  })
-
-  # Create bootstrap outcome using RESTRICTED fitted values
-  data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
-
-  # Re-estimate FULL model on bootstrap data
-  model_boot <- feols(
-    sentiment_boot ~ running_probabilistic * treatment * csto |
-      source_domain^topic_clean + topic_clean^treatment,
-    cluster = ~source_domain,
-    data = data_boot
-  )
-
-  boot_coef <- coef(model_boot)["treatment:csto"]
-  boot_se <- se(model_boot)["treatment:csto"]
-  boot_t_stats[b] <- boot_coef / boot_se
-
-  if(b %% 100 == 0) cat("Iteration:", b, "\n")
-}
-
-# Calculate p-value
-p_value <- mean(abs(boot_t_stats) >= abs(original_t))
-
-cat("\n=== Results ===\n")
-cat("Original t-stat:", original_t, "\n")
-cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
-cat("P-value:", p_value, "\n")
-
-# Plot
-hist(boot_t_stats, breaks=30, main="Wild Bootstrap t-statistics (Null Imposed)",
-     xlab="t-statistic")
-abline(v=original_t, col="red", lwd=2)
-abline(v=0, col="blue", lwd=2, lty=2)
-legend("topright", c("Original t", "Null (t=0)"), col=c("red","blue"), lty=c(1,2), lwd=2)
-
-# Extract bootstrap results for saturated model in standard format
-boot_model5a_fully_saturated <- list(
-  se = original_se,
-  p_val = p_value,
-  ci_lower = NA,  # Not computed in manual bootstrap
-  ci_upper = NA,  # Not computed in manual bootstrap
-  t_stat = original_t
-)
-cat("Saturated model bootstrap results extracted\n")
+# set.seed(3184)
+# B <- 99
+# 
+# # Original model
+# model_original <- model5a_fully_saturated
+# original_coef <- coef(model_original)["treatment:csto"]
+# original_se <- se(model_original)["treatment:csto"]
+# original_t <- original_coef / original_se
+# 
+# cat("Original t-stat:", original_t, "\n")
+# 
+# # CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
+# # Remove treatment:csto from the formula
+# model_restricted <- feols(
+#   sentiment_clean ~ running_probabilistic + treatment + csto + running_probabilistic:treatment + running_probabilistic:csto +
+#     running_probabilistic:treatment:csto |  # Keep triple interaction but not treatment:csto
+#     source_domain^topic_clean + topic_clean^treatment,
+#   cluster = ~source_domain,
+#   data = optimal_bandwidth_data_state_non_mil
+# )
+# 
+# # Get residuals and fitted values from RESTRICTED model
+# residuals_restricted <- residuals(model_restricted)
+# fitted_restricted <- fitted(model_restricted)
+# 
+# cat("Using restricted model residuals (null imposed)\n")
+# 
+# # Get clusters
+# clusters <- unique(optimal_bandwidth_data_state_non_mil$source_domain)
+# n_clusters <- length(clusters)
+# 
+# # Bootstrap
+# boot_t_stats <- numeric(B)
+# 
+# for(b in 1:B) {
+#   # Generate Rademacher weights
+#   cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
+# 
+#   # Assign to observations
+#   data_boot <- optimal_bandwidth_data_state_non_mil
+#   data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
+#     cluster_weights[which(clusters == clust)]
+#   })
+# 
+#   # Create bootstrap outcome using RESTRICTED fitted values
+#   data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
+# 
+#   # Re-estimate FULL model on bootstrap data
+#   model_boot <- feols(
+#     sentiment_boot ~ running_probabilistic * treatment * csto |
+#       source_domain^topic_clean + topic_clean^treatment,
+#     cluster = ~source_domain,
+#     data = data_boot
+#   )
+# 
+#   boot_coef <- coef(model_boot)["treatment:csto"]
+#   boot_se <- se(model_boot)["treatment:csto"]
+#   boot_t_stats[b] <- boot_coef / boot_se
+# 
+#   if(b %% 100 == 0) cat("Iteration:", b, "\n")
+# }
+# 
+# # Calculate p-value
+# p_value <- mean(abs(boot_t_stats) >= abs(original_t))
+# 
+# cat("\n=== Results ===\n")
+# cat("Original t-stat:", original_t, "\n")
+# cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
+# cat("P-value:", p_value, "\n")
+# 
+# # Plot
+# hist(boot_t_stats, breaks=30, main="Wild Bootstrap t-statistics (Null Imposed)",
+#      xlab="t-statistic")
+# abline(v=original_t, col="red", lwd=2)
+# abline(v=0, col="blue", lwd=2, lty=2)
+# legend("topright", c("Original t", "Null (t=0)"), col=c("red","blue"), lty=c(1,2), lwd=2)
+# 
+# # Extract bootstrap results for saturated model in standard format
+# boot_model5a_fully_saturated <- list(
+#   se = original_se,
+#   p_val = p_value,
+#   ci_lower = NA,  # Not computed in manual bootstrap
+#   ci_upper = NA,  # Not computed in manual bootstrap
+#   t_stat = original_t
+# )
+# cat("Saturated model bootstrap results extracted\n")
 ```
 
 # Country-Level Analysis
@@ -1376,7 +2037,7 @@ results_het_prob <- list(
   model5a_neutral = model5a_neutral,
   model5a_opt_full_fe = model5a_opt_full_fe,
   model5a_opt_non_mil_full_fe = model5a_opt_non_mil_full_fe,
-  model5a_fully_saturated = model5a_fully_saturated,
+  #model5a_fully_saturated = model5a_fully_saturated,
   matched_model = matched_model,
 
   # Z-score models
@@ -1412,7 +2073,7 @@ results_het_prob <- list(
     model5a_opt_russian = boot_model5a_opt_russian,
     model5a_opt_full_fe = boot_model5a_opt_full_fe,
     model5a_opt_non_mil_full_fe = boot_model5a_opt_non_mil_full_fe,
-    model5a_fully_saturated = boot_model5a_fully_saturated,
+    #model5a_fully_saturated = boot_model5a_fully_saturated,
     matched_model = boot_matched_model,
 
     # Z-score bootstrap SEs
@@ -1453,7 +2114,10 @@ results_het_prob <- list(
   matched_loo_results = matched_loo_results,
   matched_loo_summary = matched_loo_summary,
   model_placebo_nonmil = model_placebo_nonmil,
-  optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil
+  optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil,
+  
+  # Mini-Regressions: Heterogeneous treatment effect decomposition
+  decomposition = decomposition_results
 )
 
 saveRDS(results_het_prob, file.path(DATA_INTERMEDIATE, "06_alignment_results_prob.rds"))
