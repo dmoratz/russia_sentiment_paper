@@ -1,0 +1,33 @@
+\begin{table}[t]
+\caption{Table S1: H1 RDD — Fixed Effects Robustness (Probabilistic Time)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) & (7) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.159*** & -0.1474*** & -0.1444*** & -0.1398*** & -0.243*** & -0.091*** & -0.147*** \\ 
+{} & {(0.011)} & {(0.0097)} & {(0.0094)} & {(0.0085)} & {(0.016)} & {(0.015)} & {(0.013)} \\ 
+Topic FEs & - & - & - & X & X & X & X \\ 
+State FEs & - & X & X & X & - & X & X \\ 
+Source FEs & - & - & X & X & - & X & X \\ 
+Source Z-Score & - & - & - & - & X & - & - \\ 
+Clusters & 62 & 62 & 62 & 62 & 61 & — & — \\ 
+Num.Obs. & 174094 & 174094 & 174094 & 174094 & 174056 & 130525 & 93401 \\ 
+R2 & 0.024 & 0.043 & 0.064 & 0.087 & 0.035 &  &  \\ 
+R2 Adj. & 0.024 & 0.043 & 0.063 & 0.086 & 0.035 &  &  \\ 
+nobs.left &  &  &  &  &  & 42682 & 33375 \\ 
+nobs.right &  &  &  &  &  & 87843 & 60026 \\ 
+bandwidth.left &  &  &  &  &  & 1466662.29744986 & 2994654.54338902 \\ 
+bandwidth.right &  &  &  &  &  & 1466662.29744986 & 2994654.54338902 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
++ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Models 1-4 use the
+full dataset with progressively added fixed effects. Model 5 uses a Z-Score
+normalization with the full dataset. Models 6-7 use full fixed effects,
+restricting to non-military topics and non-NATO countries respectively.\\
+\end{minipage}
+\end{table}
+

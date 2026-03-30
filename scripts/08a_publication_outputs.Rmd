@@ -180,7 +180,7 @@ table_1 <- modelsummary(
   fmt = fmt_significant(2),
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|Num.Obs.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
   title = "Table 1: H1 RDD — Effect of Russian Invasion on Media Sentiment (Probabilistic Time)",
   add_rows = rows_t1,
   notes = note_t1
@@ -878,14 +878,12 @@ s7_models <- list(
   "(6)\u2020" = results_align$model5a_opt_full_fe,
   "(7)\u2020" = results_align$matched_model,
   "(8)\u2020" = results_align$model5a_opt_non_mil_full_fe,
-  "(9)\u2020" = results_align$model5a_opt_rus_full_fe,
-  "(10)\u2020" = results_align$model5a_fully_saturated
+  "(9)\u2020" = results_align$model5a_opt_rus_full_fe
 )
 
 boot_keys_s7 <- c("model5a_z", "model5a_full", "model5a_opt", "model5a_opt_non_mil",
                    "model5a_opt_russian", "model5a_opt_full_fe", "matched_model",
-                   "model5a_opt_non_mil_full_fe", "model5a_opt_rus_full_fe",
-                   "model5a_fully_saturated")
+                   "model5a_opt_non_mil_full_fe", "model5a_opt_rus_full_fe")
 boot_results_s7 <- lapply(boot_keys_s7, function(k) results_align$bootstrap_se[[k]])
 
 vcov_s7 <- setNames(
@@ -898,13 +896,13 @@ vcov_s7 <- setNames(
 n_cl_s7 <- sapply(s7_models, get_n_clusters)
 
 rows_s7 <- tibble::tribble(
-  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8, ~row9, ~row10,
-  "Source Z-Score", "X",    "-",    "-",    "-",    "-",    "-",    "-",    "-",    "-",    "-",
-  "State FEs",  "-",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X",
-  "Source FEs", "-",    "-",    "-",    "-",    "-",    "X",    "-",    "X",    "X",    "X",
-  "Topic FEs",  "-",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X",
-  "Matched",    "-",    "-",    "-",    "-",    "-",    "-",    "X",    "-",    "-",    "-",
-  "Clusters",   n_cl_s7[1], n_cl_s7[2], n_cl_s7[3], n_cl_s7[4], n_cl_s7[5], n_cl_s7[6], n_cl_s7[7], n_cl_s7[8], n_cl_s7[9], n_cl_s7[10]
+  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8, ~row9,
+  "Source Z-Score", "X",    "-",    "-",    "-",    "-",    "-",    "-",    "-",    "-",
+  "State FEs",  "-",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X", 
+  "Source FEs", "-",    "-",    "-",    "-",    "-",    "X",    "-",    "X",    "X", 
+  "Topic FEs",  "-",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X", 
+  "Matched",    "-",    "-",    "-",    "-",    "-",    "-",    "X",    "-",    "-",
+  "Clusters",   n_cl_s7[1], n_cl_s7[2], n_cl_s7[3], n_cl_s7[4], n_cl_s7[5], n_cl_s7[6], n_cl_s7[7], n_cl_s7[8], n_cl_s7[9]
 )
 attr(rows_s7, "position") <- c(5, 6, 7, 8, 9, 10)
 
@@ -916,7 +914,6 @@ note_s7 <- str_wrap(paste(
   "Model 4 omits military topics. Model 5 restricts to Russian-related articles.",
   "Model 6 uses optimal bandwidth with full FEs. Model 7 uses matched data.",
   "Models 8-9 add full FEs to non-military and Russian subsets.",
-  "Model 10 uses full saturation.",
   SE_NOTE_BOOT
 ), 80)
 
@@ -1076,57 +1073,146 @@ save_table(table_s9, "table_s09_h3a_fe_topic", TABLE_SUBDIR)
 ## Table S10: H3a LOO Robustness (Pattern E)
 
 ```{r table-s10-loo}
-if (!is.null(results_align$loo_summary)) {
-  note_loo_h3a <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:csto interaction term. Standard errors clustered at source domain level."
 
-  if (!is.null(results_align$matched_loo_summary)) {
-    loo_standard_h3a <- results_align$loo_summary %>% mutate(section = "Standard Model")
-    loo_matched_h3a <- results_align$matched_loo_summary %>% mutate(section = "Matched Model")
-    loo_combined_h3a <- bind_rows(loo_standard_h3a, loo_matched_h3a)
+note_loo_h3a <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:csto interaction term. Standard errors clustered at source domain level."
 
-    table_s10 <- loo_combined_h3a %>%
-      mutate(
-        estimate_fmt = sprintf("%.3f%s", estimate,
-                         case_when(p_value < 0.001 ~ "***",
-                                   p_value < 0.01 ~ "**",
-                                   p_value < 0.05 ~ "*",
-                                   TRUE ~ "")),
-        std_error_fmt = sprintf("(%.3f)", std_error),
-        p_value_fmt = sprintf("%.3f", p_value),
-        n_obs_fmt = format(n_obs, big.mark = ","),
-        bandwidth_fmt = sprintf("%.1f", bandwidth)
-      ) %>%
-      select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
-      gt(groupname_col = "section") %>%
-      cols_label(
-        country_dropped = "Country Dropped",
-        estimate_fmt = "Coefficient",
-        std_error_fmt = "Std. Error",
-        p_value_fmt = "p-value",
-        n_obs_fmt = "N",
-        bandwidth_fmt = "Bandwidth"
-      ) %>%
-      tab_header(title = "Table S10: H3a Leave-One-Out Country Robustness (Probabilistic Time)") %>%
-      tab_footnote(footnote = str_wrap(note_loo_h3a, 80))
-  } else {
-    table_s10 <- build_loo_table(
-      results_align$loo_summary,
-      "Table S10: H3a Leave-One-Out Country Robustness (Probabilistic Time)",
-      "Non-Military Topics Model",
-      note_loo_h3a
-    )
-  }
+if (!is.null(results_align$matched_loo_summary)) {
+  loo_standard_h3a <- results_align$loo_summary %>% mutate(section = "Standard Model")
+  loo_matched_h3a <- results_align$matched_loo_summary %>% mutate(section = "Matched Model")
+  loo_combined_h3a <- bind_rows(loo_standard_h3a, loo_matched_h3a)
 
-  table_s10
-  save_table(table_s10, "table_s10_h3a_loo", TABLE_SUBDIR)
+  table_s10 <- loo_combined_h3a %>%
+    mutate(
+      estimate_fmt = sprintf("%.3f%s", estimate,
+                       case_when(p_value < 0.001 ~ "***",
+                                 p_value < 0.01 ~ "**",
+                                 p_value < 0.05 ~ "*",
+                                 TRUE ~ "")),
+      std_error_fmt = sprintf("(%.3f)", std_error),
+      p_value_fmt = sprintf("%.3f", p_value),
+      n_obs_fmt = format(n_obs, big.mark = ","),
+      bandwidth_fmt = sprintf("%.1f", bandwidth)
+    ) %>%
+    select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
+    gt(groupname_col = "section") %>%
+    cols_label(
+      country_dropped = "Country Dropped",
+      estimate_fmt = "Coefficient",
+      std_error_fmt = "Std. Error",
+      p_value_fmt = "p-value",
+      n_obs_fmt = "N",
+      bandwidth_fmt = "Bandwidth"
+    ) %>%
+    tab_header(title = "Table S10: H3a Leave-One-Out Country Robustness (Probabilistic Time)") %>%
+    tab_footnote(footnote = str_wrap(note_loo_h3a, 80))
 } else {
-  cat("WARNING: results_align$loo_summary not found. Skipping Table S10.\n")
+  table_s10 <- build_loo_table(
+    results_align$loo_summary,
+    "Table S10: H3a Leave-One-Out Country Robustness (Probabilistic Time)",
+    "Non-Military Topics Model",
+    note_loo_h3a
+  )
 }
+
+table_s10
+save_table(table_s10, "table_s10_h3a_loo", TABLE_SUBDIR)
 ```
 
-## Table S11: Placebo Test Summary (Pattern E)
+## Table S11: H3a Heterogenous Treatment Effects
 
-```{r table-s11}
+```{r table-s11-decomposition}
+decomp <- results_align$decomposition
+pairs  <- decomp$group_effects_pairs
+bayes  <- decomp$group_effects_bayes
+
+# --- Panel A: Group-level effects with both bootstrap methods side-by-side ---
+panel_a <- pairs %>%
+  rename(se_pairs = se_boot, p_pairs = p_boot, 
+         ci_lower_pairs = ci_lower, ci_upper_pairs = ci_upper) %>%
+  mutate(
+    se_bayes = bayes$se_boot,
+    p_bayes  = bayes$p_boot,
+    section  = "Panel A: Group-Level Effects",
+    estimate_fmt = sprintf("%.3f", estimate),
+    se_pairs_fmt = sprintf("(%.3f)", se_pairs),
+    p_pairs_fmt  = sprintf("%.3f%s", p_pairs,
+                     case_when(p_pairs < 0.001 ~ "***",
+                               p_pairs < 0.01 ~ "**",
+                               p_pairs < 0.05 ~ "*",
+                               p_pairs < 0.1 ~ "+",
+                               TRUE ~ "")),
+    se_bayes_fmt = sprintf("(%.3f)", se_bayes),
+    p_bayes_fmt  = sprintf("%.3f%s", p_bayes,
+                     case_when(p_bayes < 0.001 ~ "***",
+                               p_bayes < 0.01 ~ "**",
+                               p_bayes < 0.05 ~ "*",
+                               p_bayes < 0.1 ~ "+",
+                               TRUE ~ "")),
+    n_col = c(decomp$n_sources_csto, 
+              decomp$n_sources_non_csto,
+              decomp$n_sources_csto + decomp$n_sources_non_csto)
+  ) %>%
+  select(section, group, estimate_fmt, se_pairs_fmt, p_pairs_fmt,
+         se_bayes_fmt, p_bayes_fmt, n_col)
+
+# --- Panel B: Source-level effects ---
+panel_b <- decomp$source_effects %>%
+  mutate(
+    section = "Panel B: Source-Level Effects",
+    group = ifelse(csto == 1, paste0(source, " (CSTO)"), paste0(source, " (Neutral)")),
+    estimate_fmt = sprintf("%.3f", theta),
+    se_pairs_fmt = "",
+    p_pairs_fmt  = "",
+    se_bayes_fmt = "",
+    p_bayes_fmt  = "",
+    n_col = N
+  ) %>%
+  arrange(desc(csto), source) %>%
+  select(section, group, estimate_fmt, se_pairs_fmt, p_pairs_fmt,
+         se_bayes_fmt, p_bayes_fmt, n_col)
+
+# Combine panels
+decomp_combined <- bind_rows(panel_a, panel_b)
+
+note_decomp <- str_wrap(paste(
+  "Panel A reports N-weighted average treatment effects by CSTO group,",
+  "estimated from separate RDD regressions within each source-topic cell.",
+  "Pairs bootstrap resamples sources with replacement (B =",
+  sprintf("%s).", format(decomp$B, big.mark = ",")),
+  "Bayesian bootstrap draws Dirichlet(1,...,1) source weights",
+  sprintf("(Rubin 1981; B = %s).", format(decomp$B, big.mark = ",")),
+  "Panel B reports source-level treatment effects (N-weighted average",
+  "across topics within each source). N in Panel A is number of sources;",
+  "N in Panel B is articles per source.",
+  "Sample restricted to state-owned, non-NATO, non-military articles",
+  "within the optimal bandwidth. Source-level Z-score normalization applied."
+), 80)
+
+table_s11 <- decomp_combined %>%
+  gt(groupname_col = "section") %>%
+  cols_label(
+    group = "",
+    estimate_fmt = "Estimate",
+    se_pairs_fmt = "SE (Pairs)",
+    p_pairs_fmt  = "p (Pairs)",
+    se_bayes_fmt = "SE (Bayes)",
+    p_bayes_fmt  = "p (Bayes)",
+    n_col = "N"
+  ) %>%
+  tab_header(
+    title = "Table S11: Treatment Effect Decomposition by Source"
+  ) %>%
+  tab_footnote(footnote = note_decomp) %>%
+  sub_values(values = "", replacement = "\u2014")
+
+table_s11
+save_table(table_s11, "table_s11_decomposition", TABLE_SUBDIR)
+
+```
+
+## Table S12: Placebo Test Summary (Pattern E)
+
+```{r table-s12}
 # H1 placebo (rdrobust)
 placebo_h1 <- results_h1$model_placebo
 h1_estimate <- placebo_h1$coef[1]
@@ -1189,7 +1275,7 @@ note_placebo <- str_wrap(paste(
   "Non-significant treatment effects suggest parallel trends assumption holds."
 ), 80)
 
-table_s11 <- placebo_summary %>%
+table_s12 <- placebo_summary %>%
   mutate(
     Estimate_fmt = sprintf("%.3f%s", Estimate,
                      case_when(p_value < 0.001 ~ "***",
@@ -1215,8 +1301,8 @@ table_s11 <- placebo_summary %>%
              subtitle = "December 7, 2021 False Treatment Date") %>%
   tab_footnote(footnote = note_placebo)
 
-table_s11
-save_table(table_s11, "table_s11_placebo", TABLE_SUBDIR)
+table_s12
+save_table(table_s12, "table_s12_placebo", TABLE_SUBDIR)
 ```
 
 # Summary
@@ -1244,7 +1330,8 @@ cat("  S7  table_s07_h3a_fe_core            H3a FE interaction + robustness\n")
 cat("  S8  table_s08_h3a_z_topic            H3a by-topic Z-score\n")
 cat("  S9  table_s09_h3a_fe_topic           H3a by-topic Full Data\n")
 cat("  S10 table_s10_h3a_loo               H3a LOO robustness\n")
-cat("  S11 table_s11_placebo                Placebo test summary\n")
+cat("  S11 table_s11_h3a_hetero               H3a Hetero robustness\n")
+cat("  S12 table_s12_placebo                Placebo test summary\n")
 cat("=============================================================\n")
 ```
 

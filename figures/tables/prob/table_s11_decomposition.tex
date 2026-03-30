@@ -1,0 +1,45 @@
+\begin{table}[t]
+\caption*{
+{\fontsize{20}{25}\selectfont  Table S11: Treatment Effect Decomposition by Source\fontsize{12}{15}\selectfont }
+} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrrrrr}
+\toprule
+ & Estimate & SE (Pairs) & p (Pairs) & SE (Bayes) & p (Bayes) & N \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{7}{l}{Panel A: Group-Level Effects} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+CSTO & -0.211 & (0.072) & 0.000*** & (0.058) & 0.000*** & 9 \\ 
+Non-CSTO & -0.004 & (0.133) & 0.964 & (0.103) & 0.986 & 4 \\ 
+Difference & -0.206 & (0.151) & 0.228 & (0.117) & 0.119 & 13 \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{7}{l}{Panel B: Source-Level Effects} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+1lurer.am (CSTO) & -0.354 & — & — & — & — & 641 \\ 
+azerbaijan-news.az (CSTO) & -0.147 & — & — & — & — & 125 \\ 
+azertag.az (CSTO) & -0.057 & — & — & — & — & 625 \\ 
+en.armradio.am (CSTO) & -0.276 & — & — & — & — & 260 \\ 
+eng.belta.by (CSTO) & -0.129 & — & — & — & — & 432 \\ 
+kazpravda.kz (CSTO) & -0.853 & — & — & — & — & 241 \\ 
+qazaqstan.tv (CSTO) & -0.349 & — & — & — & — & 57 \\ 
+sb.by (CSTO) & -0.156 & — & — & — & — & 2031 \\ 
+zviazda.by (CSTO) & 0.281 & — & — & — & — & 41 \\ 
+agenda.ge (Neutral) & 0.150 & — & — & — & — & 375 \\ 
+moldova-suverana.md (Neutral) & -0.221 & — & — & — & — & 215 \\ 
+rtklive.com (Neutral) & 0.144 & — & — & — & — & 732 \\ 
+rts.rs (Neutral) & -0.387 & — & — & — & — & 315 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+Panel A reports N-weighted average treatment effects by CSTO group, estimated
+from separate RDD regressions within each source-topic cell. Pairs bootstrap
+resamples sources with replacement (B = 9,926). Bayesian bootstrap draws
+Dirichlet(1,...,1) source weights (Rubin 1981; B = 9,926). Panel B reports
+source-level treatment effects (N-weighted average across topics within each
+source). N in Panel A is number of sources; N in Panel B is articles per source.
+Sample restricted to state-owned, non-NATO, non-military articles within the
+optimal bandwidth. Source-level Z-score normalization applied.\\
+\end{minipage}
+\end{table}
+

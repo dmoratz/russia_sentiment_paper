@@ -1,9 +1,9 @@
-\begin{table}[!t]
+\begin{table}[t]
 \caption{Table 5: H3b Ethnic Russian Population — Null Result, Z-Score (Probabilistic Time)} 
-\fontsize{12.0pt}{14.4pt}\selectfont
+\fontsize{12.0pt}{14.0pt}\selectfont
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
 \toprule
-  & (1)‡ & (2)‡ & (3)† & (4)† & (5)† \\ 
+  & (1) High‡ & (2) Low‡ & (3)† & (4)† & (5)† \\ 
 \midrule\addlinespace[2.5pt]
 Invasion & -0.079 & -0.108 & -0.17 & -0.13 & -0.143 \\ 
  & (0.066) & (0.102) & (0.10) & (0.10) & (0.099) \\ 
@@ -17,13 +17,14 @@ R2 Adj. &  &  & 0.021 & 0.010 & 0.010 \\
 \bottomrule
 \end{tabular*}
 \begin{minipage}{\linewidth}
+\vspace{.05em}
 + p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
 All models use a source-level Z-Score normalization. Models 1-2 show separate
 RDD estimates for high and low ethnic Russian population countries. Models 3-5
 estimate the high Russian population x treatment interaction. Model 3 uses the
 optimal bandwidth. Model 4 omits military topics. Model 5 uses matched data. †
 Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron,
-Gelbach \& Miller 2008) with Webb six-point weights (B=9999, null imposed),
+Gelbach \& Miller 2008) with Webb six-point weights (B=4999, null imposed),
 clustered by source domain. ‡ Cluster-robust SEs from rdrobust.\\
 \end{minipage}
 \end{table}

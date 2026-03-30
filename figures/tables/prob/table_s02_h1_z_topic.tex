@@ -1,0 +1,27 @@
+\begin{table}[t]
+\caption{Table S2: H1 RDD by Topic — Z-Score (Probabilistic Time)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccc}
+\toprule
+  & Political & Military & Economic & Cultural & Other \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.160*** & -0.422*** & -0.332*** & -0.569*** & -0.219*** \\ 
+{} & {(0.040)} & {(0.062)} & {(0.066)} & {(0.095)} & {(0.036)} \\ 
+Source Z-Score & X & X & X & X & X \\ 
+Clusters & — & — & — & — & — \\ 
+Num.Obs. & 61660 & 43568 & 26230 & 10465 & 32133 \\ 
+nobs.left & 20615 & 8822 & 5543 & 4004 & 12518 \\ 
+nobs.right & 41045 & 34746 & 20687 & 6461 & 19615 \\ 
+bandwidth.left & 2252607.53182719 & 3619968.18115712 & 3863751.14082224 & 4546887.37051802 & 4717503.91197885 \\ 
+bandwidth.right & 2252607.53182719 & 3619968.18115712 & 3863751.14082224 & 4546887.37051802 & 4717503.91197885 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
++ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. All models use a
+source-level Z-Score normalization with the optimal bandwidth. Each column
+restricts to the indicated topic category.\\
+\end{minipage}
+\end{table}
+
