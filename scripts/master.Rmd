@@ -47,10 +47,16 @@ Changes to make:
      │           │                          │
      ▼           ▼                          ▼
 ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌──────────┐
-│   03    │ │   04    │ │   04A    │ │   05    │ │   05A    │
+│  03A    │ │   04    │ │   04A    │ │   05    │ │   05A    │
 │ Descrip │ │Main RDD │ │ RDD Cont │ │Diff-Disc│ │Disc Cont │
 │ tive    │ │   H1    │ │  H1 Alt  │ │   H2    │ │  H2 Alt  │
 └────┬────┘ └────┬────┘ └────┬─────┘ └────┬────┘ └────┬─────┘
+     │           │           │            │            │
+┌────┴────┐     │           │            │            │
+│  03B    │     │           │            │            │
+│ Coding  │     │           │            │            │
+│Analysis │     │           │            │            │
+└────┬────┘     │           │            │            │
      │           │           │            │            │
      │           │     ┌─────┴─────┐ ┌────┴────┐ ┌────┴────┐
      │           │     │  04B 04C  │ │ 05B 05C │ │         │
@@ -89,7 +95,8 @@ Changes to make:
 | `00_setup.R` | Packages, functions, constants | - |
 | `01_data_loading.Rmd` | Load raw CSV data | `01_raw_data.rds` |
 | `02_data_cleaning.Rmd` | Clean and create variables | `02_cleaned_data.rds`, etc. |
-| `03_descriptive_analysis.Rmd` | Summary statistics, EDA | Tables, time series plots |
+| `03A_descriptive_analysis.Rmd` | Summary statistics, EDA | Tables, time series plots |
+| `03B_coding_analysis.Rmd` | Confusion matrices, Krippendorff's alpha, region map | `figures/coding/` |
 | `04_main_rdd_analysis.Rmd` | Hypothesis 1: RDD (day) | `04_h1_results.rds`, figures |
 | `04A_main_rdd_analysis_continuous.Rmd` | Hypothesis 1: RDD (continuous) | `04_h1_results_continuous.rds`, figures |
 | `04B_main_rdd_analysis_drop.Rmd` | H1: RDD (drop no-time articles) | `04_h1_results_drop.rds` |
@@ -152,20 +159,36 @@ step2_time <- difftime(Sys.time(), step2_start, units = "secs")
 cat("Completed in", round(step2_time, 1), "seconds\n")
 ```
 
-## Step 3: Descriptive Analysis
+## Step 3A: Descriptive Analysis
 
-```{r step3}
-step3_start <- Sys.time()
-cat("Running 03_descriptive_analysis.Rmd...\n")
+```{r step3a}
+step3a_start <- Sys.time()
+cat("Running 03A_descriptive_analysis.Rmd...\n")
 
 rmarkdown::render(
-  "03_descriptive_analysis.Rmd",
+  "03A_descriptive_analysis.Rmd",
   output_dir = "../output",
   quiet = TRUE
 )
 
-step3_time <- difftime(Sys.time(), step3_start, units = "secs")
-cat("Completed in", round(step3_time, 1), "seconds\n")
+step3a_time <- difftime(Sys.time(), step3a_start, units = "secs")
+cat("Completed in", round(step3a_time, 1), "seconds\n")
+```
+
+## Step 3B: Coding Analysis
+
+```{r step3b}
+step3b_start <- Sys.time()
+cat("Running 03B_coding_analysis.Rmd...\n")
+
+rmarkdown::render(
+  "03B_coding_analysis.Rmd",
+  output_dir = "../output",
+  quiet = TRUE
+)
+
+step3b_time <- difftime(Sys.time(), step3b_start, units = "secs")
+cat("Completed in", round(step3b_time, 1), "seconds\n")
 ```
 
 ## Step 4: Main RDD Analysis
@@ -527,7 +550,8 @@ cat("=============================================================\n")
 cat("\nStep Timings:\n")
 cat("  01_data_loading:         ", round(step1_time, 1), "s\n")
 cat("  02_data_cleaning:        ", round(step2_time, 1), "s\n")
-cat("  03_descriptive_analysis: ", round(step3_time, 1), "s\n")
+cat("  03A_descriptive_analysis:", round(step3a_time, 1), "s\n")
+cat("  03B_coding_analysis:    ", round(step3b_time, 1), "s\n")
 cat("  04_main_rdd_analysis:    ", round(step4_time, 1), "s\n")
 cat("  04A_rdd_continuous:      ", round(step4a_time, 1), "s\n")
 cat("  04B_rdd_drop:            ", round(step4b_time, 1), "s\n")

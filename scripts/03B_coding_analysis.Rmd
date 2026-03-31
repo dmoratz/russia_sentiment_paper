@@ -1,0 +1,376 @@
+---
+title: "03B - Coding Analysis: Confusion Matrices, Krippendorff's Alpha & Region Map"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      fig.width = 8, fig.height = 6)
+```
+
+# Load Validation Data
+
+```{r load-data}
+agreement <- read_csv(here("data", "GPT_Russian_Agreement_18.csv"), show_col_types = FALSE)
+
+cat("Loaded", nrow(agreement), "articles for coding validation.\n")
+cat("Columns:", paste(names(agreement), collapse = ", "), "\n")
+```
+
+# Part 1: Confusion Matrices
+
+```{r confusion-helper}
+# Helper: build and save a confusion matrix heatmap
+plot_confusion <- function(actual, predicted, actual_label, predicted_label,
+                           title, filename, levels_order = NULL) {
+  df <- data.frame(Actual = actual, Predicted = predicted, stringsAsFactors = FALSE) %>%
+    filter(!is.na(Actual) & !is.na(Predicted))
+
+  if (!is.null(levels_order)) {
+    df$Actual <- factor(df$Actual, levels = levels_order)
+    df$Predicted <- factor(df$Predicted, levels = levels_order)
+  } else {
+    all_levels <- sort(union(unique(df$Actual), unique(df$Predicted)))
+    df$Actual <- factor(df$Actual, levels = all_levels)
+    df$Predicted <- factor(df$Predicted, levels = all_levels)
+  }
+
+  counts <- df %>%
+    count(Actual, Predicted, .drop = FALSE) %>%
+    group_by(Actual) %>%
+    mutate(pct = ifelse(sum(n) > 0, n / sum(n) * 100, 0)) %>%
+    ungroup()
+
+  total <- sum(counts$n)
+  correct <- counts %>% filter(as.character(Actual) == as.character(Predicted)) %>% pull(n) %>% sum()
+  accuracy <- round(correct / total * 100, 1)
+
+  p <- ggplot(counts, aes(x = Predicted, y = Actual, fill = n)) +
+    geom_tile(color = "white", linewidth = 1) +
+    geom_text(aes(label = paste0(n)),
+              size = 4, color = "black") +
+    scale_fill_gradient(low = "white", high = "steelblue", name = "Count") +
+    labs(title = title,
+         subtitle = paste0("Overall agreement: ", accuracy, "% (n = ", total, ")"),
+         x = predicted_label, y = actual_label) +
+    theme_minimal(base_size = 13) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          panel.grid = element_blank()) +
+    coord_fixed()
+
+  ggsave(file.path(FIGURES_CODING, filename), p, width = 7, height = 6, dpi = 300)
+  print(p)
+  invisible(p)
+}
+```
+
+## Sentiment: Human Consensus vs GPT
+
+```{r confusion-sentiment}
+# Map numeric sentiment to labels
+sentiment_levels <- c("Negative", "Neutral", "Positive")
+sentiment_map <- c("-1" = "Negative", "0" = "Neutral", "1" = "Positive")
+
+agreement <- agreement %>%
+  mutate(
+    human_align_label = sentiment_map[as.character(human_align)],
+    GPT_Sentiment_label = sentiment_map[as.character(GPT_Sentiment)]
+  )
+
+plot_confusion(
+  actual = agreement$human_align_label,
+  predicted = agreement$GPT_Sentiment_label,
+  actual_label = "Human Consensus",
+  predicted_label = "GPT Sentiment",
+  title = "Confusion Matrix: Sentiment (Human Consensus vs GPT)",
+  filename = "confusion_sentiment.png",
+  levels_order = sentiment_levels
+)
+```
+
+## Topic: All Coder Pairs
+
+```{r confusion-topic}
+# Sarah vs Donald
+plot_confusion(
+  actual = agreement$sarah_topic,
+  predicted = agreement$donald_topic,
+  actual_label = "Sarah", predicted_label = "Donald",
+  title = "Confusion Matrix: Topic (Sarah vs Donald)",
+  filename = "confusion_topic_sarah_donald.png"
+)
+
+# Sarah vs GPT
+plot_confusion(
+  actual = agreement$sarah_topic,
+  predicted = agreement$GPT_Topic,
+  actual_label = "Sarah", predicted_label = "GPT",
+  title = "Confusion Matrix: Topic (Sarah vs GPT)",
+  filename = "confusion_topic_sarah_gpt.png"
+)
+
+# Donald vs GPT
+plot_confusion(
+  actual = agreement$donald_topic,
+  predicted = agreement$GPT_Topic,
+  actual_label = "Donald", predicted_label = "GPT",
+  title = "Confusion Matrix: Topic (Donald vs GPT)",
+  filename = "confusion_topic_donald_gpt.png"
+)
+```
+
+## Russia-Related: All Coder Pairs
+
+```{r confusion-russia}
+russia_levels <- c("yes", "no")
+
+# Sarah vs Donald
+plot_confusion(
+  actual = agreement$sarah_russia_related,
+  predicted = agreement$donald_russia_related,
+  actual_label = "Sarah", predicted_label = "Donald",
+  title = "Confusion Matrix: Russia-Related (Sarah vs Donald)",
+  filename = "confusion_russia_sarah_donald.png",
+  levels_order = russia_levels
+)
+
+# Sarah vs GPT
+plot_confusion(
+  actual = agreement$sarah_russia_related,
+  predicted = agreement$GPT_Russian_Involvement,
+  actual_label = "Sarah", predicted_label = "GPT",
+  title = "Confusion Matrix: Russia-Related (Sarah vs GPT)",
+  filename = "confusion_russia_sarah_gpt.png",
+  levels_order = russia_levels
+)
+
+# Donald vs GPT
+plot_confusion(
+  actual = agreement$donald_russia_related,
+  predicted = agreement$GPT_Russian_Involvement,
+  actual_label = "Donald", predicted_label = "GPT",
+  title = "Confusion Matrix: Russia-Related (Donald vs GPT)",
+  filename = "confusion_russia_donald_gpt.png",
+  levels_order = russia_levels
+)
+```
+
+# Part 1B: Krippendorff's Alpha
+
+```{r krippendorff}
+# --- Sentiment (ordinal, 3 coders) ---
+sentiment_matrix <- rbind(
+  as.numeric(agreement$sarah_russia_sentiment),
+  as.numeric(agreement$donald_sentiment_recoding),
+  as.numeric(agreement$GPT_Sentiment)
+)
+alpha_sentiment_3 <- kripp.alpha(sentiment_matrix, method = "ordinal")
+cat("Krippendorff's alpha - Sentiment (3 coders, ordinal):", round(alpha_sentiment_3$value, 4), "\n")
+
+# --- Sentiment (ordinal, human_align vs GPT) ---
+sentiment_matrix_2 <- rbind(
+  as.numeric(agreement$human_align),
+  as.numeric(agreement$GPT_Sentiment)
+)
+alpha_sentiment_2 <- kripp.alpha(sentiment_matrix_2, method = "ordinal")
+cat("Krippendorff's alpha - Sentiment (human consensus vs GPT, ordinal):", round(alpha_sentiment_2$value, 4), "\n")
+
+# --- Topic (nominal, 3 coders) ---
+# Encode topic categories as integers for kripp.alpha
+all_topics <- sort(unique(c(agreement$sarah_topic, agreement$donald_topic, agreement$GPT_Topic)))
+topic_to_int <- setNames(seq_along(all_topics), all_topics)
+
+topic_matrix <- rbind(
+  topic_to_int[agreement$sarah_topic],
+  topic_to_int[agreement$donald_topic],
+  topic_to_int[agreement$GPT_Topic]
+)
+alpha_topic <- kripp.alpha(topic_matrix, method = "nominal")
+cat("Krippendorff's alpha - Topic (3 coders, nominal):", round(alpha_topic$value, 4), "\n")
+
+# --- Russia-related (nominal, 3 coders) ---
+russia_to_int <- c("yes" = 1, "no" = 2)
+
+russia_matrix <- rbind(
+  russia_to_int[agreement$sarah_russia_related],
+  russia_to_int[agreement$donald_russia_related],
+  russia_to_int[agreement$GPT_Russian_Involvement]
+)
+alpha_russia <- kripp.alpha(russia_matrix, method = "nominal")
+cat("Krippendorff's alpha - Russia-Related (3 coders, nominal):", round(alpha_russia$value, 4), "\n")
+```
+
+```{r krippendorff-table}
+# Summary table
+alpha_summary <- data.frame(
+  Measure = c("Sentiment (3 coders)", "Sentiment (Human Consensus vs GPT)",
+              "Topic (3 coders)", "Russia-Related (3 coders)"),
+  Method = c("Ordinal", "Ordinal", "Nominal", "Nominal"),
+  Coders = c("Sarah, Donald, GPT", "Human Consensus, GPT",
+             "Sarah, Donald, GPT", "Sarah, Donald, GPT"),
+  Alpha = c(round(alpha_sentiment_3$value, 4),
+            round(alpha_sentiment_2$value, 4),
+            round(alpha_topic$value, 4),
+            round(alpha_russia$value, 4))
+)
+
+# Print as gt table
+alpha_gt <- alpha_summary %>%
+  gt() %>%
+  tab_header(title = "Krippendorff's Alpha: Inter-Rater Reliability") %>%
+  fmt_number(columns = Alpha, decimals = 4)
+
+alpha_gt
+
+#gtsave(alpha_gt, file.path(FIGURES_CODING, "krippendorff_alpha.png"))
+```
+
+# Part 2: Region Map
+
+```{r region-map, fig.width=10, fig.height=8}
+# Get world country polygons
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Define country groups — use admin names matching rnaturalearth
+country_groups <- tribble(
+  ~admin,                 ~group,          ~label,
+  "Russia",               "Russia",        "Russia",
+  "Ukraine",              "Ukraine",       "Ukraine",
+  "Albania",              "NATO",          "Albania",
+  "Hungary",              "NATO",          "Hungary",
+  "Turkey",               "NATO",          "Turkey",
+  "Armenia",              "Russia-Aligned","Armenia",
+  "Azerbaijan",           "Russia-Aligned","Azerbaijan",
+  "Kazakhstan",           "Russia-Aligned","Kazakhstan",
+  "Belarus",              "Russia-Aligned","Belarus",
+  "Republic of Serbia",   "Neutral",       "Serbia",
+  "Kosovo",               "Neutral",       "Kosovo",
+  "Moldova",              "Neutral",       "Moldova",
+  "Georgia",              "Neutral",       "Georgia"
+)
+
+# Join groups to spatial data
+map_data <- world %>%
+  left_join(country_groups, by = "admin") %>%
+  filter(!is.na(group))
+
+# Check which countries matched
+cat("Matched countries:", paste(map_data$admin, collapse = ", "), "\n")
+
+# Define colors — steel tones for Russia/Ukraine/Neutral to match
+group_colors <- c(
+  "Russia"         = "indianred3",
+  "Ukraine"        = "steelblue3",
+  "NATO"           = "lightblue",
+  "Russia-Aligned" = "#FF9999",
+  "Neutral"        = "darkseagreen4"
+)
+
+# Compute label positions (centroids), then manually adjust overlapping ones
+map_data_labels <- map_data %>%
+  mutate(centroid = st_centroid(geometry)) %>%
+  mutate(
+    lon = st_coordinates(centroid)[, 1],
+    lat = st_coordinates(centroid)[, 2]
+  ) %>%
+  st_drop_geometry()
+
+# Countries that need arrows (small/overlapping)
+arrow_countries <- c("Moldova", "Kosovo", "Albania", "Armenia", "Azerbaijan")
+
+# Countries that need a nudged label but no arrow
+nudge_countries <- c("Kazakhstan", "Russia")
+
+# Manual label offsets
+label_offsets <- tribble(
+  ~label,        ~lon_off, ~lat_off,
+  "Moldova",      -3,       -1.5,
+  "Kosovo",       -2.5,     -1.2,
+  "Albania",      -2.5,     -1,
+  "Armenia",       2.5,     -2.5,
+  "Azerbaijan",    3,        1.5,
+  "Kazakhstan",    -8,       0,
+  "Russia",        0,        0
+)
+
+# Arrow labels: offset + draw segment
+arrow_labels <- map_data_labels %>%
+  filter(label %in% arrow_countries) %>%
+  left_join(label_offsets, by = "label") %>%
+  mutate(
+    label_lon = lon + lon_off,
+    label_lat = lat + lat_off
+  )
+
+# Nudged labels: offset but no arrow
+nudge_labels <- map_data_labels %>%
+  filter(label %in% nudge_countries) %>%
+  left_join(label_offsets, by = "label") %>%
+  mutate(
+    lon = lon + lon_off,
+    lat = lat + lat_off
+  )
+# Russia's centroid is in Siberia (off-map), so hardcode a visible position
+nudge_labels <- nudge_labels %>%
+  mutate(
+    lon = ifelse(label == "Russia", 45, lon),
+    lat = ifelse(label == "Russia", 57, lat)
+  )
+
+# Direct labels: everything else, placed at centroid
+direct_labels <- map_data_labels %>%
+  filter(!(label %in% c(arrow_countries, nudge_countries)))
+
+# Crop bounding box — tighter on the right to cut Kazakhstan, extended south for Turkey
+bbox <- st_bbox(c(xmin = 15, xmax = 65, ymin = 28, ymax = 62), crs = st_crs(4326))
+
+# Background countries for context (gray)
+background <- world %>%
+  st_crop(bbox) %>%
+  filter(!(admin %in% country_groups$admin))
+
+p_map <- ggplot() +
+  geom_sf(data = background, fill = "gray95", color = "gray70", linewidth = 0.3) +
+  geom_sf(data = map_data, aes(fill = group), color = "black", linewidth = 0.5) +
+  # Direct labels for large countries
+  geom_text(data = direct_labels, aes(x = lon, y = lat, label = label),
+            size = 3, fontface = "bold", color = "black") +
+  # Nudged labels (no arrow) for countries whose centroid is off-screen or crowded
+  geom_text(data = nudge_labels, aes(x = lon, y = lat, label = label),
+            size = 3, fontface = "bold", color = "black") +
+  # Arrow labels for small/overlapping countries
+  geom_segment(data = arrow_labels,
+               aes(x = label_lon, y = label_lat, xend = lon, yend = lat),
+               arrow = arrow(length = unit(0.15, "cm"), type = "closed"),
+               color = "gray30", linewidth = 0.4) +
+  geom_text(data = arrow_labels, aes(x = label_lon, y = label_lat, label = label),
+            size = 2.8, fontface = "bold", color = "black",
+            vjust = -0.5) +
+  scale_fill_manual(values = group_colors, name = "Group") +
+  coord_sf(xlim = c(15, 65), ylim = c(35, 62), expand = FALSE) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid = element_line(color = "gray90"),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank(),
+    legend.position = "bottom"
+  ) +
+  labs(title = "Study Region: Russia's Near Abroad")
+
+ggsave(file.path(FIGURES_CODING, "region_map.png"), p_map, width = 10, height = 8, dpi = 300)
+
+p_map
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```

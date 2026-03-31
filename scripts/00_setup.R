@@ -75,7 +75,13 @@ pacman::p_load(
   cobalt,
   rbounds,
   sensemakr,
-  ggridges
+  ggridges,
+
+  # Spatial and inter-rater reliability
+  rnaturalearth,
+  rnaturalearthdata,
+  sf,
+  irr
 )
 
 # -----------------------------------------------------------------------------
@@ -99,6 +105,7 @@ FIGURES_DIR <- file.path(PROJECT_ROOT, "figures")
 FIGURES_TABLES <- file.path(FIGURES_DIR, "tables")
 FIGURES_DESCRIPTIVE <- file.path(FIGURES_DIR, "descriptive")
 FIGURES_DAG <- file.path(FIGURES_DIR, "dag")
+FIGURES_CODING <- file.path(FIGURES_DIR, "coding")
 
 # RDD subdirectories (by analysis variant)
 FIGURES_RDD <- file.path(FIGURES_DIR, "rdd")
@@ -124,7 +131,7 @@ FIGURES_HETEROGENEITY_PROB <- file.path(FIGURES_HETEROGENEITY, "prob")
 # Create directories if they don't exist
 all_dirs <- c(
   DATA_RAW, DATA_PROCESSED, DATA_INTERMEDIATE, FIGURES_DIR,
-  FIGURES_TABLES, FIGURES_DESCRIPTIVE, FIGURES_DAG,
+  FIGURES_TABLES, FIGURES_DESCRIPTIVE, FIGURES_DAG, FIGURES_CODING,
   FIGURES_RDD, FIGURES_RDD_DAYS, FIGURES_RDD_CONT, FIGURES_RDD_DROP, FIGURES_RDD_PROB,
   FIGURES_DIFF_DISC, FIGURES_DIFF_DISC_DAYS, FIGURES_DIFF_DISC_CONT, FIGURES_DIFF_DISC_DROP, FIGURES_DIFF_DISC_PROB,
   FIGURES_HETEROGENEITY, FIGURES_HETEROGENEITY_DAYS, FIGURES_HETEROGENEITY_CONT, FIGURES_HETEROGENEITY_DROP, FIGURES_HETEROGENEITY_PROB
