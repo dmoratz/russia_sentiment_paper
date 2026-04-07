@@ -930,7 +930,7 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 
 ```{r}
 # Save the bootstrapped p-val
-bootstrapped_se <- boot_matched_model$p_val
+bootstrapped_se <- boot_matched_model$se
 
 # Respecify the model using lm
 lm_model <- lm(sentiment_z ~ running_probabilistic * treatment * csto +
@@ -948,7 +948,20 @@ sensitivity <- sensemakr(
   reduce = TRUE
 )
 
-summary(sensitivity)
+# Extract coefficient and bootstrapped SE
+coef_interest <- coef(lm_model)["treatment:csto"]
+boot_se <- boot_matched_model$se
+dof <- df.residual(lm_model)
+
+# Corrected t-stat using bootstrapped SE
+t_corrected <- coef_interest / boot_se
+
+# Compute robustness values using corrected t-stat
+rv_point <- sensemakr::robustness_value(t_statistic = t_corrected, dof = dof, q = 1)
+rv_alpha <- sensemakr::robustness_value(t_statistic = t_corrected, dof = dof, q = 1, alpha = 0.05)
+
+cat("RV (q=1):", rv_point, "\n")
+cat("RV (q=1, alpha=0.05):", rv_alpha, "\n")
 ```
 
 
@@ -985,7 +998,7 @@ text(x = 0.01, y = 0.00005,
 # Sensitivity Plot
 
 # Extract the data sensemakr uses for the plot
-ovb_contour_data <- function(sensitivity, lim = 0.005) {
+ovb_contour_data <- function(sensitivity, lim = 0.005, custom_se=NULL) {
   
   # Grid of r2dz.x and r2yz.dx values
   r2dz <- seq(0, lim, length.out = 400)
@@ -994,7 +1007,7 @@ ovb_contour_data <- function(sensitivity, lim = 0.005) {
   
   # Extract key stats
   estimate <- sensitivity$sensitivity_stats$estimate
-  se <- sensitivity$sensitivity_stats$se
+  se <- if (!is.null(custom_se)) custom_se else sensitivity$sensitivity_stats$se
   df <- sensitivity$sensitivity_stats$dof
   
   # Compute adjusted estimate across grid
@@ -1020,7 +1033,7 @@ benchmark_df <- data.frame(
 
 # Build contour data
 # Rebuild with wider x limit
-contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
+contour_data <- ovb_contour_data(sensitivity, lim = 0.1, custom_se = boot_se)
 
 sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   geom_contour(colour = "grey60",
