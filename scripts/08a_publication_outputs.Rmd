@@ -182,7 +182,7 @@ table_1 <- modelsummary(
   statistic = "({std.error})",
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|Num.Obs.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
-  title = "Table 1: H1 RDD — Effect of Russian Invasion on Media Sentiment (Probabilistic Time)",
+  title = "H1 RDD — Effect of Russian Invasion on Media Sentiment (Probabilistic Time)",
   add_rows = rows_t1,
   notes = note_t1
 )
@@ -251,7 +251,7 @@ table_2 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
-  title = "Table 2: H2 Diff-in-Disc — State Ownership Interaction, Z-Score (Probabilistic Time)",
+  title = "H2 Diff-in-Disc — State Ownership Interaction, Z-Score (Probabilistic Time)",
   add_rows = rows_t2,
   notes = note_t2
 )
@@ -311,7 +311,7 @@ table_3 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
-  title = "Table 3: H2 Diff-in-Disc by Topic — Z-Score (Probabilistic Time)",
+  title = "H2 Diff-in-Disc by Topic — Z-Score (Probabilistic Time)",
   add_rows = rows_t3,
   notes = note_t3
 )
@@ -381,7 +381,7 @@ table_4 <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
-  title = "Table 4: H3a Alignment Interaction — Z-Score (Probabilistic Time)",
+  title = "H3a Alignment Interaction — Z-Score (Probabilistic Time)",
   add_rows = rows_t4,
   notes = note_t4
 )
@@ -448,7 +448,7 @@ table_6 <- modelsummary(
     "treatment:high_russia" = "High Russian Pop x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
-  title = "Table 5: H3b Ethnic Russian Population — Null Result, Z-Score (Probabilistic Time)",
+  title = "H3b Ethnic Russian Population — Null Result, Z-Score (Probabilistic Time)",
   add_rows = rows_t6,
   notes = note_t6
 )
@@ -483,7 +483,7 @@ table_data_7 <- data.frame(
 table_7 <- table_data_7 %>%
   gt() %>%
   tab_header(
-    title = "Table 7: Ethnic Russian Population x Russia Security Alignment",
+    title = "Ethnic Russian Population x Russia Security Alignment",
     subtitle = "Country Classification"
   ) %>%
   cols_label(
@@ -541,7 +541,7 @@ table_s1 <- modelsummary(
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S1: H1 RDD — Fixed Effects Robustness (Probabilistic Time)",
+  title = "H1 RDD — Fixed Effects Robustness (Probabilistic Time)",
   add_rows = rows_s1,
   notes = note_s1
 )
@@ -583,7 +583,7 @@ table_s2 <- modelsummary(
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S2: H1 RDD by Topic — Z-Score (Probabilistic Time)",
+  title = "H1 RDD by Topic — Z-Score (Probabilistic Time)",
   add_rows = rows_s2,
   notes = note_s2
 )
@@ -652,7 +652,7 @@ table_s3 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S3: H2 Diff-in-Disc — FE Interaction Core (Probabilistic Time)",
+  title = "H2 Diff-in-Disc — FE Interaction Core (Probabilistic Time)",
   add_rows = rows_s3,
   notes = note_s3
 )
@@ -713,7 +713,7 @@ table_s4 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S4: H2 Diff-in-Disc — Full FE + DID Robustness (Probabilistic Time)",
+  title = "H2 Diff-in-Disc — Full FE + DID Robustness (Probabilistic Time)",
   add_rows = rows_s4,
   notes = note_s4
 )
@@ -776,7 +776,7 @@ table_s5 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S5: H2 Diff-in-Disc by Topic — Full Data (Probabilistic Time)",
+  title = "H2 Diff-in-Disc by Topic — Full Data (Probabilistic Time)",
   add_rows = rows_s5,
   notes = note_s5
 )
@@ -818,53 +818,43 @@ build_loo_table <- function(loo_data, title, subtitle, note) {
     tab_footnote(footnote = str_wrap(note, 80))
 }
 
-if (!is.null(results_h2$loo_summary)) {
-  note_loo_h2 <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:state_owned interaction term. Standard errors clustered at source domain level."
 
-  if (!is.null(results_h2$matched_loo_summary)) {
-    # Combine standard and matched LOO summaries
-    loo_standard <- results_h2$loo_summary %>% mutate(section = "Standard Model")
-    loo_matched <- results_h2$matched_loo_summary %>% mutate(section = "Matched Model")
-    loo_combined <- bind_rows(loo_standard, loo_matched)
+note_loo_h2 <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:state_owned interaction term. Standard errors clustered at source domain level."
 
-    table_s6 <- loo_combined %>%
-      mutate(
-        estimate_fmt = sprintf("%.3f%s", estimate,
-                         case_when(p_value < 0.001 ~ "***",
-                                   p_value < 0.01 ~ "**",
-                                   p_value < 0.05 ~ "*",
-                                   TRUE ~ "")),
-        std_error_fmt = sprintf("(%.3f)", std_error),
-        p_value_fmt = sprintf("%.3f", p_value),
-        n_obs_fmt = format(n_obs, big.mark = ","),
-        bandwidth_fmt = sprintf("%.1f", bandwidth)
-      ) %>%
-      select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
-      gt(groupname_col = "section") %>%
-      cols_label(
-        country_dropped = "Country Dropped",
-        estimate_fmt = "Coefficient",
-        std_error_fmt = "Std. Error",
-        p_value_fmt = "p-value",
-        n_obs_fmt = "N",
-        bandwidth_fmt = "Bandwidth"
-      ) %>%
-      tab_header(title = "Table S6: H2 Leave-One-Out Country Robustness (Probabilistic Time)") %>%
-      tab_footnote(footnote = str_wrap(note_loo_h2, 80))
-  } else {
-    table_s6 <- build_loo_table(
-      results_h2$loo_summary,
-      "Table S6: H2 Leave-One-Out Country Robustness (Probabilistic Time)",
-      "Standard Model",
-      note_loo_h2
-    )
-  }
 
-  table_s6
-  save_table(table_s6, "table_s06_h2_loo", TABLE_SUBDIR)
-} else {
-  cat("WARNING: results_h2$loo_summary not found. Skipping Table S6.\n")
-}
+# Combine standard and matched LOO summaries
+loo_standard <- results_h2$loo_summary %>% mutate(section = "Standard Model")
+loo_matched <- results_h2$matched_loo_summary %>% mutate(section = "Matched Model")
+loo_combined <- bind_rows(loo_standard, loo_matched)
+
+table_s6 <- loo_combined %>%
+  mutate(
+    estimate_fmt = sprintf("%.3f%s", estimate,
+                     case_when(p_value < 0.001 ~ "***",
+                               p_value < 0.01 ~ "**",
+                               p_value < 0.05 ~ "*",
+                               TRUE ~ "")),
+    std_error_fmt = sprintf("(%.3f)", std_error),
+    p_value_fmt = sprintf("%.3f", p_value),
+    n_obs_fmt = format(n_obs, big.mark = ","),
+    bandwidth_fmt = sprintf("%.1f", bandwidth)
+  ) %>%
+  select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
+  gt(groupname_col = "section") %>%
+  cols_label(
+    country_dropped = "Country Dropped",
+    estimate_fmt = "Coefficient",
+    std_error_fmt = "Std. Error",
+    p_value_fmt = "p-value",
+    n_obs_fmt = "N",
+    bandwidth_fmt = "Bandwidth"
+  ) %>%
+  tab_header(title = "H2 Leave-One-Out Country Robustness (Probabilistic Time)") %>%
+  tab_footnote(footnote = str_wrap(note_loo_h2, 80))
+
+table_s6
+save_table(table_s6, "table_s06_h2_loo", TABLE_SUBDIR)
+
 ```
 
 ## Table S7: H3a FE Interaction + Full FE Robustness (Pattern B-fe)
@@ -929,7 +919,7 @@ table_s7 <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S7: H3a Alignment — FE Interaction + Robustness (Probabilistic Time)",
+  title = "H3a Alignment — FE Interaction + Robustness (Probabilistic Time)",
   add_rows = rows_s7,
   notes = note_s7
 )
@@ -953,58 +943,55 @@ h3a_topic_z_models <- list(
   "Other"     = results_align$model5a_opt_oth
 )
 
-if (any(sapply(h3a_topic_z_models, is.null))) {
-  cat("WARNING: Some H3a by-topic Z-score models not found. Skipping Table S8.\n")
-} else {
-  boot_keys_s8z <- c("model5a_opt_z_pol", "model5a_opt_z_mil", "model5a_opt_z_econ",
-                     "model5a_opt_z_cult", "model5a_opt_z_oth")
-  boot_results_s8z <- lapply(boot_keys_s8z, function(k) results_align$bootstrap_se[[k]])
+boot_keys_s8z <- c("model5a_opt_z_pol", "model5a_opt_z_mil", "model5a_opt_z_econ",
+                   "model5a_opt_z_cult", "model5a_opt_z_oth")
+boot_results_s8z <- lapply(boot_keys_s8z, function(k) results_align$bootstrap_se[[k]])
 
-  vcov_s8z <- list(
-    "Political" = create_bootstrap_vcov(h3a_topic_z_models[["Political"]], boot_results_s8z[[1]], "treatment:csto"),
-    "Military"  = create_bootstrap_vcov(h3a_topic_z_models[["Military"]],  boot_results_s8z[[2]], "treatment:csto"),
-    "Economic"  = create_bootstrap_vcov(h3a_topic_z_models[["Economic"]],  boot_results_s8z[[3]], "treatment:csto"),
-    "Cultural"  = create_bootstrap_vcov(h3a_topic_z_models[["Cultural"]],  boot_results_s8z[[4]], "treatment:csto"),
-    "Other"     = create_bootstrap_vcov(h3a_topic_z_models[["Other"]],     boot_results_s8z[[5]], "treatment:csto")
-  )
+vcov_s8z <- list(
+  "Political" = create_bootstrap_vcov(h3a_topic_z_models[["Political"]], boot_results_s8z[[1]], "treatment:csto"),
+  "Military"  = create_bootstrap_vcov(h3a_topic_z_models[["Military"]],  boot_results_s8z[[2]], "treatment:csto"),
+  "Economic"  = create_bootstrap_vcov(h3a_topic_z_models[["Economic"]],  boot_results_s8z[[3]], "treatment:csto"),
+  "Cultural"  = create_bootstrap_vcov(h3a_topic_z_models[["Cultural"]],  boot_results_s8z[[4]], "treatment:csto"),
+  "Other"     = create_bootstrap_vcov(h3a_topic_z_models[["Other"]],     boot_results_s8z[[5]], "treatment:csto")
+)
 
-  n_cl_s8z <- sapply(h3a_topic_z_models, get_n_clusters)
+n_cl_s8z <- sapply(h3a_topic_z_models, get_n_clusters)
 
-  rows_s8z <- tibble::tribble(
-    ~term,            ~Political, ~Military, ~Economic, ~Cultural, ~Other,
-    "Source Z-Score", "X",        "X",       "X",       "X",       "X",
-    "Clusters",       n_cl_s8z[1], n_cl_s8z[2], n_cl_s8z[3], n_cl_s8z[4], n_cl_s8z[5]
-  )
-  attr(rows_s8z, "position") <- c(5, 6)
+rows_s8z <- tibble::tribble(
+  ~term,            ~Political, ~Military, ~Economic, ~Cultural, ~Other,
+  "Source Z-Score", "X",        "X",       "X",       "X",       "X",
+  "Clusters",       n_cl_s8z[1], n_cl_s8z[2], n_cl_s8z[3], n_cl_s8z[4], n_cl_s8z[5]
+)
+attr(rows_s8z, "position") <- c(5, 6)
 
-  note_s8z <- str_wrap(paste(
-    "All models use a source-level Z-Score normalization with the optimal bandwidth.",
-    "Sample restricted to state-owned media in non-NATO countries.",
-    "Each column restricts to the indicated topic category.", SE_NOTE
-  ), 80)
+note_s8z <- str_wrap(paste(
+  "All models use a source-level Z-Score normalization with the optimal bandwidth.",
+  "Sample restricted to state-owned media in non-NATO countries.",
+  "Each column restricts to the indicated topic category.", SE_NOTE
+), 80)
 
-  table_s8z <- modelsummary(
-    h3a_topic_z_models,
-    output = "gt",
-    fmt = fmt_significant(2),
-    stars = TRUE,
-    vcov = vcov_s8z,
-    coef_map = c(
-      "treatment" = "Invasion",
-      "treatment:csto" = "CSTO x Treatment"
-    ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-    title = "Table S8: H3a Alignment by Topic — Z-Score (Probabilistic Time)",
-    add_rows = rows_s8z,
-    notes = note_s8z
-  )
+table_s8z <- modelsummary(
+  h3a_topic_z_models,
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  vcov = vcov_s8z,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
+  title = "H3a Alignment by Topic — Z-Score (Probabilistic Time)",
+  add_rows = rows_s8z,
+  notes = note_s8z
+)
 
-  s8z_col_names <- c("Political", "Military", "Economic", "Cultural", "Other")
-  table_s8z <- override_interaction_stars(table_s8z, boot_results_s8z, s8z_col_names)
+s8z_col_names <- c("Political", "Military", "Economic", "Cultural", "Other")
+table_s8z <- override_interaction_stars(table_s8z, boot_results_s8z, s8z_col_names)
 
-  table_s8z
-  save_table(table_s8z, "table_s08_h3a_z_topic", TABLE_SUBDIR)
-}
+table_s8z
+save_table(table_s8z, "table_s08_h3a_z_topic", TABLE_SUBDIR)
+
 ```
 
 ## Table S9: H3a By-Topic Full Data (Pattern C-fe)
@@ -1059,7 +1046,7 @@ table_s9 <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S9: H3a Alignment by Topic — Full Data (Probabilistic Time)",
+  title = "H3a Alignment by Topic — Full Data (Probabilistic Time)",
   add_rows = rows_s9,
   notes = note_s9
 )
@@ -1077,43 +1064,35 @@ save_table(table_s9, "table_s09_h3a_fe_topic", TABLE_SUBDIR)
 
 note_loo_h3a <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:csto interaction term. Standard errors clustered at source domain level."
 
-if (!is.null(results_align$matched_loo_summary)) {
-  loo_standard_h3a <- results_align$loo_summary %>% mutate(section = "Standard Model")
-  loo_matched_h3a <- results_align$matched_loo_summary %>% mutate(section = "Matched Model")
-  loo_combined_h3a <- bind_rows(loo_standard_h3a, loo_matched_h3a)
 
-  table_s10 <- loo_combined_h3a %>%
-    mutate(
-      estimate_fmt = sprintf("%.3f%s", estimate,
-                       case_when(p_value < 0.001 ~ "***",
-                                 p_value < 0.01 ~ "**",
-                                 p_value < 0.05 ~ "*",
-                                 TRUE ~ "")),
-      std_error_fmt = sprintf("(%.3f)", std_error),
-      p_value_fmt = sprintf("%.3f", p_value),
-      n_obs_fmt = format(n_obs, big.mark = ","),
-      bandwidth_fmt = sprintf("%.1f", bandwidth)
-    ) %>%
-    select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
-    gt(groupname_col = "section") %>%
-    cols_label(
-      country_dropped = "Country Dropped",
-      estimate_fmt = "Coefficient",
-      std_error_fmt = "Std. Error",
-      p_value_fmt = "p-value",
-      n_obs_fmt = "N",
-      bandwidth_fmt = "Bandwidth"
-    ) %>%
-    tab_header(title = "Table S10: H3a Leave-One-Out Country Robustness (Probabilistic Time)") %>%
-    tab_footnote(footnote = str_wrap(note_loo_h3a, 80))
-} else {
-  table_s10 <- build_loo_table(
-    results_align$loo_summary,
-    "Table S10: H3a Leave-One-Out Country Robustness (Probabilistic Time)",
-    "Non-Military Topics Model",
-    note_loo_h3a
-  )
-}
+loo_standard_h3a <- results_align$loo_summary %>% mutate(section = "Standard Model")
+loo_matched_h3a <- results_align$matched_loo_summary %>% mutate(section = "Matched Model")
+loo_combined_h3a <- bind_rows(loo_standard_h3a, loo_matched_h3a)
+
+table_s10 <- loo_combined_h3a %>%
+  mutate(
+    estimate_fmt = sprintf("%.3f%s", estimate,
+                     case_when(p_value < 0.001 ~ "***",
+                               p_value < 0.01 ~ "**",
+                               p_value < 0.05 ~ "*",
+                               TRUE ~ "")),
+    std_error_fmt = sprintf("(%.3f)", std_error),
+    p_value_fmt = sprintf("%.3f", p_value),
+    n_obs_fmt = format(n_obs, big.mark = ","),
+    bandwidth_fmt = sprintf("%.1f", bandwidth)
+  ) %>%
+  select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
+  gt(groupname_col = "section") %>%
+  cols_label(
+    country_dropped = "Country Dropped",
+    estimate_fmt = "Coefficient",
+    std_error_fmt = "Std. Error",
+    p_value_fmt = "p-value",
+    n_obs_fmt = "N",
+    bandwidth_fmt = "Bandwidth"
+  ) %>%
+  tab_header(title = "H3a Leave-One-Out Country Robustness (Probabilistic Time)") %>%
+  tab_footnote(footnote = str_wrap(note_loo_h3a, 80))
 
 table_s10
 save_table(table_s10, "table_s10_h3a_loo", TABLE_SUBDIR)
@@ -1201,7 +1180,7 @@ table_s11 <- decomp_combined %>%
     n_col = "N"
   ) %>%
   tab_header(
-    title = "Table S11: Treatment Effect Decomposition by Source"
+    title = "Treatment Effect Decomposition by Source"
   ) %>%
   tab_footnote(footnote = note_decomp) %>%
   sub_values(values = "", replacement = "\u2014")
@@ -1298,7 +1277,7 @@ table_s12 <- placebo_summary %>%
     Bandwidth_fmt = "Bandwidth",
     N_fmt = "N"
   ) %>%
-  tab_header(title = "Table S11: Placebo Test Summary (Probabilistic Time)",
+  tab_header(title = "Placebo Test Summary (Probabilistic Time)",
              subtitle = "December 7, 2021 False Treatment Date") %>%
   tab_footnote(footnote = note_placebo)
 
