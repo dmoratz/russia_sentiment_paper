@@ -244,7 +244,7 @@ invasion_discs_graph <- data_non_ukraine %>%
     title = "Effect of Invasion on Sentiment (Probabilistic Time Assignment)",
     subtitle = "Difference in Discontinuities",
     x = "Days Pre/Post Invasion",
-    y = "Sentiment"
+    y = "Raw Sentiment"
   )
 
 invasion_discs_graph
