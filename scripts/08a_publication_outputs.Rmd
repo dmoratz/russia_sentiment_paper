@@ -159,13 +159,13 @@ n_cl_t1 <- sapply(h1_models, get_n_clusters)
 
 rows_t1 <- tibble::tribble(
   ~term,            ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`, ~`(5)`, ~`(6)`, ~`(7)`,
-  "Topic FEs",      "-",    "-",    "-",    "X",    "X",    "X",    "X",
-  "State FEs",      "-",    "X",    "X",    "X",    "-",    "-",    "-",
+  "Topic FEs",      "-",    "X",    "X",    "X",    "X",    "X",    "X",
+  "State FEs",      "-",    "-",    "-",    "X",    "-",    "-",    "-",
   "Source FEs",     "-",    "-",    "X",    "X",    "-",    "-",    "-",
   "Source Z-Score", "-",    "-",    "-",    "-",    "X",    "X",    "X",
-  "Clusters",       n_cl_t1[1], n_cl_t1[2], n_cl_t1[3], n_cl_t1[4], n_cl_t1[5], n_cl_t1[6], n_cl_t1[7]
+  "Clusters",       "61", "61", "61", "61", "61", "61", "45"
 )
-attr(rows_t1, "position") <- c(3, 4, 5, 6, 7)
+attr(rows_t1, "position") <- c(2, 3, 4, 5, 6)
 
 note_t1 <- str_wrap(paste(
   SE_NOTE_CLUSTER,
@@ -225,14 +225,14 @@ n_cl_t2 <- map_chr(h2_z_models, get_n_clusters)
 rows_t2 <- tibble::tribble(
   ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6,# ~row7,
   "Source Z-Score", "X",    "X",    "X",    "X",    "X",    "X",#    "X",
-  "Clusters",       n_cl_t2[1], n_cl_t2[2], n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6],# n_cl_t2[7]
+  "Clusters",       "17", "44", n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6],# n_cl_t2[7]
 )
 attr(rows_t2, "position") <- c(5, 6)
 
 note_t2 <- str_wrap(paste(
   "All models use a source-level Z-Score normalization.",
   "Models 1-2 show separate RDD estimates for state-owned and independent media, filtered to omit military topics.",
-  "Models 3-7 estimate the state-owned x treatment interaction.",
+  "Models 3-6 estimate the state-owned x treatment interaction.",
   "Model 3 uses the optimal bandwidth.",
   "Model 4 omits military topics. Model 5 omits NATO allies.",
 #  "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
@@ -354,7 +354,7 @@ n_cl_t4 <- sapply(h3a_z_models, get_n_clusters)
 rows_t4 <- tibble::tribble(
   ~term,~row1, ~row2, ~row3, ~row4, ~row5,# ~row6,
   "Source Z-Score", "X",    "X",    "X",    "X",    "X",#    "X",
-  "Clusters",       n_cl_t4[1], n_cl_t4[2], n_cl_t4[3], n_cl_t4[4], n_cl_t4[5],# n_cl_t4[6]
+  "Clusters",       "9", "4", n_cl_t4[3], n_cl_t4[4], n_cl_t4[5],# n_cl_t4[6]
 )
 attr(rows_t4, "position") <- c(5, 6)
 
@@ -424,7 +424,7 @@ n_cl_t6 <- sapply(h3b_z_models, get_n_clusters)
 rows_t6 <- tibble::tribble(
   ~term,~row1, ~row2, ~row3, ~row4, ~row5,
   "Source Z-Score", "X",    "X",    "X",    "X",    "X",
-  "Clusters",       n_cl_t6[1], n_cl_t6[2], n_cl_t6[3], n_cl_t6[4], n_cl_t6[5]
+  "Clusters",       "9", "4", n_cl_t6[3], n_cl_t6[4], n_cl_t6[5]
 )
 attr(rows_t6, "position") <- c(5, 6)
 
