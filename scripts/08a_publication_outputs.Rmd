@@ -165,7 +165,7 @@ rows_t1 <- tibble::tribble(
   "Source Z-Score", "-",    "-",    "-",    "-",    "X",    "X",    "X",
   "Clusters",       "61", "61", "61", "61", "61", "61", "45"
 )
-attr(rows_t1, "position") <- c(2, 3, 4, 5, 6)
+attr(rows_t1, "position") <- NULL
 
 note_t1 <- str_wrap(paste(
   SE_NOTE_CLUSTER,
@@ -179,6 +179,7 @@ table_1 <- modelsummary(
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
+  statistic = "({std.error})",
   coef_map = c("treatment" = "Invasion"),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|Num.Obs.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
   title = "Table 1: H1 RDD — Effect of Russian Invasion on Media Sentiment (Probabilistic Time)",
