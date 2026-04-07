@@ -1024,7 +1024,7 @@ contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
 
 sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   geom_contour(colour = "grey60",
-               breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
+               breaks = c(-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4)) +
   geom_contour(breaks = 0,
                colour = "red",
                linetype = "dashed",
@@ -1035,7 +1035,7 @@ sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjust
              inherit.aes = FALSE) +
   annotate("point", x = 0, y = 0, shape = 17, size = 3) +
   annotate("text", x = 0.002, y = 0.003,
-           label = "Unadjusted\n(-0.146)",
+           label = "Unadjusted\n(-0.38)",
            size = 5, hjust = 0) +
   annotate("text", x = 0.047, y = 0.003,
            label = "running:treatment",
@@ -1799,8 +1799,8 @@ note_wrapped <- str_wrap(note_text, width = 80)
 table_3i <- modelsummary(
   list("(1)" = model5a, "(2)" = model5a_full, "(3)" = model5a_opt,
        "(4)" = model5a_opt_non_mil, "(5)" = model5a_opt_russian,
-       "(6)" = model5a_opt_full_fe, "(7)" = model5a_opt_non_mil_full_fe,
-       "(8)" = model5a_fully_saturated),
+       "(6)" = model5a_opt_full_fe, "(7)" = model5a_opt_non_mil_full_fe),
+       #"(8)" = model5a_fully_saturated),
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
