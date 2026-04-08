@@ -1,0 +1,25 @@
+Presentation feedback:
+
+From Erik (advisor):
+Broaden the puzzle of constrained communication. This is really important for the placement of the paper
+“IR scholarship”: these are all CP cites. 
+https://www.worldscientific.com/doi/full/10.1142/S2630531323500087
+Analytical acccount/strategy: seems complicated–communicating “true preferences” vs. virtue signaling to the west; really complicated story.
+Why not liberalize non-state media to criticize more
+Why is this a credible mode of communication? Maybe its not about credibility per se so much as increasing uncertainty
+Belarussian economy–my logic is pretty general. It also might help for thinking about generalizability, i.e. patron states are more likely to let their client states signal like this under conditions of greater econ interdependence, etc. 
+
+I’d give more examples of articles to fix thoughts about positive and negative articles really look like. More generally, your presentation of the evidence is very methodsy and tabular. It’d help to give the results some more substantive interpretation.
+
+
+
+Audience Feedback, jotted down notes:
+1. Other Cases: US and allies with relation to Gaza, US and central America
+2. Make the puzzle general, really hammer this
+3. On logic: Potential thought- Russia benefits economically if its clients are not sanctioned, so maybe that helps explain why Russia doesn't punish? (my thought- does this detract from credibility requirement though)
+4. On logic: Is it enough to just create uncertainty amongst Western analysts? Do these preferences need to be genuine or could we drop that language?
+5. On explanation: 3 actors (Patron, Client, Signal target). The Russian audience is too complicating for the story
+6. Set up H2 better and what it does (maybe include a neutral independent vs state-owned graph to show that the neutral state media is not a floor effect)
+7. Don't downplay state-media as informal, it is formal. (my thoughts: State media is formal — it's a government institution with editorial hierarchies, budgets, and political oversight. Calling it "informal" undersells the apparatus and risks conflating it with things like back-channel conversations or leaked signals, which really are informal. The distinction you need is between directly attributable channels (UN votes, official statements, diplomatic communiqués — things that are on the record as the state's position) and institutionally mediated channels (state media — formally controlled but institutionally separated enough to preserve deniability). But we really need to be careful if this is the distinction we're making if we're going to drop the Russian audience logic with the deniability mechanism really being weak)
+8. Be explicit on the costs/benefits
+9. Maybe show trade remained stable?
