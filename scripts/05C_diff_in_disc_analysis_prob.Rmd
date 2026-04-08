@@ -793,23 +793,20 @@ cat("Bootstrap p-value:", boot_model2a_opt_oth$p_val, "\n")
 
 # Robustness
 
-## Leave-One-Out Country Robustness
+## Leave-One-Out Non-Z Country Robustness
 
 ```{r loo-country-prob}
-# Use non-military data within optimal bandwidth for LOO analysis
-data_non_mil_bw <- data_non_mil %>%
-  filter(running_probabilistic < optimal_bw, running_probabilistic > -optimal_bw)
-
-countries <- unique(data_non_mil_bw$country)
+# Use non-military data recalculate optimal bandwidth each time
+countries <- unique(data_non_mil$country)
 loo_results <- list()
 
 for (cntry in countries) {
-  data_loo <- data_non_mil_bw %>%
+  data_loo <- data_non_mil %>%
     filter(country != cntry)%>%
   droplevels()
 
   # Re-calculate optimal bandwidth for LOO data
-  resid_y_loo <- feols(sentiment_clean ~ 1 | topic_clean + state_owned,
+  resid_y_loo <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
                        data = data_loo)$residuals
   bw_loo <- rdbwselect(y = resid_y_loo,
                        x = data_loo$running_probabilistic,
@@ -824,7 +821,7 @@ for (cntry in countries) {
     filter(running_probabilistic < optimal_bw_loo, running_probabilistic > -optimal_bw_loo)%>%
   droplevels()
 
-  model_loo <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
+  model_loo <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
                      cluster = ~source_domain,
                      data = data_loo_bw)
 
@@ -868,10 +865,11 @@ data_dec <- data %>%
     running_probabilistic = as.numeric(difftime(date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")/86400),
     treatment = ifelse(date_publish_probabilistic < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
   )%>%
+  filter(!is.na(sentiment_z), !is.na(topic_clean), !is.na(state_owned))%>%
   droplevels()
 
 # Find optimal bandwidth for placebo
-resid_y_placebo <- feols(sentiment_clean ~ 1 | topic_clean + state_owned,
+resid_y_placebo <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
                          data = data_dec)$residuals
 bw_placebo <- rdbwselect(y = resid_y_placebo,
                          x = data_dec$running_probabilistic,
@@ -887,7 +885,7 @@ data_dec_bw <- data_dec %>%
   filter(running_probabilistic < optimal_bw_placebo, running_probabilistic > -optimal_bw_placebo)%>%
   droplevels()
 
-model4a <- feols(sentiment_clean ~ running_probabilistic * treatment * state_owned | topic_clean,
+model4a <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
                  cluster = ~source_domain,
                  data = data_dec_bw)
 
@@ -999,10 +997,14 @@ cat("Z-score matched model — Bootstrap p-value:", boot_matched_model_z$p_val, 
 ## Sensitivity Analysis (OVB)
 
 ```{r sensitivity-h2-prob}
-# Respecify the model using lm for sensemakr
-lm_model <- lm(sentiment_clean ~ running_probabilistic * treatment * state_owned +
-                 factor(topic_clean) + factor(source_domain),
+# Save the bootstrapped p-val
+bootstrapped_se <- boot_matched_model$se
+
+# Respecify the model using lm
+lm_model <- lm(sentiment_z ~ running_probabilistic * treatment * state_owned +
+                 factor(topic_clean),
                data = matched_data)
+
 
 # Sensitivity analysis
 sensitivity <- sensemakr(
@@ -1014,7 +1016,20 @@ sensitivity <- sensemakr(
   reduce = TRUE
 )
 
-summary(sensitivity)
+# Extract coefficient and bootstrapped SE
+coef_interest <- coef(lm_model)["treatment:csto"]
+boot_se <- boot_matched_model$se
+dof <- df.residual(lm_model)
+
+# Corrected t-stat using bootstrapped SE
+t_corrected <- coef_interest / boot_se
+
+# Compute robustness values using corrected t-stat
+rv_point <- sensemakr::robustness_value(t_statistic = t_corrected, dof = dof, q = 1)
+rv_alpha <- sensemakr::robustness_value(t_statistic = t_corrected, dof = dof, q = 1, alpha = 0.05)
+
+cat("RV (q=1):", rv_point, "\n")
+cat("RV (q=1, alpha=0.05):", rv_alpha, "\n")
 ```
 
 ```{r sensitivity-r2-h2-prob}
@@ -1027,19 +1042,21 @@ treatment_r2 <- partial_r2(lm_model, covariates = c("treatment"))
 ```
 
 ```{r sensitivity-plot-h2-prob, fig.width=10, fig.height=7}
-# Extract the data sensemakr uses for the plot
-ovb_contour_data <- function(sensitivity, lim = 0.005) {
+# Sensitivity Plot
 
+# Extract the data sensemakr uses for the plot
+ovb_contour_data <- function(sensitivity, lim = 0.005, custom_se=NULL) {
+  
   # Grid of r2dz.x and r2yz.dx values
   r2dz <- seq(0, lim, length.out = 400)
   r2yz <- seq(0, lim, length.out = 400)
   grid <- expand.grid(r2dz.x = r2dz, r2yz.dx = r2yz)
-
+  
   # Extract key stats
   estimate <- sensitivity$sensitivity_stats$estimate
-  se <- sensitivity$sensitivity_stats$se
+  se <- if (!is.null(custom_se)) custom_se else sensitivity$sensitivity_stats$se
   df <- sensitivity$sensitivity_stats$dof
-
+  
   # Compute adjusted estimate across grid
   grid$adjusted <- mapply(function(r2dz, r2yz) {
     sensemakr::adjusted_estimate(
@@ -1050,7 +1067,7 @@ ovb_contour_data <- function(sensitivity, lim = 0.005) {
       r2yz.dx = r2yz
     )
   }, grid$r2dz.x, grid$r2yz.dx)
-
+  
   return(grid)
 }
 
@@ -1061,12 +1078,16 @@ benchmark_df <- data.frame(
   label = sensitivity$bounds$bound_label
 )
 
-# Build contour data with wider x limit
-contour_data <- ovb_contour_data(sensitivity, lim = 0.1)
+# Build contour data
+# Extract actual estimate
+unadj_est <- round(sensitivity$sensitivity_stats$estimate, 2)
 
-sensitivity <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
+# Build contour data
+contour_data <- ovb_contour_data(sensitivity, lim = 0.1, custom_se = boot_se)
+
+sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   geom_contour(colour = "grey60",
-               breaks = c(-0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3)) +
+               breaks = c(-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4)) +
   geom_contour(breaks = 0,
                colour = "red",
                linetype = "dashed",
@@ -1077,9 +1098,11 @@ sensitivity <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) 
              inherit.aes = FALSE) +
   annotate("point", x = 0, y = 0, shape = 17, size = 3) +
   annotate("text", x = 0.002, y = 0.003,
-           label = "Unadjusted",
+           label = paste0("Unadjusted\n(", unadj_est, ")"),
            size = 5, hjust = 0) +
-  annotate("text", x = 0.047, y = 0.003,
+  annotate("text",
+           x = benchmark_df$r2dz.x[1] + 0.002,
+           y = benchmark_df$r2yz.dx[1] + 0.003,
            label = "running:treatment",
            size = 5, hjust = 0) +
   coord_cartesian(xlim = c(0, 0.1), ylim = c(0, 0.1)) +
@@ -1088,9 +1111,9 @@ sensitivity <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) 
   scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
                      labels = scales::number_format(accuracy = 0.01)) +
   labs(
-    x = "Partial R² of confounder with state ownership",
+    x = "Partial R² of confounder with CSTO membership",
     y = "Partial R² of confounder with sentiment",
-    title = "Sensitivity to Unobserved Confounding, State Ownership",
+    title = "Sensitivity to Unobserved Confounding, CSTO Affiliation",
     subtitle = "Red dashed line indicates where estimate = 0"
   ) +
   theme_bw() +
@@ -1100,7 +1123,9 @@ sensitivity <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) 
     legend.position = "none"
   )
 
-ggsave(plot = sensitivity,
+sensitivity_plot
+
+ggsave(plot = sensitivity_plot,
        file.path(FIGURES_DIFF_DISC_PROB, "sensitivity_ovb_state_owned.png"),
        width = 10, height = 7)
 ```
@@ -1116,14 +1141,13 @@ matched_loo_results <- list()
 
 for (cntry in countries_match) {
   data_loo_m <- data_non_mil %>%
-    filter(running_probabilistic < optimal_bw, running_probabilistic > -optimal_bw) %>%
     filter(country != cntry) %>%
     select(sentiment_clean, sentiment_z, running, running_probabilistic, treatment, state_owned,
            topic_clean, source_domain, country)
 
   # Re-calculate optimal bandwidth for LOO data
   bw_loo_m <- tryCatch({
-    resid_y_loo_m <- feols(sentiment_clean ~ 1 | topic_clean + state_owned,
+    resid_y_loo_m <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
                            data = data_loo_m)$residuals
     rdbwselect(y = resid_y_loo_m,
                x = data_loo_m$running_probabilistic,
@@ -1166,7 +1190,7 @@ for (cntry in countries_match) {
 
   matched_data_loo <- match.data(ps_model_loo)
 
-  matched_model_loo <- feols(sentiment_clean ~ running_probabilistic
+  matched_model_loo <- feols(sentiment_z ~ running_probabilistic
                                * treatment * state_owned |
                                  topic_clean + source_domain,
                              cluster = ~source_domain,
