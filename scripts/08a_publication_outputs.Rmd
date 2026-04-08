@@ -197,7 +197,7 @@ save_table(table_1, "table_01_main", TABLE_SUBDIR)
 # Define model list and bootstrap keys
 h2_z_models <- list(
   "(1) State-Owned\u2021" = results_h2$model2_state_rdd_z,
-  "(2) Independent\u2021" = results_h2$model2_ind_rdd_z,
+  "(2) Ind.\u2021" = results_h2$model2_ind_rdd_z,
   "(3)\u2020" = results_h2$model2a_opt_z,
   "(4)\u2020" = results_h2$model2b_z,
   "(5)\u2020" = results_h2$model2d_z,
@@ -213,7 +213,7 @@ boot_results_t2 <- lapply(boot_keys_t2, function(k) results_h2$bootstrap_se[[k]]
 # Build vcov list: NULL for rdrobust, create_bootstrap_vcov for felm
 vcov_t2 <- list(
   "(1) State-Owned\u2021" = NULL,
-  "(2) Independent\u2021" = NULL,
+  "(2) Ind.\u2021" = NULL,
   "(3)\u2020" = create_bootstrap_vcov(results_h2$model2a_opt_z, boot_results_t2[[1]], "treatment:state_owned"),
   "(4)\u2020" = create_bootstrap_vcov(results_h2$model2b_z, boot_results_t2[[2]], "treatment:state_owned"),
   "(5)\u2020" = create_bootstrap_vcov(results_h2$model2d_z, boot_results_t2[[3]], "treatment:state_owned"),
@@ -248,7 +248,7 @@ table_2 <- modelsummary(
   vcov = vcov_t2,
   coef_map = c(
     "treatment" = "Invasion",
-    "treatment:state_owned" = "State Owned x Treatment"
+    "treatment:state_owned" = "State-Owned x Treat"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
   title = "H2 Diff-in-Disc — State Ownership Interaction, Z-Score (Probabilistic Time)",
@@ -1305,9 +1305,9 @@ fix_gt_caption <- function(filepath) {
 
 gt_tables <- c("table_s06_h2_loo", "table_s10_h3a_loo", 
                "table_s11_decomposition", "table_s12_placebo")
-#for (t in gt_tables) {
-#  fix_gt_caption(file.path(TABLE_SUBDIR, paste0(t, ".tex")))
-#}
+for (t in gt_tables) {
+  fix_gt_caption(here::here(paste0("figures/tables/",TABLE_SUBDIR), paste0(t, ".tex")))
+}
 ```
 
 
