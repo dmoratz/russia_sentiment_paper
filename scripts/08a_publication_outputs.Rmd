@@ -1285,6 +1285,32 @@ table_s12
 save_table(table_s12, "table_s12_placebo", TABLE_SUBDIR)
 ```
 
+
+# GT Caption Fix
+
+```{r}
+fix_gt_caption <- function(filepath) {
+  tex <- readLines(filepath)
+  text <- paste(tex, collapse = "\n")
+  
+  # Match the full gt caption block and extract the title
+  text <- gsub(
+    "\\\\caption\\*\\{\\s*\n\\{\\\\fontsize\\{[^}]+\\}\\{[^}]+\\}\\\\selectfont\\s+(.+?)\\\\fontsize\\{[^}]+\\}\\{[^}]+\\}\\\\selectfont\\s*\\}\\s*\n\\}",
+    "\\\\caption{\\1}",
+    text
+  )
+  
+  writeLines(text, filepath)
+}
+
+gt_tables <- c("table_s06_h2_loo", "table_s10_h3a_loo", 
+               "table_s11_decomposition", "table_s12_placebo")
+for (t in gt_tables) {
+  fix_caption(file.path(TABLE_SUBDIR, paste0(t, ".tex")))
+}
+```
+
+
 # Summary
 
 ```{r summary}
