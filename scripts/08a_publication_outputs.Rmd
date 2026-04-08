@@ -1249,7 +1249,7 @@ if (has_h1_z_placebo) {
 }
 
 note_placebo <- str_wrap(paste(
-  "Placebo tests using December 7, 2021 (Putin's announcement) as a false treatment date.",
+  "Placebo tests using December 7, 2021 (Biden's announcement) as a false treatment date.",
   "Data restricted to pre-invasion period (before Feb 19, 2022).",
   "Model 1 uses rdrobust; remaining models use felm with optimal bandwidth.",
   "Non-significant treatment effects suggest parallel trends assumption holds."
