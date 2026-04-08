@@ -1305,9 +1305,9 @@ fix_gt_caption <- function(filepath) {
 
 gt_tables <- c("table_s06_h2_loo", "table_s10_h3a_loo", 
                "table_s11_decomposition", "table_s12_placebo")
-for (t in gt_tables) {
-  fix_caption(file.path(TABLE_SUBDIR, paste0(t, ".tex")))
-}
+#for (t in gt_tables) {
+#  fix_gt_caption(file.path(TABLE_SUBDIR, paste0(t, ".tex")))
+#}
 ```
 
 
