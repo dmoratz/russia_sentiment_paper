@@ -540,7 +540,7 @@ table_s1 <- modelsummary(
   fmt = fmt_significant(2),
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
   title = "H1 RDD — Fixed Effects Robustness (Probabilistic Time)",
   add_rows = rows_s1,
   notes = note_s1
@@ -582,7 +582,7 @@ table_s2 <- modelsummary(
   fmt = fmt_significant(2),
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
   title = "H1 RDD by Topic — Z-Score (Probabilistic Time)",
   add_rows = rows_s2,
   notes = note_s2
