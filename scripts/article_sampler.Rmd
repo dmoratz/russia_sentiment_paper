@@ -1,0 +1,52 @@
+---
+title: "Article Sampler"
+output: html_document
+date: "2026-04-09"
+---
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_PROB, "/"))
+options(digits = 10)
+
+set.seed(3184)
+```
+
+```{r}
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+```
+
+```{r}
+# Get a sample of articles that are Other
+
+other_articles <- data_non_ukraine %>%
+  filter(topic_clean == "Other")
+
+other_sample <- other_articles[sample(nrow(other_articles),100),]
+write.csv(other_sample,paste0(here(),"/data/","other_sample.csv"))
+```
+
+```{r}
+# Get a random sample of articles for sentiment
+positive <- data_non_ukraine %>%
+  filter(sentiment_clean == "1")
+
+positive_sample <- positive[sample(nrow(positive),100),]
+write.csv(positive_sample,paste0(here(),"/data/","positive_sample.csv"))
+
+
+negative <- data_non_ukraine %>%
+  filter(sentiment_clean == "-1")
+
+negative_sample <- negative[sample(nrow(negative),100),]
+write.csv(negative_sample,paste0(here(),"/data/","negative_sample.csv"))
+
+
+neutral <- data_non_ukraine %>%
+  filter(sentiment_clean == "0")
+
+neutral_sample <- neutral[sample(nrow(neutral),100),]
+write.csv(neutral_sample,paste0(here(),"/data/","neutral_sample.csv"))
+
+```
+
