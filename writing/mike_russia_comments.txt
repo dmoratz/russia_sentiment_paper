@@ -1,0 +1,172 @@
+
+Page 1 | Highlight | Michael Horowitz
+Anchored text: mally condemn the invasion. Our analysis bridges a gap between political science, which
+has largely treated state media as a domestic tool, and Western intelligence services,
+which have monitored it as a window into regime preferences since the Cold War.
+
+Comment: Clear abstract. I like it.
+------------------------------------------------------------
+
+Page 13 | Highlight | Michael Horowitz
+Anchored text: predictions for H3 provides additional leverage for distinguishing between them.
+Hypothesis 3: State-owned media in states with formal security agreements with
+Russia will respond more negatively to the invasion than state-owned media in neutral
+states.
+If domestic audience management were the primary driver, we would further expect
+coverage patterns to track the size of ethnic Russian populations across our sample—
+since Russia explicitly justified the invasion as protection of ethnic Russians abroad,
+regimes with larger ethnic Russian minorities would face the strongest domestic incen-
+tive to suppress critical coverage. We return to the opposite-predictions test and the
+
+Comment: Hypothesis flow is solid here + moves clearly from the theory.
+------------------------------------------------------------
+
+Page 14 | Highlight | Michael Horowitz
+Anchored text: (Walker, 2024). For most states, the path to a public response was straightforward.
+For the states in our sample, it was not.
+
+Comment: This raises the question of comparing the states in your sample to other states outside your sample. . .
+------------------------------------------------------------
+
+Page 15 | Highlight | Michael Horowitz
+Anchored text: other alliance members. Ukraine is included in our dataset but excluded from the main
+analysis given its direct role as the invaded party.
+
+Comment: Correct choice. I was going to say. . .
+------------------------------------------------------------
+
+Page 16 | Highlight | Michael Horowitz
+Anchored text: tioned at the border (Walker, 2024). Even so, the decision to launch a comprehensive
+invasion rather than a more limited operation represented a threshold that most ob-
+servers, including many within the states in our sample, had not fully anticipated. This
+
+Comment: Add a few citations + give a little more context here.
+------------------------------------------------------------
+
+Page 18 | Highlight | Michael Horowitz
+Anchored text: that fine-tuning was unnecessary. Applying the classifier to the full article text did not produce significant
+performance gains, so we used a truncated portion to reduce computational costs.
+
+Comment: Can you say more about this and the potential impact on the results?
+------------------------------------------------------------
+
+Page 18 | Highlight | Michael Horowitz
+Anchored text: To validate the classifier, we constructed a gold standard of 100 randomly selected
+articles, adversarially double-coded by the coauthors and debated to consensus. The F1
+score for the sentiment classifier is .92 and for the topic classifier is .80, with confusion
+matrices reported in Figures A1 and A2. The high F1 scores provide confidence that
+the gold standard, though modest in size, is adequate for validation. One feature of the
+classifier merits note: it is more likely than human coders to classify political articles as
+other, an artifact of the overlap between these categories in the data.4 Representative
+examples of articles coded at each sentiment level are presented in the appendix.
+
+Comment: Nice this is great + reassuring
+------------------------------------------------------------
+
+Page 19 | Highlight | Michael Horowitz
+Anchored text: e sharp discontinuity of
+
+Comment: Do you always need to say sharp? I mean it's the day the invasion started, so is relatively clear.
+------------------------------------------------------------
+
+Page 21 | Highlight | Michael Horowitz
+Anchored text: same discontinuity at the cutoff. The threat to identification is a factor that produces a
+differential jump in sentiment at the invasion date, is correlated with group membership,
+but operates through a channel other than the one our theory describes. We discuss
+
+Comment: Ok
+------------------------------------------------------------
+
+Page 22 | Highlight | Michael Horowitz
+Anchored text: graph in Figure 2 illustrates the core identification challenge. The invasion does not
+only change how outlets write about Russia—it also changes what they write about. If
+
+Comment: Good insight
+------------------------------------------------------------
+
+Page 23 | Highlight | Michael Horowitz
+Anchored text: Within our sample, each outlet has a fixed country and ownership type.
+
+Comment: None are international/multi-national?
+------------------------------------------------------------
+
+Page 29 | Highlight | Michael Horowitz
+Anchored text: We address this using the wild cluster restricted (WCR) bootstrap of Cameron et al.
+(2008) with Webb six-point weights and 4,999 replications, imposing the null hypothesis.
+The WCR bootstrap provides asymptotic refinement relative to cluster-robust standard
+errors when the number of clusters is small, and the restricted version (imposing the
+null) has better finite-sample properties than the unrestricted alternative (MacKinnon
+& Webb, 2017). We report the bootstrap p-values for all RDID specifications. For the
+rdrobust models (hypothesis 1), inference relies on the package’s internal cluster-robust
+standard errors at the source level.
+As a further check on inference, we estimate fully saturated source-by-topic RDDs
+in the appendix—a separate regression for each source-topic cell—and aggregate using
+both a pairs bootstrap at the source level and a Bayesian bootstrap with Dirichlet-
+distributed weights (Oganisian & Roy, 2021; Rubin, 1981). Because each cell constitutes
+its own regression, this approach sidesteps the clustering problem entirely, though at
+the cost of reduced power. Results are consistent with the main specifications.
+
+Comment: Was going to ask about this. Make sure you are really nailed down on it.
+------------------------------------------------------------
+
+Page 31 | Highlight | Michael Horowitz
+Anchored text: Robustness and Sensitivity
+
+Comment: I might put this after the main results
+------------------------------------------------------------
+
+Page 35 | Highlight | Michael Horowitz
+Anchored text: demeans
+
+Comment: Maybe say "measures" or something simpler instead?
+------------------------------------------------------------
+
+Page 36 | Highlight | Michael Horowitz
+Anchored text: Figure 5: RDD estimate of the effect of the invasion on sentiment toward Russia, non-military
+articles. Each point represents one day, sized by the number of articles published. The dashed line
+marks February 24th, 2022.
+
+Comment: This is so striking. well done.
+------------------------------------------------------------
+
+Page 38 | Highlight | Michael Horowitz
+Anchored text: and recovers more slowly. The gap between the two post-invasion trend lines reflects
+the RDID interaction.
+
+Comment: Nice!
+------------------------------------------------------------
+
+Page 38 | Highlight | Michael Horowitz
+Anchored text: Figure 6: RDD estimates of the effect of the invasion on sentiment toward Russia by media type,
+non-military articles. Each point represents one day, sized by the number of articles published.
+The dashed line marks February 24th, 2022.
+
+Comment: Can you add one before/after example from one of the countries as a paragraph?
+------------------------------------------------------------
+
+Page 42 | Highlight | Michael Horowitz
+Anchored text: The direction of this result provides leverage for distinguishing between the compet-
+ing theoretical accounts. A domestic audience management account and our signaling
+account generate opposite predictions for hypothesis 3, and the data are consistent
+with the signaling account. CSTO-aligned states did not suppress negative coverage to
+protect the alliance relationship; they permitted—or directed—a sharper negative shift
+in their state media than neutral states whose formal channels were unconstrained. As
+discussed in the Interpreting the RDID section, we interpret this differential as condi-
+tional on group membership rather than as a causal effect of CSTO membership per
+se, but two additional features of the analysis provide evidence that the pattern reflects
+the mechanism our theory describes rather than an omitted confounder.
+
+Comment: Add a few examples from the dataset to illustrate your point. These pages are critical.
+------------------------------------------------------------
+
+Page 44 | Highlight | Michael Horowitz
+Anchored text: dimension Russia itself invoked to justify the invasion.
+Table 5 presents the cross-
+classification of countries by CSTO alignment and ethnic Russian population share.
+The two dimensions cross-cut cleanly: Azerbaijan and Armenia are CSTO-aligned but
+have low ethnic Russian populations, while Moldova and Georgia are neutral but have
+high ethnic Russian populations. This cross-cutting structure gives the test discrimi-
+nating power: a result driven by cultural proximity would appear in the ethnic Russian
+
+Comment: Add 2 more sentences on why doing it this way is a good idea
+------------------------------------------------------------
