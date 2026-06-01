@@ -1010,14 +1010,14 @@ lm_model <- lm(sentiment_z ~ running_probabilistic * treatment * state_owned +
 sensitivity <- sensemakr(
   model = lm_model,
   treatment = "treatment:state_owned",
-  benchmark_covariates = c("running_probabilistic:treatment"),
+  benchmark_covariates = c("treatment"),
   kd = 1,
   ky = 1,
   reduce = TRUE
 )
 
 # Extract coefficient and bootstrapped SE
-coef_interest <- coef(lm_model)["treatment:csto"]
+coef_interest <- coef(lm_model)["treatment:state_owned"]
 boot_se <- boot_matched_model$se
 dof <- df.residual(lm_model)
 
@@ -1083,7 +1083,7 @@ benchmark_df <- data.frame(
 unadj_est <- round(sensitivity$sensitivity_stats$estimate, 2)
 
 # Build contour data
-contour_data <- ovb_contour_data(sensitivity, lim = 0.1, custom_se = boot_se)
+contour_data <- ovb_contour_data(sensitivity, lim = 0.35, custom_se = boot_se)
 
 sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   geom_contour(colour = "grey60",
@@ -1097,16 +1097,16 @@ sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjust
              shape = 18, colour = "red", size = 3,
              inherit.aes = FALSE) +
   annotate("point", x = 0, y = 0, shape = 17, size = 3) +
-  annotate("text", x = 0.002, y = 0.003,
-           label = paste0("Unadjusted\n(", unadj_est, ")"),
-           size = 5, hjust = 0) +
+  annotate("text", x = 0.005, y = 0.005,
+           label = paste0("Unadjusted (", unadj_est, ")"),
+           size = 4, hjust = 0, vjust = 0) +
   annotate("text",
-           x = benchmark_df$r2dz.x[1] + 0.002,
+           x = benchmark_df$r2dz.x[1] + 0.005,
            y = benchmark_df$r2yz.dx[1] + 0.003,
-           label = "running:treatment",
-           size = 5, hjust = 0) +
-  coord_cartesian(xlim = c(0, 0.1), ylim = c(0, 0.1)) +
-  scale_x_continuous(breaks = seq(0, 0.1, by = 0.02),
+           label = benchmark_df$label[1],
+           size = 4, hjust = 0) +
+  coord_cartesian(xlim = c(0, 0.35), ylim = c(0, 0.1)) +
+  scale_x_continuous(breaks = seq(0, 0.35, by = 0.05),
                      labels = scales::number_format(accuracy = 0.01)) +
   scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
                      labels = scales::number_format(accuracy = 0.01)) +
@@ -1129,6 +1129,61 @@ ggsave(plot = sensitivity_plot,
        file.path(FIGURES_DIFF_DISC_PROB, "sensitivity_ovb_state_owned.png"),
        width = 10, height = 7)
 ```
+
+```{r}
+# Find the scaling factor k such that a confounder with k times the benchmark's
+# partial R² on both dimensions would reduce the adjusted estimate to zero.
+find_k <- function(sensitivity, benchmark_df, custom_se = NULL) {
+  
+  # Extract the unadjusted estimate, SE, and degrees of freedom
+  est <- sensitivity$sensitivity_stats$estimate
+  se <- if (!is.null(custom_se)) custom_se else sensitivity$sensitivity_stats$se
+  dof <- sensitivity$sensitivity_stats$dof
+  
+  # Get the benchmark's partial R² values (the point on the plot)
+  bm_r2dz <- benchmark_df$r2dz.x[1]
+  bm_r2yz <- benchmark_df$r2yz.dx[1]
+  
+  # Maximum valid k before either partial R² exceeds 1
+  max_k <- min(0.9999 / bm_r2dz, 0.9999 / bm_r2yz)
+  
+  # Define a function that computes the adjusted estimate at k * benchmark.
+  # We want to find k where this equals zero.
+  # Cap scaled R² values at 0.9999 to stay within valid bounds.
+  f <- function(k) {
+    sensemakr::adjusted_estimate(
+      estimate = est, se = se, dof = dof,
+      r2dz.x = min(k * bm_r2dz, 0.9999),
+      r2yz.dx = min(k * bm_r2yz, 0.9999)
+    )
+  }
+  
+  # Check whether the estimate can even reach zero within valid R² bounds
+  est_at_max <- f(max_k)
+  
+  if (est_at_max > 0) {
+    # Even at maximum scaling, the estimate stays positive —
+    # no confounder along this ray can nullify the result
+    cat("Even a confounder", round(max_k, 1), 
+        "x as strong as treatment cannot nullify the estimate.\n")
+    cat("Adjusted estimate at max valid scaling:", round(est_at_max, 4), "\n")
+    return(list(k = NA, max_k = max_k, est_at_max = est_at_max, nullifiable = FALSE))
+  }
+  
+  # Solve for the root: the value of k where the adjusted estimate = 0
+  # This traces a ray from (0,0) through the benchmark and finds where
+  # it crosses the zero contour (the red dashed line on the plot)
+  k_zero <- uniroot(f, interval = c(0, max_k))$root
+  
+  cat("A confounder would need to be", round(k_zero * 100, 1),
+      "% as strong as treatment to nullify the estimate.\n")
+  return(list(k = k_zero, max_k = max_k, est_at_max = est_at_max, nullifiable = TRUE))
+}
+
+k_result <- find_k(sensitivity, benchmark_df, custom_se = boot_se)
+```
+
+
 
 ## Leave-One-Out Matching Robustness
 
