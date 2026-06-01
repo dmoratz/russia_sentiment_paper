@@ -1076,9 +1076,9 @@ sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjust
   scale_y_continuous(breaks = seq(0, 0.015, by = 0.005),
                      labels = scales::number_format(accuracy = 0.001)) +
   labs(
-    x = "Partial R² of Confounder with Treatment * CSTO Membership",
+    x = "Partial R² of Confounder with Treatment * Russia-Aligned",
     y = "Partial R² of Confounder with Sentiment",
-    title = "Sensitivity to Unobserved Confounding, CSTO Affiliation",
+    title = "Sensitivity to Unobserved Confounding, Russia Affiliation",
     subtitle = "Red dashed line indicates where estimate = 0"
   ) +
   theme_bw() +
