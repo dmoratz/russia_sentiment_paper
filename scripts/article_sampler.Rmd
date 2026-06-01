@@ -16,6 +16,8 @@ set.seed(3184)
 data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
 ```
 
+# Random illustrative examples
+
 ```{r}
 # Get a sample of articles that are Other
 
@@ -47,6 +49,22 @@ neutral <- data_non_ukraine %>%
 
 neutral_sample <- neutral[sample(nrow(neutral),100),]
 write.csv(neutral_sample,paste0(here(),"/data/","neutral_sample.csv"))
+
+```
+
+
+# Dedicated in-text examples
+
+```{r}
+# Filter to targets to allow claude to find examples
+
+filter_for_selection <- data_non_ukraine %>%
+  filter((country == "Armenia" | country == "Kazakhstan" | country == "Georgia" | country == "Kosovo" | country == "Serbia" | country == "Azerbaijan") & 
+           topic_clean != "Military" & 
+           Russian.Involvement == "Russian")
+
+write_rds(filter_for_selection,paste0(here(),"/data/","paper_example_data.rds"))
+
 
 ```
 
