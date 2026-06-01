@@ -1041,6 +1041,14 @@ partial_r2(lm_model, covariates = c("running_probabilistic:treatment",
 treatment_r2 <- partial_r2(lm_model, covariates = c("treatment"))
 ```
 
+```{r}
+cat("RV:", rv_point, "\n")
+cat("Treatment partial R²:", treatment_r2, "\n")
+cat("RV is", round(rv_point / treatment_r2, 1), "x the strongest observed covariate\n")
+
+```
+
+
 ```{r sensitivity-plot-h2-prob, fig.width=10, fig.height=7}
 # Sensitivity Plot
 
@@ -1103,7 +1111,7 @@ sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjust
   annotate("text",
            x = benchmark_df$r2dz.x[1] + 0.005,
            y = benchmark_df$r2yz.dx[1] + 0.003,
-           label = benchmark_df$label[1],
+           label = "Treatment",
            size = 4, hjust = 0) +
   coord_cartesian(xlim = c(0, 0.35), ylim = c(0, 0.1)) +
   scale_x_continuous(breaks = seq(0, 0.35, by = 0.05),
@@ -1111,9 +1119,9 @@ sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjust
   scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
                      labels = scales::number_format(accuracy = 0.01)) +
   labs(
-    x = "Partial R² of confounder with CSTO membership",
-    y = "Partial R² of confounder with sentiment",
-    title = "Sensitivity to Unobserved Confounding, CSTO Affiliation",
+    x = "Partial R² of Confounder with Treatment * State-Owned",
+    y = "Partial R² of Confounder with Sentiment",
+    title = "Sensitivity to Unobserved Confounding, State-Owned Affiliation",
     subtitle = "Red dashed line indicates where estimate = 0"
   ) +
   theme_bw() +
@@ -1130,60 +1138,30 @@ ggsave(plot = sensitivity_plot,
        width = 10, height = 7)
 ```
 
+
 ```{r}
-# Find the scaling factor k such that a confounder with k times the benchmark's
-# partial R² on both dimensions would reduce the adjusted estimate to zero.
-find_k <- function(sensitivity, benchmark_df, custom_se = NULL) {
-  
-  # Extract the unadjusted estimate, SE, and degrees of freedom
-  est <- sensitivity$sensitivity_stats$estimate
-  se <- if (!is.null(custom_se)) custom_se else sensitivity$sensitivity_stats$se
-  dof <- sensitivity$sensitivity_stats$dof
-  
-  # Get the benchmark's partial R² values (the point on the plot)
-  bm_r2dz <- benchmark_df$r2dz.x[1]
-  bm_r2yz <- benchmark_df$r2yz.dx[1]
-  
-  # Maximum valid k before either partial R² exceeds 1
-  max_k <- min(0.9999 / bm_r2dz, 0.9999 / bm_r2yz)
-  
-  # Define a function that computes the adjusted estimate at k * benchmark.
-  # We want to find k where this equals zero.
-  # Cap scaled R² values at 0.9999 to stay within valid bounds.
-  f <- function(k) {
-    sensemakr::adjusted_estimate(
-      estimate = est, se = se, dof = dof,
-      r2dz.x = min(k * bm_r2dz, 0.9999),
-      r2yz.dx = min(k * bm_r2yz, 0.9999)
-    )
-  }
-  
-  # Check whether the estimate can even reach zero within valid R² bounds
-  est_at_max <- f(max_k)
-  
-  if (est_at_max > 0) {
-    # Even at maximum scaling, the estimate stays positive —
-    # no confounder along this ray can nullify the result
-    cat("Even a confounder", round(max_k, 1), 
-        "x as strong as treatment cannot nullify the estimate.\n")
-    cat("Adjusted estimate at max valid scaling:", round(est_at_max, 4), "\n")
-    return(list(k = NA, max_k = max_k, est_at_max = est_at_max, nullifiable = FALSE))
-  }
-  
-  # Solve for the root: the value of k where the adjusted estimate = 0
-  # This traces a ray from (0,0) through the benchmark and finds where
-  # it crosses the zero contour (the red dashed line on the plot)
-  k_zero <- uniroot(f, interval = c(0, max_k))$root
-  
-  cat("A confounder would need to be", round(k_zero * 100, 1),
-      "% as strong as treatment to nullify the estimate.\n")
-  return(list(k = k_zero, max_k = max_k, est_at_max = est_at_max, nullifiable = TRUE))
+# At treatment's actual partial R² with CSTO, what partial R² with sentiment
+# would a confounder need to nullify the estimate?
+est <- sensitivity$sensitivity_stats$estimate
+se <- boot_se
+dof <- sensitivity$sensitivity_stats$dof
+bm_r2dz <- benchmark_df$r2dz.x[1]  # 0.565
+
+f <- function(r2yz) {
+  sensemakr::adjusted_estimate(
+    estimate = est, se = se, dof = dof,
+    r2dz.x = bm_r2dz,
+    r2yz.dx = r2yz
+  )
 }
 
-k_result <- find_k(sensitivity, benchmark_df, custom_se = boot_se)
+r2yz_needed <- uniroot(f, interval = c(0, 0.9999))$root
+bm_r2yz <- benchmark_df$r2yz.dx[1]  # 0.001
+
+cat("Treatment's actual R²yz:", round(bm_r2yz, 5), "\n")
+cat("R²yz needed to nullify at treatment's R²dz:", round(r2yz_needed, 5), "\n")
+cat("Multiplier:", round(r2yz_needed / bm_r2yz, 1), "x treatment's R²yz\n")
 ```
-
-
 
 ## Leave-One-Out Matching Robustness
 

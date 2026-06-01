@@ -942,8 +942,8 @@ lm_model <- lm(sentiment_z ~ running_probabilistic * treatment * csto +
 sensitivity <- sensemakr(
   model = lm_model,
   treatment = "treatment:csto",
-  benchmark_covariates = c("running_probabilistic:treatment"),
-  kd = 1,
+  benchmark_covariates = c("treatment"),
+  kd = .25,
   ky = 1,
   reduce = TRUE
 )
@@ -971,7 +971,20 @@ partial_r2(lm_model, covariates = c("running_probabilistic:treatment",
                                      "treatment",
                                      "csto"))
 
+all_r2 <- partial_r2(lm_model, covariates = c("running_probabilistic:treatment",
+                                     "running_probabilistic:csto",
+                                     "treatment",
+                                     "csto"))
+
+max_observed <- max(all_r2)
+
 treatment_r2 <- partial_r2(lm_model, covariates = c("treatment"))
+```
+
+```{r}
+cat("RV:", rv_point, "\n")
+cat("Treatment partial R²:", treatment_r2, "\n")
+cat("RV is", round(rv_point / treatment_r2, 1), "x the effect of treatment\n")
 ```
 
 
@@ -989,7 +1002,7 @@ plot(sensitivity,
      col.contour = "grey60",
      label.text = FALSE)   # turn off the ugly overlapping label first
 text(x = 0.01, y = 0.00005, 
-     labels = "running:treatment", 
+     labels = "treatment", 
      cex = 0.8, pos = 4)
 ```
 
@@ -1031,9 +1044,11 @@ benchmark_df <- data.frame(
   label = sensitivity$bounds$bound_label
 )
 
-# Build contour data
-# Rebuild with wider x limit
-contour_data <- ovb_contour_data(sensitivity, lim = 0.1, custom_se = boot_se)
+# Extract actual estimate
+unadj_est <- round(sensitivity$sensitivity_stats$estimate, 2)
+
+# Build contour data — expand to cover the benchmark point
+contour_data <- ovb_contour_data(sensitivity, lim = 0.7, custom_se = boot_se)
 
 sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   geom_contour(colour = "grey60",
@@ -1042,25 +1057,27 @@ sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjust
                colour = "red",
                linetype = "dashed",
                linewidth = 0.8) +
-  geom_point(data = benchmark_df,
-             aes(x = r2dz.x, y = r2yz.dx),
-             shape = 18, colour = "red", size = 3,
-             inherit.aes = FALSE) +
+  #geom_point(data = benchmark_df,
+  #           aes(x = r2dz.x, y = r2yz.dx),
+  #           shape = 18, colour = "red", size = 3,
+  #           inherit.aes = FALSE) +
   annotate("point", x = 0, y = 0, shape = 17, size = 3) +
-  annotate("text", x = 0.002, y = 0.003,
-           label = "Unadjusted\n(-0.38)",
-           size = 5, hjust = 0) +
-  annotate("text", x = 0.047, y = 0.003,
-           label = "running:treatment",
-           size = 5, hjust = 0) +
-  coord_cartesian(xlim = c(0, 0.1), ylim = c(0, 0.1)) +
-  scale_x_continuous(breaks = seq(0, 0.1, by = 0.02),
+  annotate("text", x = 0.005, y = 0.0001,
+           label = paste0("Unadjusted (", unadj_est, ")"),
+           size = 4, hjust = 0, vjust = 0) +
+  #annotate("text",
+  #         x = benchmark_df$r2dz.x[1] + 0.01,
+  #         y = benchmark_df$r2yz.dx[1] + 0.0005,
+  #         label = "Treatment \n(x-axis at 0.25x)",
+  #         size = 4, hjust = 0) +
+  coord_cartesian(xlim = c(0, 0.7), ylim = c(0, 0.015)) +
+  scale_x_continuous(breaks = seq(0, 0.7, by = 0.1),
                      labels = scales::number_format(accuracy = 0.01)) +
-  scale_y_continuous(breaks = seq(0, 0.1, by = 0.02),
-                     labels = scales::number_format(accuracy = 0.01)) +
+  scale_y_continuous(breaks = seq(0, 0.015, by = 0.005),
+                     labels = scales::number_format(accuracy = 0.001)) +
   labs(
-    x = "Partial R² of confounder with CSTO membership",
-    y = "Partial R² of confounder with sentiment",
+    x = "Partial R² of Confounder with Treatment * CSTO Membership",
+    y = "Partial R² of Confounder with Sentiment",
     title = "Sensitivity to Unobserved Confounding, CSTO Affiliation",
     subtitle = "Red dashed line indicates where estimate = 0"
   ) +
@@ -1071,11 +1088,47 @@ sensitivity_plot <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjust
     legend.position = "none"
   )
 
+treatment_r2yz <- benchmark_df$r2yz.dx[1]
+
+sensitivity_plot <- sensitivity_plot +
+  geom_hline(yintercept = treatment_r2yz,
+             linetype = "dotted",
+             colour = "blue",
+             linewidth = 1) +
+  annotate("text", x = 0.2, y = treatment_r2yz + 0.0007,
+           label = paste0("Treatment partial R² with sentiment (",
+                          round(treatment_r2yz, 4), ")"),
+           size = 3.5, hjust = 0, colour = "blue")
+
 sensitivity_plot
 
 ggsave(plot = sensitivity_plot,
        file.path(FIGURES_HETEROGENEITY_PROB, "sensitivity_ovb_csto.png"),
        width = 10, height = 7)
+```
+
+```{r}
+# At treatment's actual partial R² with CSTO, what partial R² with sentiment
+# would a confounder need to nullify the estimate?
+est <- sensitivity$sensitivity_stats$estimate
+se <- boot_se
+dof <- sensitivity$sensitivity_stats$dof
+bm_r2dz <- benchmark_df$r2dz.x[1]
+
+f <- function(r2yz) {
+  sensemakr::adjusted_estimate(
+    estimate = est, se = se, dof = dof,
+    r2dz.x = bm_r2dz,
+    r2yz.dx = r2yz
+  )
+}
+
+r2yz_needed <- uniroot(f, interval = c(0, 0.9999))$root
+bm_r2yz <- benchmark_df$r2yz.dx[1]  # 0.001
+
+cat("Treatment's actual R²yz:", round(bm_r2yz, 5), "\n")
+cat("R²yz needed to nullify at treatment's R²dz:", round(r2yz_needed, 5), "\n")
+cat("Multiplier:", round(r2yz_needed / bm_r2yz, 1), "x treatment's R²yz\n")
 ```
 
 The robustness value of 4.38% indicates that an unobserved confounder would need to simultaneously explain 4.38% of residual variance in both CSTO membership and sentiment to explain away our result. To contextualize this threshold, our observed covariates — including treatment assignment (partial R² = 0.0002%) and CSTO membership itself (partial R² = 0.0001%) — explain a fraction of this amount. We additionally benchmark against temporal proximity to the date of the invasion (partial R² = 4.6% for CSTO membership, 0.00001% for sentiment), which represents the strongest observed predictor of group assignment in our model. Despite exceeding the robustness value threshold on the treatment dimension, this benchmark explains essentially no variance in sentiment outcomes — as visible in Figure X, where the benchmark point sits far to the right of the zero contour but hugging the x-axis. An unobserved confounder would therefore need to be approximately 21,900 times more influential than treatment assignment itself, and simultaneously predict sentiment far more strongly than the timing of the invasion, to overturn our finding. This suggests the result is highly robust to potential confounding.
