@@ -111,6 +111,13 @@ agg_data_align_state <- data_align %>%
 
 state_align_discs_graph <- data_align %>%
   filter(state_owned == 1) %>%
+  mutate(align_indicator = as.factor(align_indicator)) %>%
+  mutate(align_indicator = fct_recode(align_indicator,
+    "Russia-Aligned Pre" = "Pre. State CSTO",
+    "Neutral Pre" = "Pre. State Neut",
+    "Russia-Aligned Post" = "Post State CSTO",
+    "Neutral Post" = "Post State Neut"
+  )) %>%
   ggplot(aes(x = running, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
   geom_point(data = agg_data_align_state,
              aes(x = running, y = sentiment_clean, size = num_obs),
