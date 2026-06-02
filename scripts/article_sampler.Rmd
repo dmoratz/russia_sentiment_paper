@@ -68,3 +68,29 @@ write_rds(filter_for_selection,paste0(here(),"/data/","paper_example_data.rds"))
 
 ```
 
+```{r}
+# Example articles chosen
+ex1 <- filter_for_selection %>%
+  filter(source_domain == "en.armradio.am" &
+           date_publish == "2022-01-24" &
+           sentiment_clean == 1)
+
+ex2 <- filter_for_selection %>%
+  filter(source_domain == "en.armradio.am" &
+           date_publish == "2022-03-10" &
+           sentiment_clean == -1 &
+           topic_clean == "Political")
+
+ex3 <- filter_for_selection %>%
+  filter(source_domain == "rts.rs" &
+           date_publish == "2022-02-26" &
+           sentiment_clean == 0 &
+           topic_clean == "Political")
+
+ex4 <- filter_for_selection %>%
+  filter(source_domain == "rs.n1info.com" &
+           date_publish == "2022-02-25" &
+           sentiment_clean == -1 &
+           topic_clean == "Political")
+```
+
