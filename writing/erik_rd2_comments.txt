@@ -1,0 +1,152 @@
+
+Page 4 | Highlight | Erik Wibbels
+Anchored text: across security relationships. A straightforward domestic audience management account
+would predict that Russia-aligned states suppress negative coverage to protect the al-
+liance relationship. Instead, we find the opposite: state-owned media in states with
+Russian security agreements shifted more negatively toward Russia than state-owned
+media in neutral states, despite these same states refusing to condemn the invasion
+through formal diplomatic channels. This pattern is consistent with constrained states
+
+Comment: 
+------------------------------------------------------------
+
+Page 5 | Text | Erik Wibbels
+Anchored text: 
+Comment: intro is in good shape
+------------------------------------------------------------
+
+Page 6 | Highlight | Erik Wibbels
+Anchored text: toolkit was built to analyze the instruments where costs are most visible. We argue
+that state-owned media provides one answer.
+
+Comment: if you read this sentence as a response to the question above, it doesn't make sense.
+------------------------------------------------------------
+
+Page 6 | Highlight | Erik Wibbels
+Anchored text: State-owned media is not understudied.
+
+Comment: most of the examples below aren't specific to state-owned media.
+------------------------------------------------------------
+
+Page 8 | Highlight | Erik Wibbels
+Anchored text: intensified. Open-source intelligence has become formalized within diplomatic and in-
+telligence institutions (Manor, 2019; Williams & Blum, 2018), and the U.S. Intelligence
+
+Comment: i don't understand this.
+------------------------------------------------------------
+
+Page 8 | Highlight | Erik Wibbels
+Anchored text: ity, and monitoring infrastructure on the other—but they have not been assembled into
+a framework that accounts for both simultaneously. Our argument connects them. We
+
+Comment: this is very ambitious, but also unnecessary. i don't think you do this below so i'd scale this back.
+------------------------------------------------------------
+
+Page 10 | Text | Erik Wibbels
+Anchored text: 
+Comment: here you shift into russia-specific language rather than keeping the logic general.
+------------------------------------------------------------
+
+Page 10 | Text | Erik Wibbels
+Anchored text: 
+Comment: more russia-specific language
+------------------------------------------------------------
+
+Page 11 | Text | Erik Wibbels
+Anchored text: 
+Comment: russia
+------------------------------------------------------------
+
+Page 12 | Highlight | Erik Wibbels
+Anchored text: Our theoretical argument requires that the invasion of Ukraine represented a gen-
+uine negative shock to media sentiment across the region—without this baseline, the
+divergence we identify in H2 and H3 would be uninterpretable. We first establish this
+
+Comment: you haven't introduced the setting yet, so i'd state the hypothesis more generally. in general the last few pages have blurred the line between case and theory.
+------------------------------------------------------------
+
+Page 14 | Highlight | Erik Wibbels
+Anchored text: tion of the invasion a direct challenge to the alliance framework itself. At the same
+time, all four states maintained substantial trade relationships with Western nations,
+giving them a significant economic stake in opposing the invasion even as their security
+commitments constrained them from doing so2.
+
+Comment: i'd add more here. how does this status wrt russia reflect the stuff you talked about in the theory section?
+------------------------------------------------------------
+
+Page 14 | Highlight | Erik Wibbels
+Anchored text: third category comprises
+
+Comment: given that your test is russia-aligned vs. not, why do you need 3 categories here?
+------------------------------------------------------------
+
+Page 14 | Text | Erik Wibbels
+Anchored text: tion o
+
+Comment: what do these countries gain from signaling opposition to russia in the press? what do they have to lose from doing that?
+------------------------------------------------------------
+
+Page 15 | Highlight | Erik Wibbels
+Anchored text: February 24 nonetheless represents a discrete and dramatic rupture in the infor-
+mation environment.
+While the troop buildup had proceeded for months, the full-
+scale invasion—with missile strikes on Kyiv and ground forces crossing the border
+simultaneously—was of a different order than the slow escalation that preceded it. Rus-
+
+Comment: given the importance of the discontinuity for identification below, i'd suggest you do some actual empirical work here. for instance, i suspect there was quite a lot of coverage of the very large russian build ups and "training" operations in the many months before hte invasion. if russian allies didn't like the prospect of an invasion, i'd expect that the negative sentiment shift could have occurred before the invasion.
+------------------------------------------------------------
+
+Page 16 | Highlight | Erik Wibbels
+Anchored text: full keyword list is documented in Moratz et a
+
+Comment: i dont' think this has anythihng about russia keywords in it.
+------------------------------------------------------------
+
+Page 19 | Highlight | Erik Wibbels
+Anchored text: classifier merits note: it is more likely than human coders to classify political articles as
+other, an artifact of the overlap between these categories in the data.4 Representative
+
+Comment: ?
+------------------------------------------------------------
+
+Page 20 | Text | Erik Wibbels
+Anchored text: 
+Comment: here or above, i think you need more evidence that this is really a discontinuity, including from the point of view of state allied media in russia allied countries.
+------------------------------------------------------------
+
+Page 20 | Text | Erik Wibbels
+Anchored text: 
+Comment: you might forecast the power constraint the RDID implies here.
+------------------------------------------------------------
+
+Page 22 | Highlight | Erik Wibbels
+Anchored text: the group-specific mechanism we theorize, both groups would have experienced the
+same discontinuity at the cutoff. The threat to identification is a factor that produces a
+
+Comment: see my comment above. it seems plausible that state-owned media in allied countries were signaling discontent ahead of time. especially if they knew more than the west, which seems plausible.
+------------------------------------------------------------
+
+Page 23 | Text | Erik Wibbels
+Anchored text: 
+Comment: this is a very complicated figure. the discussion in the text is clearer, so i'd delete this.
+------------------------------------------------------------
+
+Page 25 | Text | Erik Wibbels
+Anchored text: 
+Comment: this is a nice paragraph
+------------------------------------------------------------
+
+Page 30 | Text | Erik Wibbels
+Anchored text: 
+Comment: i'd shorten this discussion
+------------------------------------------------------------
+
+Page 40 | Text | Erik Wibbels
+Anchored text: 
+Comment: curious that the russia aligned is so neutral even pre-invasion.
+------------------------------------------------------------
+
+Page 42 | Text | Erik Wibbels
+Anchored text: 
+Comment: i think much of this can  be moved to the appendix. you can just describe what you do and find and refer readers to the appendix for results.
+------------------------------------------------------------
