@@ -202,6 +202,24 @@ edited `.Rmd`s to confirm no unrelated changes.
   actual PNG/.tex/numbers here — the code is written so that running 06C then 08a prints the
   required summary numbers and writes the figure/table to their standard locations.
 
+## Revision (2026-07-01, round 2)
+
+After first review, two changes were requested and are now implemented:
+
+- **Task B → four per-country placebos (replacing the pooled test).** One `rdrobust` per
+  aligned country (Armenia, Azerbaijan, Belarus, Kazakhstan): state-owned, non-military,
+  pre-invasion, Dec-7 cutoff, source-level z-scored outcome, MSE-optimal bandwidth.
+  **SEs use rdrobust's default (nearest-neighbor HC), not source clustering**, because each
+  country has only 2-3 state-owned sources (too few clusters). Degenerate single-article
+  sources (NaN z) and empty topic levels are dropped within each country subset. Models are
+  stored as the named list `placebo_aligned_models` in `06_alignment_results_prob.rds`.
+  `table_s13_placebo_aligned` now shows the **four countries side-by-side as columns**
+  (rows = Estimate, Std. Error, 95% CI, p-value, Bandwidth, N).
+- **Task A → add a later-start replica figure.** `pretrend_by_country_aligned_dec.png`
+  duplicates the pre-trend figure with the display window starting **2021-12-01** instead of
+  2021-06-01, to show the pre-invasion slope is not an artifact of a long window. The
+  original 2021-06-01 figure is retained. No separate slope printout for the Dec-1 window.
+
 ### Consequences for the specs above
 - **Task A:** `agg_pretrend` filtered to `date_publish` within [2021-06-01, 2022-06-01];
   single `geom_smooth(method = "lm")` on the pre-Feb-24 subset; per-country linear slope

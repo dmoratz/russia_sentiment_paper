@@ -210,6 +210,51 @@ cat("(slope in sentiment units per day; slope_30day = per 30 days)\n\n")
 print(as.data.frame(pretrend_slopes), row.names = FALSE, digits = 4)
 ```
 
+Replica of the figure above with a later start date (Dec 1, 2021) to confirm the
+pre-invasion trend lines are not an artifact of fitting across a long (nine-month) window.
+INVASION_DATE and WARNING_DATE are reused from the chunk above.
+
+```{r pretrend-by-country-aligned-dec-prob, fig.width=10, fig.height=7}
+# Shorter buildup display window (later start; same invasion / warning markers)
+PRETREND_START_DEC <- as.Date("2021-12-01")
+
+data_pretrend_dec <- data %>%
+  filter(country %in% CSTO_COUNTRIES, state_owned == 1,
+         date_publish >= PRETREND_START_DEC, date_publish <= PRETREND_END) %>%
+  mutate(country = droplevels(country))
+
+agg_pretrend_dec <- data_pretrend_dec %>%
+  group_by(country, date_publish) %>%
+  summarize(sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+            num_obs = n(), .groups = "drop")
+
+# Pre-invasion daily means only (linear fit restricted to this window)
+agg_pretrend_dec_pre <- agg_pretrend_dec %>%
+  filter(date_publish < INVASION_DATE)
+
+pretrend_by_country_aligned_dec_graph <- ggplot(agg_pretrend_dec,
+                                                 aes(x = date_publish, y = sentiment_clean)) +
+  geom_point(aes(size = num_obs), alpha = 0.2, inherit.aes = TRUE) +
+  geom_smooth(data = agg_pretrend_dec_pre, method = "lm", se = TRUE, color = "red4") +
+  geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
+  geom_vline(xintercept = WARNING_DATE, linetype = "dotted", color = "grey30") +
+  scale_size(name = "Observations") +
+  facet_wrap(~ country, scales = "free_y") +
+  theme_classic() +
+  labs(
+    title = "Pre-Invasion Sentiment Trend in State Media, Dec 1 Start (Probabilistic)",
+    subtitle = "Russia-aligned countries; dotted = Dec 7 warning, dashed = Feb 24 invasion",
+    x = "Publication date",
+    y = "Mean sentiment toward Russia"
+  )
+
+pretrend_by_country_aligned_dec_graph
+
+ggsave(plot = pretrend_by_country_aligned_dec_graph,
+       file.path(FIGURES_HETEROGENEITY_PROB, "pretrend_by_country_aligned_dec.png"),
+       width = 10, height = 7)
+```
+
 ## State Media Alignment Regressions
 
 ### CSTO Countries Only
@@ -942,63 +987,68 @@ cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
 ```
 
-## Placebo Test: December 7th Announcement (Aligned State Media Only)
+## Placebo Test: December 7th Announcement (Aligned State Media, by Country)
 
 Directly addresses the reviewer concern: a placebo-cutoff RDD restricted to state-owned
-media in the Russia-aligned (CSTO) group. Sources across the four aligned countries are
-pooled into a single analysis; source-level z-scoring absorbs baseline differences across
-sources and countries. Estimation mirrors the main H1 placebo (`rdrobust` with the
-MSE-optimal bandwidth, clustered by source) on the z-scored outcome used throughout the
-CSTO state-media RDDs. A non-significant discontinuity at the Dec 7, 2021 warning date
-indicates that sentiment was not already jumping during the buildup.
+media in the Russia-aligned (CSTO) group, estimated **separately for each country**
+(Armenia, Azerbaijan, Belarus, Kazakhstan) so cross-country consistency is visible. Each
+model uses the z-scored outcome used throughout the CSTO state-media RDDs and rdrobust's
+MSE-optimal bandwidth. Because each country has only 2-3 state-owned sources — too few for
+cluster-robust inference — standard errors use rdrobust's default (nearest-neighbor
+heteroskedasticity-robust) variance rather than clustering by source. A non-significant
+discontinuity at the Dec 7, 2021 warning date indicates that sentiment was not already
+jumping during the buildup.
 
 ```{r placebo-dec-aligned-prob}
-# State-owned media in the Russia-aligned (CSTO) group, non-military, pre-invasion.
-data_dec_csto <- data_align %>%
-  filter(state_owned == 1, csto == 1,
-         !topic_clean %in% "Military",
-         date_publish < "2022-02-19") %>%
-  mutate(
-    running_probabilistic = as.numeric(difftime(
-      date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"),
-      units = "secs")) / 86400,
-    treatment = ifelse(date_publish_probabilistic <
-                       as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+# Cutoff constants for the Dec 7, 2021 US public-warning date
+DEC7_CUTOFF <- as.POSIXct("2021-12-07 00:00:00", tz = "UTC")
+
+# One placebo RDD per aligned country: state-owned, non-military, pre-invasion.
+placebo_aligned_models <- list()
+
+for (cntry in CSTO_COUNTRIES) {
+  dat_c <- data_align %>%
+    filter(state_owned == 1, country == cntry,
+           !topic_clean %in% "Military",
+           date_publish < "2022-02-19") %>%
+    mutate(
+      topic_clean = droplevels(topic_clean),   # drop empty topic levels within this country
+      running_probabilistic = as.numeric(difftime(
+        date_publish_probabilistic, DEC7_CUTOFF, units = "secs")) / 86400,
+      treatment = ifelse(date_publish_probabilistic < DEC7_CUTOFF, 0, 1)
+    ) %>%
+    # Source-level z-score adjustment (as in the CSTO state-media RDDs)
+    group_by(source_domain) %>%
+    mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                          sd(sentiment_clean, na.rm = TRUE)) %>%
+    ungroup() %>%
+    filter(is.finite(sentiment_z))              # drop degenerate single-article sources
+
+  covs_c <- model.matrix(~ topic_clean - 1, data = dat_c)
+
+  # rdrobust default HC (nn) SEs; no clustering (only 2-3 sources per country)
+  placebo_aligned_models[[cntry]] <- rdrobust(
+    y = dat_c$sentiment_z,
+    x = dat_c$running_probabilistic,
+    covs = covs_c
   )
 
-# Source-level z-score adjustment (as in the CSTO state-media RDDs)
-data_dec_csto <- data_dec_csto %>%
-  group_by(source_domain) %>%
-  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
-                        sd(sentiment_clean, na.rm = TRUE)) %>%
-  ungroup()
+  m <- placebo_aligned_models[[cntry]]
+  cat("\n--- ", cntry, " ---\n", sep = "")
+  cat("Estimate:  ", round(m$coef[1], 3), "\n")
+  cat("95% CI:    [", round(m$ci[1, 1], 3), ",", round(m$ci[1, 2], 3), "]\n")
+  cat("p-value:   ", round(m$pv[1], 3), "\n")
+  cat("Bandwidth: ", round(m$bws[1, 1], 3), "days\n")
+  cat("N (within bw):", m$N_h[1] + m$N_h[2], "\n")
+  cat("Sources:", paste(sort(unique(dat_c$source_domain)), collapse = ", "), "\n")
+}
 
-covs_matrix_dec_csto <- model.matrix(~ topic_clean - 1, data = data_dec_csto)
-
-model_placebo_aligned <- rdrobust(
-  y = data_dec_csto$sentiment_z,
-  x = data_dec_csto$running_probabilistic,
-  covs = covs_matrix_dec_csto,
-  cluster = data_dec_csto$source_domain
-)
-
-summary(model_placebo_aligned)
-
-# Key numbers for the appendix table and printed summary
-cat("\n=== Task B: Dec 7, 2021 placebo RDD, aligned state media (z-scored) ===\n")
-cat("Estimate:  ", round(model_placebo_aligned$coef[1], 3), "\n")
-cat("95% CI:    [", round(model_placebo_aligned$ci[1, 1], 3), ",",
-    round(model_placebo_aligned$ci[1, 2], 3), "]\n")
-cat("p-value:   ", round(model_placebo_aligned$pv[1], 3), "\n")
-cat("Bandwidth: ", round(model_placebo_aligned$bws[1, 1], 3), "days\n")
-cat("N (within bw):", model_placebo_aligned$N_h[1] + model_placebo_aligned$N_h[2], "\n")
-cat("Sources (clusters):", length(unique(data_dec_csto$source_domain)), "\n")
-cat("\nNote: Non-significant discontinuity suggests no pre-invasion jump at the warning date.\n")
+cat("\nNote: Non-significant discontinuities suggest no pre-invasion jump at the warning date.\n")
 ```
 
 ## Matching
 
-### Initial Match
+### Initial Match 
 
 ```{r}
 # Subset to data of interest
@@ -2155,8 +2205,8 @@ results_het_prob <- list(
   model_placebo_nonmil = model_placebo_nonmil,
   optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil,
 
-  # Dec-7 placebo restricted to aligned (CSTO) state media (rdrobust, z-scored)
-  model_placebo_aligned = model_placebo_aligned,
+  # Dec-7 placebo restricted to aligned (CSTO) state media, one rdrobust per country
+  placebo_aligned_models = placebo_aligned_models,
 
   # Mini-Regressions: Heterogeneous treatment effect decomposition
   decomposition = decomposition_results

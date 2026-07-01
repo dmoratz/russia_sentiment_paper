@@ -117,10 +117,11 @@ may have shifted negatively during the pre-invasion buildup in aligned state med
 
 | Output | Built in | Location |
 |--------|----------|----------|
-| `pretrend_by_country_aligned.png` (small-multiples pre-trend figure: state media, one panel per Russia-aligned country; Dec 7 & Feb 24 markers; pre-invasion linear fit) | `06C_russian_alignment_analysis_prob.Rmd` (chunk `pretrend-by-country-aligned-prob`) | `figures/heterogeneity/prob/` |
+| `pretrend_by_country_aligned.png` (small-multiples pre-trend figure: state media, one panel per Russia-aligned country; Dec 7 & Feb 24 markers; pre-invasion linear fit; window from 2021-06-01) | `06C_russian_alignment_analysis_prob.Rmd` (chunk `pretrend-by-country-aligned-prob`) | `figures/heterogeneity/prob/` |
+| `pretrend_by_country_aligned_dec.png` (same figure, later start 2021-12-01, window-robustness) | `06C` (chunk `pretrend-by-country-aligned-dec-prob`) | `figures/heterogeneity/prob/` |
 | Per-country pre-invasion slope printout | `06C` (chunk `pretrend-slopes-aligned-prob`) | console |
-| `model_placebo_aligned` (Dec 7, 2021 placebo RDD; aligned state-owned non-military media; `rdrobust`, MSE-optimal bandwidth, source-clustered, z-scored outcome) | `06C` (chunk `placebo-dec-aligned-prob`) → serialized in `06_alignment_results_prob.rds` | `data/intermediate/` |
-| `table_s13_placebo_aligned` (appendix table for the aligned-group placebo) | `08a_publication_outputs.Rmd` (chunk `table-s13`) | `figures/tables/prob/` |
+| `placebo_aligned_models` (named list; one Dec 7, 2021 placebo RDD per aligned country; state-owned non-military media; `rdrobust`, MSE-optimal bandwidth, z-scored outcome, default HC SEs — no clustering, since each country has 2-3 sources) | `06C` (chunk `placebo-dec-aligned-prob`) → serialized in `06_alignment_results_prob.rds` | `data/intermediate/` |
+| `table_s13_placebo_aligned` (appendix table; four aligned countries side-by-side as columns) | `08a_publication_outputs.Rmd` (chunk `table-s13`) | `figures/tables/prob/` |
 
 ## Key Functions (from 00_setup.R)
 

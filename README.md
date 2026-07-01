@@ -105,8 +105,8 @@ Contact the repository owner for access to these files.
 - `figures/table_2.html` - Diff-in-disc results
 - `figures/table_3.html` - Heterogeneity analysis
 - `figures/tables/prob/table_s12_placebo.tex` - Placebo test summary (Dec 7, 2021 false cutoff)
-- `figures/tables/prob/table_s13_placebo_aligned.tex` - Placebo RDD restricted to state-owned
-  media in the Russia-aligned group (Dec 7, 2021 cutoff), addressing the pre-trend concern
+- `figures/tables/prob/table_s13_placebo_aligned.tex` - Placebo RDD for state-owned media in
+  the Russia-aligned group, run separately per country (columns), Dec 7, 2021 cutoff
 
 ### Figures
 - `figures/invasion_on_sentiment.png` - Main RDD visualization
@@ -115,6 +115,9 @@ Contact the repository owner for access to these files.
 - `figures/heterogeneity/prob/pretrend_by_country_aligned.png` - Pre-invasion sentiment
   trend in state media, one panel per Russia-aligned country, marking the Dec 7, 2021
   warning date and the Feb 24, 2022 invasion cutoff with a linear pre-invasion fit
+  (window starts 2021-06-01)
+- `figures/heterogeneity/prob/pretrend_by_country_aligned_dec.png` - Same figure with a
+  later start date (2021-12-01), confirming the trend is not an artifact of a long window
 
 ### Pre-Trend Robustness (added for reviewer response)
 
@@ -122,13 +125,15 @@ Two objects address the concern that sentiment toward Russia may have turned neg
 the pre-invasion troop buildup, especially in state-owned media of Russia-aligned countries
 (Armenia, Azerbaijan, Belarus, Kazakhstan):
 
-- **Pre-trend figure** (`pretrend_by_country_aligned.png`, built in
-  `06C_russian_alignment_analysis_prob.Rmd`): daily mean sentiment for state-owned sources
-  by aligned country, with a linear fit on the pre-invasion window only.
-- **Aligned-group placebo** (`table_s13_placebo_aligned`, model built in `06C`, table in
-  `08a_publication_outputs.Rmd`): a Dec 7, 2021 placebo RDD (`rdrobust`, MSE-optimal
-  bandwidth, source-clustered, source-level z-scored outcome) restricted to aligned
-  state-owned, non-military media.
+- **Pre-trend figures** (`pretrend_by_country_aligned.png` and the later-start replica
+  `pretrend_by_country_aligned_dec.png`, built in `06C_russian_alignment_analysis_prob.Rmd`):
+  daily mean sentiment for state-owned sources by aligned country, with a linear fit on the
+  pre-invasion window only. The two versions differ only in start date (2021-06-01 vs
+  2021-12-01) to show the slope is not a long-window artifact.
+- **Per-country aligned placebos** (`table_s13_placebo_aligned`, models built in `06C`,
+  table in `08a_publication_outputs.Rmd`): a Dec 7, 2021 placebo RDD (`rdrobust`, MSE-optimal
+  bandwidth, source-level z-scored outcome, default HC SEs) run separately for each aligned
+  country's state-owned, non-military media, reported side-by-side.
 
 ## License
 

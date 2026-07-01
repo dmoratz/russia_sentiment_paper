@@ -100,9 +100,13 @@ for (m in c("model5a_csto_z", "model5a_neutral_z",
             "model5a_fully_saturated",
             "model5a_full_pol", "model5a_full_mil", "model5a_full_econ",
             "model5a_full_cult", "model5a_full_oth",
-            "model_placebo_nonmil", "model_placebo_aligned")) {
+            "model_placebo_nonmil")) {
   check_model(results_align, m, "results_align")
 }
+
+# Per-country Dec-7 aligned placebos (stored as a named list of rdrobust models)
+cat(sprintf("  %-45s %s\n", "results_align$placebo_aligned_models",
+            if (length(results_align$placebo_aligned_models) > 0) "OK" else "WARNING: NOT FOUND"))
 
 cat("\n=== H3a Bootstrap Keys ===\n")
 for (m in c("model5a_z", "model5a_opt_z", "model5a_opt_non_mil_z",
@@ -1289,60 +1293,52 @@ save_table(table_s12, "table_s12_placebo", TABLE_SUBDIR)
 ## Table S13: Placebo Test, Aligned State Media (Dec 7, 2021)
 
 ```{r table-s13}
-# Dec-7 placebo restricted to state-owned media in the Russia-aligned (CSTO) group
-# (rdrobust on the source-level z-scored outcome; MSE-optimal bandwidth; cluster by source)
-placebo_aligned <- results_align$model_placebo_aligned
-pa_estimate <- placebo_aligned$coef[1]
-pa_se       <- placebo_aligned$se[1]
-pa_pval     <- placebo_aligned$pv[1]
-pa_ci_low   <- placebo_aligned$ci[1, 1]
-pa_ci_high  <- placebo_aligned$ci[1, 2]
-pa_bw       <- placebo_aligned$bws[1, 1]
-pa_n        <- placebo_aligned$N_h[1] + placebo_aligned$N_h[2]
+# Dec-7 placebo restricted to state-owned media in the Russia-aligned (CSTO) group,
+# estimated separately per country (rdrobust on the source-level z-scored outcome;
+# MSE-optimal bandwidth; default HC SEs). Countries are shown side-by-side as columns.
+placebo_models <- results_align$placebo_aligned_models
 
+# Keep the aligned-country ordering; guard against any country that failed to estimate
+placebo_country_order <- CSTO_COUNTRIES[CSTO_COUNTRIES %in% names(placebo_models)]
+
+# Format one rdrobust model into a column of table statistics (in row order below)
+format_placebo_col <- function(m) {
+  stars <- case_when(m$pv[1] < 0.001 ~ "***",
+                     m$pv[1] < 0.01 ~ "**",
+                     m$pv[1] < 0.05 ~ "*",
+                     TRUE ~ "")
+  c(
+    sprintf("%.3f%s", m$coef[1], stars),
+    sprintf("(%.3f)", m$se[1]),
+    sprintf("[%.3f, %.3f]", m$ci[1, 1], m$ci[1, 2]),
+    sprintf("%.3f", m$pv[1]),
+    sprintf("%.1f", m$bws[1, 1]),
+    format(m$N_h[1] + m$N_h[2], big.mark = ",")
+  )
+}
+
+# Rows = statistics; one column per aligned country
 placebo_aligned_summary <- tibble(
-  Model     = "Aligned State Media (RDD, Z-Score)",
-  Estimate  = pa_estimate,
-  Std_Error = pa_se,
-  CI        = sprintf("[%.3f, %.3f]", pa_ci_low, pa_ci_high),
-  p_value   = pa_pval,
-  Bandwidth = pa_bw,
-  N         = pa_n
+  Statistic = c("Estimate", "Std. Error", "95% CI", "p-value", "Bandwidth", "N")
 )
+for (cntry in placebo_country_order) {
+  placebo_aligned_summary[[cntry]] <- format_placebo_col(placebo_models[[cntry]])
+}
 
 note_placebo_aligned <- str_wrap(paste(
-  "Placebo test using December 7, 2021 (US public warning of the buildup) as a false",
-  "treatment date, restricted to state-owned media in the Russia-aligned group",
-  "(Armenia, Azerbaijan, Belarus, Kazakhstan), non-military topics, pre-invasion period",
-  "(before Feb 19, 2022). Estimated with rdrobust on the source-level z-scored outcome,",
-  "MSE-optimal bandwidth, clustered by source domain. A non-significant discontinuity",
-  "indicates no pre-invasion jump at the warning date."
+  "Placebo tests using December 7, 2021 (US public warning of the buildup) as a false",
+  "treatment date, restricted to state-owned media in each Russia-aligned country,",
+  "non-military topics, pre-invasion period (before Feb 19, 2022). Each column is a",
+  "separate rdrobust fit on the source-level z-scored outcome with the MSE-optimal",
+  "bandwidth. Standard errors are rdrobust default (nearest-neighbor heteroskedasticity-",
+  "robust); source clustering is not used because each country has only 2-3 state-owned",
+  "sources. Non-significant discontinuities indicate no pre-invasion jump at the warning date."
 ), 80)
 
 table_s13 <- placebo_aligned_summary %>%
-  mutate(
-    Estimate_fmt = sprintf("%.3f%s", Estimate,
-                     case_when(p_value < 0.001 ~ "***",
-                               p_value < 0.01 ~ "**",
-                               p_value < 0.05 ~ "*",
-                               TRUE ~ "")),
-    Std_Error_fmt = sprintf("(%.3f)", Std_Error),
-    p_value_fmt = sprintf("%.3f", p_value),
-    Bandwidth_fmt = sprintf("%.1f", Bandwidth),
-    N_fmt = format(N, big.mark = ",")
-  ) %>%
-  select(Model, Estimate_fmt, Std_Error_fmt, CI, p_value_fmt, Bandwidth_fmt, N_fmt) %>%
   gt() %>%
-  cols_label(
-    Model = "Model",
-    Estimate_fmt = "Estimate",
-    Std_Error_fmt = "Std. Error",
-    CI = "95% CI",
-    p_value_fmt = "p-value",
-    Bandwidth_fmt = "Bandwidth",
-    N_fmt = "N"
-  ) %>%
-  tab_header(title = "Placebo Test: Aligned State Media (Probabilistic Time)",
+  cols_label(Statistic = "") %>%
+  tab_header(title = "Placebo Test: Aligned State Media by Country (Probabilistic Time)",
              subtitle = "December 7, 2021 False Treatment Date") %>%
   tab_footnote(footnote = note_placebo_aligned)
 
@@ -1404,7 +1400,7 @@ cat("  S9  table_s09_h3a_fe_topic           H3a by-topic Full Data\n")
 cat("  S10 table_s10_h3a_loo               H3a LOO robustness\n")
 cat("  S11 table_s11_h3a_hetero               H3a Hetero robustness\n")
 cat("  S12 table_s12_placebo                Placebo test summary\n")
-cat("  S13 table_s13_placebo_aligned        Placebo test, aligned state media (Dec 7)\n")
+cat("  S13 table_s13_placebo_aligned        Placebo test, aligned state media by country (Dec 7)\n")
 cat("=============================================================\n")
 ```
 
