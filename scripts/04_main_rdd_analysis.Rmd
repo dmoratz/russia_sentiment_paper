@@ -49,20 +49,20 @@ model1_basic <- feols(sentiment_clean ~ running * treatment,
 summary(model1_basic)
 ```
 
-## Model 2: With Country Fixed Effects
+## Model 2: With Topic Fixed Effects
 
 ```{r model1-country}
-model1_country_fe <- feols(sentiment_clean ~ running * treatment | country,
+model1_country_fe <- feols(sentiment_clean ~ running * treatment | topic_clean,
                            cluster = ~source_domain,
                            data = data_non_ukraine)
 
 summary(model1_country_fe)
 ```
 
-## Model 3: With Country and Source Fixed Effects
+## Model 3: With Topic and Source Fixed Effects
 
 ```{r model1-source}
-model1_country_source_fe <- feols(sentiment_clean ~ running * treatment | country + source_domain,
+model1_country_source_fe <- feols(sentiment_clean ~ running * treatment | topic_clean + source_domain,
                                    cluster = ~source_domain,
                                    data = data_non_ukraine)
 
@@ -165,11 +165,11 @@ model1_opt <- rdrobust(
 summary(model1_opt)
 ```
 
-## Model 2: With Country Fixed Effects
+## Model 2: With Topic Fixed Effects
 
 ```{r model2-optimal}
 # Only country fixed effects as covariates
-covs_matrix <- model.matrix(~ country - 1, data = optimal_bandwidth_data)
+covs_matrix <- model.matrix(~ topic_clean - 1, data = optimal_bandwidth_data)
 
 model2_opt <- rdrobust(
   y = optimal_bandwidth_data$sentiment_clean, 
@@ -181,11 +181,11 @@ model2_opt <- rdrobust(
 summary(model2_opt)
 ```
 
-## Model 3: With Country and Source Fixed Effects
+## Model 3: With Topic and Source Fixed Effects
 
 ```{r model3-optimal}
 # Only country and source domain fixed effects as covariates
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data)
+covs_matrix <- model.matrix(~ topic_clean + source_domain - 1, data = optimal_bandwidth_data)
 
 model3_opt <- rdrobust(
   y = optimal_bandwidth_data$sentiment_clean, 
@@ -951,142 +951,6 @@ model4_felm_saturated <- feols(
 )
 
 summary(model4_felm_saturated)
-```
-
-
-# Robustness: Non-Parametric Saturation Check
-
-```{r}
-country_name <- "Kosovo"
-
-country_data <- optimal_bandwidth_data %>%
-  filter(country == country_name)
-
-bw_select <- rdbwselect(y = country_data$sentiment_clean,
-                        x = country_data$running,
-                        cluster = country_data$source_domain,
-                        kernel = "triangular",
-                        p = 1,
-                        bwselect = "mserd")
-
-# Extract bandwidth
-optimal_bw <- bw_select$bws[1, 1]
-cat("\nOptimal bandwidth:", round(optimal_bw, 1), "days\n")
-
-# Filter to optimal bandwidth
-country_data <- country_data %>%
-  filter(running < optimal_bw) %>%
-  filter(running > -optimal_bw)
-
-cat("Observations within optimal bandwidth:", nrow(country_data), "\n")
-
-# Step 1: Source-topic level - calculate average sentiment just before and after discontinuity
-source_topic_rd <- country_data %>%
-  mutate(post = ifelse(running >= 0, 1, 0)) %>%
-  group_by(source_domain, topic_clean, post) %>%
-  summarize(
-    mean_sentiment = mean(sentiment_clean, na.rm = TRUE),
-    n_articles = n(),
-    .groups = "drop"
-  ) %>%
-  pivot_wider(
-    names_from = post,
-    values_from = c(mean_sentiment, n_articles)
-  ) %>%
-  mutate(
-    # Discontinuity for this source-topic
-    rd_effect = mean_sentiment_1 - mean_sentiment_0,
-    total_articles = n_articles_0 + n_articles_1
-  )
-
-# Step 2: Source level - weighted average across topics
-source_rd <- source_topic_rd %>%
-  group_by(source_domain) %>%
-  summarize(
-    source_rd_effect = weighted.mean(rd_effect, w = total_articles, na.rm = TRUE),
-    total_articles = sum(total_articles, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-# Step 3: Country level - weighted average across sources
-country_rd <- source_rd %>%
-  summarize(
-    country_rd_effect = weighted.mean(source_rd_effect, w = total_articles, na.rm = TRUE)
-  )
-
-print(paste("Non-parametric RD estimate for", country_name, ":", country_rd$country_rd_effect))
-
-```
-
-```{r}
-# RD robust versions
-# Version 1: Local constant (p=0), uniform kernel, no covariates 
-# This should match the non-parametric estimate most closely
-model_rd_v1 <- rdrobust(
-  y = country_data$sentiment_clean,
-  x = country_data$running,
-  cluster = country_data$source_domain,
-  h = optimal_bw,
-  kernel = "uniform",
-  p = 0
-)
-
-# Version 2: Local constant, uniform kernel, with covariates
-covs_matrix_country <- model.matrix(~ source_domain + topic_clean - 1, data = country_data)
-model_rd_v2 <- rdrobust(
-  y = country_data$sentiment_clean,
-  x = country_data$running,
-  covs = covs_matrix_country,
-  cluster = country_data$source_domain,
-  h = optimal_bw,
-  kernel = "uniform",
-  p = 0
-)
-
-# Version 3: Your original spec - local linear, triangular kernel, with covariates
-model_rd_v3 <- rdrobust(
-  y = country_data$sentiment_clean,
-  x = country_data$running,
-  covs = covs_matrix_country,
-  cluster = country_data$source_domain,
-  h = optimal_bw  # Using same bandwidth for fair comparison
-)
-
-# Compare
-comparison <- data.frame(
-  Method = c(
-    "Non-parametric", 
-    "rdrobust (p=0, uniform, no covs)",
-    "rdrobust (p=0, uniform, with covs)",
-    "rdrobust (p=1, triangular, with covs)"
-  ),
-  Estimate = c(
-    country_rd$country_rd_effect,
-    model_rd_v1$coef[1],
-    model_rd_v2$coef[1],
-    model_rd_v3$coef[1]
-  )
-)
-
-print(comparison)
-```
-
-```{r}
-print("Model 1 coef:")
-print(model_rd_v1$coef)
-print(length(model_rd_v1$coef))
-
-print("Model 2 coef:")
-print(model_rd_v2$coef)
-print(length(model_rd_v2$coef))
-
-print("Model 3 coef:")
-print(model_rd_v3$coef)
-print(length(model_rd_v3$coef))
-
-print("Non-parametric:")
-print(country_rd$country_discontinuity)
-print(length(country_rd$country_discontinuity))
 ```
 
 # Summary Table (Table 1)

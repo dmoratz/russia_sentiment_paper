@@ -61,20 +61,20 @@ model1_basic <- feols(sentiment_clean ~ running_continuous * treatment,
 summary(model1_basic)
 ```
 
-## Model 2: With Country Fixed Effects
+## Model 2: With Topic Fixed Effects
 
 ```{r model1-country-drop}
-model1_country_fe <- feols(sentiment_clean ~ running_continuous * treatment | country,
+model1_country_fe <- feols(sentiment_clean ~ running_continuous * treatment | topic_clean,
                            cluster = ~source_domain,
                            data = data_non_ukraine)
 
 summary(model1_country_fe)
 ```
 
-## Model 3: With Country and Source Fixed Effects
+## Model 3: With Topic and Source Fixed Effects
 
 ```{r model1-source-drop}
-model1_country_source_fe <- feols(sentiment_clean ~ running_continuous * treatment | country + source_domain,
+model1_country_source_fe <- feols(sentiment_clean ~ running_continuous * treatment | topic_clean + source_domain,
                                    cluster = ~source_domain,
                                    data = data_non_ukraine)
 
@@ -171,11 +171,11 @@ model1_opt <- rdrobust(
 summary(model1_opt)
 ```
 
-## Model 2: With Country Fixed Effects
+## Model 2: With Topic Fixed Effects
 
 ```{r model2-optimal-drop}
 # Only country fixed effects as covariates
-covs_matrix <- model.matrix(~ country - 1, data = optimal_bandwidth_data)
+covs_matrix <- model.matrix(~ topic_clean - 1, data = optimal_bandwidth_data)
 
 model2_opt <- rdrobust(
   y = optimal_bandwidth_data$sentiment_clean,
@@ -187,11 +187,11 @@ model2_opt <- rdrobust(
 summary(model2_opt)
 ```
 
-## Model 3: With Country and Source Fixed Effects
+## Model 3: With Topic and Source Fixed Effects
 
 ```{r model3-optimal-drop}
 # Only country and source domain fixed effects as covariates
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data)
+covs_matrix <- model.matrix(~ topic_clean + source_domain - 1, data = optimal_bandwidth_data)
 
 model3_opt <- rdrobust(
   y = optimal_bandwidth_data$sentiment_clean,
