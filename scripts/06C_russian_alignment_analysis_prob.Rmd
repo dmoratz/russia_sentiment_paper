@@ -132,6 +132,84 @@ ggsave(plot = state_align_discs_graph,
        width = 10, height = 7)
 ```
 
+## Pre-Trend Diagnostic: State Media in Russia-Aligned Countries
+
+Addresses the concern that sentiment toward Russia may have turned negative *before* the
+Feb 24, 2022 invasion (during the troop buildup) in state-owned media of Russia-aligned
+countries. We plot the daily mean sentiment for state-owned sources in each aligned country
+(Armenia, Azerbaijan, Belarus, Kazakhstan), mark both the Dec 7, 2021 US public-warning
+date and the Feb 24, 2022 invasion cutoff, and overlay a linear fit on the pre-invasion
+window only so any pre-existing slide is visible.
+
+```{r pretrend-by-country-aligned-prob, fig.width=10, fig.height=7}
+# Buildup display window (trim to keep the pre-invasion period readable)
+PRETREND_START <- as.Date("2021-06-01")
+PRETREND_END   <- as.Date("2022-06-01")
+INVASION_DATE  <- as.Date("2022-02-24")
+WARNING_DATE   <- as.Date("2021-12-07")
+
+# State-owned media in the Russia-aligned (CSTO) group; Ukraine already excluded (NATO)
+data_pretrend <- data %>%
+  filter(country %in% CSTO_COUNTRIES, state_owned == 1,
+         date_publish >= PRETREND_START, date_publish <= PRETREND_END) %>%
+  mutate(country = droplevels(country))
+
+# Daily mean sentiment per country (same outcome + daily aggregation as other figures)
+agg_pretrend <- data_pretrend %>%
+  group_by(country, date_publish) %>%
+  summarize(sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+            num_obs = n(), .groups = "drop")
+
+# Pre-invasion daily means only (the linear fit is restricted to this window)
+agg_pretrend_pre <- agg_pretrend %>%
+  filter(date_publish < INVASION_DATE)
+
+pretrend_by_country_aligned_graph <- ggplot(agg_pretrend,
+                                             aes(x = date_publish, y = sentiment_clean)) +
+  geom_point(aes(size = num_obs), alpha = 0.2, inherit.aes = TRUE) +
+  geom_smooth(data = agg_pretrend_pre, method = "lm", se = TRUE, color = "red4") +
+  geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
+  geom_vline(xintercept = WARNING_DATE, linetype = "dotted", color = "grey30") +
+  scale_size(name = "Observations") +
+  facet_wrap(~ country, scales = "free_y") +
+  theme_classic() +
+  labs(
+    title = "Pre-Invasion Sentiment Trend in State Media (Probabilistic)",
+    subtitle = "Russia-aligned countries; dotted = Dec 7 warning, dashed = Feb 24 invasion",
+    x = "Publication date",
+    y = "Mean sentiment toward Russia"
+  )
+
+pretrend_by_country_aligned_graph
+
+ggsave(plot = pretrend_by_country_aligned_graph,
+       file.path(FIGURES_HETEROGENEITY_PROB, "pretrend_by_country_aligned.png"),
+       width = 10, height = 7)
+```
+
+```{r pretrend-slopes-aligned-prob}
+# Per-country pre-invasion linear slope (fit on the plotted daily means).
+# Slope is in sentiment units per day; also reported per 30 days for readability.
+pretrend_slopes <- agg_pretrend_pre %>%
+  group_by(country) %>%
+  group_modify(~ {
+    fit <- lm(sentiment_clean ~ as.numeric(date_publish), data = .x)
+    ct <- summary(fit)$coefficients["as.numeric(date_publish)", ]
+    tibble(
+      n_days       = nrow(.x),
+      slope_day    = ct["Estimate"],
+      slope_30day  = ct["Estimate"] * 30,
+      std_error    = ct["Std. Error"],
+      p_value      = ct["Pr(>|t|)"]
+    )
+  }) %>%
+  ungroup()
+
+cat("=== Task A: Pre-invasion sentiment slope in state media, by aligned country ===\n")
+cat("(slope in sentiment units per day; slope_30day = per 30 days)\n\n")
+print(as.data.frame(pretrend_slopes), row.names = FALSE, digits = 4)
+```
+
 ## State Media Alignment Regressions
 
 ### CSTO Countries Only
@@ -862,6 +940,60 @@ boot_model_placebo_nonmil <- run_wild_bootstrap(model_placebo_nonmil, "treatment
 cat("Bootstrap SE for treatment:csto (placebo):", boot_model_placebo_nonmil$se, "\n")
 cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
+## Placebo Test: December 7th Announcement (Aligned State Media Only)
+
+Directly addresses the reviewer concern: a placebo-cutoff RDD restricted to state-owned
+media in the Russia-aligned (CSTO) group. Sources across the four aligned countries are
+pooled into a single analysis; source-level z-scoring absorbs baseline differences across
+sources and countries. Estimation mirrors the main H1 placebo (`rdrobust` with the
+MSE-optimal bandwidth, clustered by source) on the z-scored outcome used throughout the
+CSTO state-media RDDs. A non-significant discontinuity at the Dec 7, 2021 warning date
+indicates that sentiment was not already jumping during the buildup.
+
+```{r placebo-dec-aligned-prob}
+# State-owned media in the Russia-aligned (CSTO) group, non-military, pre-invasion.
+data_dec_csto <- data_align %>%
+  filter(state_owned == 1, csto == 1,
+         !topic_clean %in% "Military",
+         date_publish < "2022-02-19") %>%
+  mutate(
+    running_probabilistic = as.numeric(difftime(
+      date_publish_probabilistic, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"),
+      units = "secs")) / 86400,
+    treatment = ifelse(date_publish_probabilistic <
+                       as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
+  )
+
+# Source-level z-score adjustment (as in the CSTO state-media RDDs)
+data_dec_csto <- data_dec_csto %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                        sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+covs_matrix_dec_csto <- model.matrix(~ topic_clean - 1, data = data_dec_csto)
+
+model_placebo_aligned <- rdrobust(
+  y = data_dec_csto$sentiment_z,
+  x = data_dec_csto$running_probabilistic,
+  covs = covs_matrix_dec_csto,
+  cluster = data_dec_csto$source_domain
+)
+
+summary(model_placebo_aligned)
+
+# Key numbers for the appendix table and printed summary
+cat("\n=== Task B: Dec 7, 2021 placebo RDD, aligned state media (z-scored) ===\n")
+cat("Estimate:  ", round(model_placebo_aligned$coef[1], 3), "\n")
+cat("95% CI:    [", round(model_placebo_aligned$ci[1, 1], 3), ",",
+    round(model_placebo_aligned$ci[1, 2], 3), "]\n")
+cat("p-value:   ", round(model_placebo_aligned$pv[1], 3), "\n")
+cat("Bandwidth: ", round(model_placebo_aligned$bws[1, 1], 3), "days\n")
+cat("N (within bw):", model_placebo_aligned$N_h[1] + model_placebo_aligned$N_h[2], "\n")
+cat("Sources (clusters):", length(unique(data_dec_csto$source_domain)), "\n")
+cat("\nNote: Non-significant discontinuity suggests no pre-invasion jump at the warning date.\n")
 ```
 
 ## Matching
@@ -2022,7 +2154,10 @@ results_het_prob <- list(
   matched_loo_summary = matched_loo_summary,
   model_placebo_nonmil = model_placebo_nonmil,
   optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil,
-  
+
+  # Dec-7 placebo restricted to aligned (CSTO) state media (rdrobust, z-scored)
+  model_placebo_aligned = model_placebo_aligned,
+
   # Mini-Regressions: Heterogeneous treatment effect decomposition
   decomposition = decomposition_results
 )

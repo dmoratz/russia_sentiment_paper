@@ -110,6 +110,18 @@ pacman::p_load(
 | Tables (HTML) | `figures/*.html` |
 | HTML reports | `output/*.html` |
 
+### Pre-Trend Robustness Outputs (reviewer response)
+
+Added to the probabilistic-time pipeline to address the concern that sentiment toward Russia
+may have shifted negatively during the pre-invasion buildup in aligned state media:
+
+| Output | Built in | Location |
+|--------|----------|----------|
+| `pretrend_by_country_aligned.png` (small-multiples pre-trend figure: state media, one panel per Russia-aligned country; Dec 7 & Feb 24 markers; pre-invasion linear fit) | `06C_russian_alignment_analysis_prob.Rmd` (chunk `pretrend-by-country-aligned-prob`) | `figures/heterogeneity/prob/` |
+| Per-country pre-invasion slope printout | `06C` (chunk `pretrend-slopes-aligned-prob`) | console |
+| `model_placebo_aligned` (Dec 7, 2021 placebo RDD; aligned state-owned non-military media; `rdrobust`, MSE-optimal bandwidth, source-clustered, z-scored outcome) | `06C` (chunk `placebo-dec-aligned-prob`) → serialized in `06_alignment_results_prob.rds` | `data/intermediate/` |
+| `table_s13_placebo_aligned` (appendix table for the aligned-group placebo) | `08a_publication_outputs.Rmd` (chunk `table-s13`) | `figures/tables/prob/` |
+
 ## Key Functions (from 00_setup.R)
 
 ### `clean_datetime_col(date_col)`
