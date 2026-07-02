@@ -14,11 +14,14 @@ russia_sentiment_paper/
 │   ├── 00_setup.R           # Shared packages and functions
 │   ├── 01_data_loading.Rmd  # Load raw data
 │   ├── 02_data_cleaning.Rmd # Clean and create variables
-│   ├── 03_descriptive_analysis.Rmd
-│   ├── 04_main_rdd_analysis.Rmd      # Hypothesis 1
-│   ├── 05_diff_in_disc_analysis.Rmd  # Hypothesis 2
-│   ├── 06_heterogeneity_analysis.Rmd # Robustness
-│   ├── 07_publication_outputs.Rmd    # Final tables
+│   ├── 03A_descriptive_analysis.Rmd, 03B_coding_analysis.Rmd
+│   ├── 04{a,b,d}_main_rdd_analysis_*.Rmd        # H1 (prob/days/drop)
+│   ├── 05{a,b,d}_diff_in_disc_analysis_*.Rmd    # H2 (prob/days/drop)
+│   ├── 06{a,b,d}_russian_alignment_analysis_*.Rmd # H3a (prob/days/drop)
+│   ├── 07{a,b,d}_ethnic_russian_analysis_*.Rmd  # H3b (prob/days/drop)
+│   ├── 08{a,b,d}_publication_outputs_*.Rmd      # Final tables per variant
+│   ├── 09_bandwidth_sensitivity.Rmd
+│   ├── archive/             # Retired continuous-time (c) scripts + lifted diagnostics
 │   ├── master.Rmd           # Run entire pipeline
 │   └── README.md            # Scripts documentation
 ├── figures/                 # Generated plots and tables
@@ -65,16 +68,25 @@ data/raw/                          data/processed/
 
 ## Analysis Pipeline
 
+Each hypothesis is run in three time-treatment **variants**, suffixed `a`/`b`/`d`:
+`a` = **probabilistic** time assignment (primary), `b` = **day** running variable,
+`d` = **drop** no-time articles. The continuous-time variant (`c`) has been retired to
+`scripts/archive/`. Within each family the variants run in the order prob → days → drop.
+
 | Step | Script | Description |
 |------|--------|-------------|
 | 0 | `00_setup.R` | Load packages, define functions and constants |
 | 1 | `01_data_loading.Rmd` | Load raw GPT-coded article data |
 | 2 | `02_data_cleaning.Rmd` | Clean data, create analysis variables |
-| 3 | `03_descriptive_analysis.Rmd` | Summary statistics, distributions, EDA |
-| 4 | `04_main_rdd_analysis.Rmd` | **H1**: Effect of invasion on sentiment (RDD) |
-| 5 | `05_diff_in_disc_analysis.Rmd` | **H2**: State vs independent media (Diff-in-Disc) |
-| 6 | `06_heterogeneity_analysis.Rmd` | Heterogeneity by alignment and ethnicity |
-| 7 | `07_publication_outputs.Rmd` | Generate final tables and figures |
+| 3A/3B | `03A_descriptive_analysis.Rmd`, `03B_coding_analysis.Rmd` | Summary stats, EDA, coding reliability |
+| 4 | `04{a,b,d}_main_rdd_analysis_*.Rmd` | **H1**: Effect of invasion on sentiment (RDD) |
+| 5 | `05{a,b,d}_diff_in_disc_analysis_*.Rmd` | **H2**: State vs independent media (Diff-in-Disc) |
+| 6 | `06{a,b,d}_russian_alignment_analysis_*.Rmd` | **H3a**: CSTO alignment (incl. pre-trend + Dec-7 placebo) |
+| 7 | `07{a,b,d}_ethnic_russian_analysis_*.Rmd` | **H3b**: Ethnic Russian population effects |
+| 8 | `08{a,b,d}_publication_outputs_*.Rmd` | Generate final tables (`.tex`/`.html`) per variant |
+| 9 | `09_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity analysis |
+
+Run the whole pipeline via `scripts/master.Rmd`.
 
 ## Required R Packages
 

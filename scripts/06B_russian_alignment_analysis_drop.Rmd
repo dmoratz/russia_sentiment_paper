@@ -1,5 +1,5 @@
 ---
-title: "06B - Russian Alignment Analysis (Drop No-Time Articles) (CSTO vs Neutral)"
+title: "06d - Russian Alignment Analysis (Drop No-Time Articles) (CSTO vs Neutral)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:

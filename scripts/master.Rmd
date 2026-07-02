@@ -12,81 +12,20 @@ output:
 
 This master script runs the entire analysis pipeline for the Russia sentiment paper.
 
-Changes to make:
-06C has updated analysis that needs to push to rest of 061
-05C needs to be updated to match 06C
-05 Files need to be updated to match 05C
-08 tables need updating for 06 and full rework for 05 changes
+The **probabilistic (KDE) time-assignment** variant is the primary analysis. The **day** and
+**drop-no-time** variants are supplementary robustness checks. The **continuous-time** variant
+has been retired to `scripts/archive/` and is no longer part of the pipeline. Within each
+analysis family the variants are numbered and run in the order **prob → days → drop**,
+matching the publication-output (08) ordering.
 
-## Workflow Diagram
+## Variant Naming
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         RUSSIA SENTIMENT ANALYSIS PIPELINE                   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌──────────────────┐
-  │   00_setup.R     │ ◄── Shared functions, packages, constants
-  └────────┬─────────┘
-           │
-           ▼
-  ┌──────────────────┐     ┌─────────────────────────────┐
-  │ 01_data_loading  │────►│ data/intermediate/          │
-  │     .Rmd         │     │   01_raw_data.rds           │
-  └────────┬─────────┘     └─────────────────────────────┘
-           │
-           ▼
-  ┌──────────────────┐     ┌─────────────────────────────┐
-  │ 02_data_cleaning │────►│ data/intermediate/          │
-  │     .Rmd         │     │   02_cleaned_data.rds       │
-  └────────┬─────────┘     │   02_data_non_ukraine.rds   │
-           │               │   02_data_non_ukraine_ind.rds│
-           │               └─────────────────────────────┘
-           │
-     ┌─────┴─────┬──────────────────────────┐
-     │           │                          │
-     ▼           ▼                          ▼
-┌─────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌──────────┐
-│  03A    │ │   04    │ │   04A    │ │   05    │ │   05A    │
-│ Descrip │ │Main RDD │ │ RDD Cont │ │Diff-Disc│ │Disc Cont │
-│ tive    │ │   H1    │ │  H1 Alt  │ │   H2    │ │  H2 Alt  │
-└────┬────┘ └────┬────┘ └────┬─────┘ └────┬────┘ └────┬─────┘
-     │           │           │            │            │
-┌────┴────┐     │           │            │            │
-│  03B    │     │           │            │            │
-│ Coding  │     │           │            │            │
-│Analysis │     │           │            │            │
-└────┬────┘     │           │            │            │
-     │           │           │            │            │
-     │           │     ┌─────┴─────┐ ┌────┴────┐ ┌────┴────┐
-     │           │     │  04B 04C  │ │ 05B 05C │ │         │
-     │           │     │Drop  Prob │ │Drop Prob│ │         │
-     │           │     └─────┬─────┘ └────┬────┘ │         │
-     │           │           │            │      │         │
-     │           ▼           ▼            ▼      ▼         │
-     │      ┌──────────────────────────────────────────┐   │
-     │      │  06: Russian Alignment (CSTO vs Neutral) │   │
-     │      │  06A: Alignment Continuous               │   │
-     │      │  06B: Alignment Drop No-Time             │   │
-     │      │  06C: Alignment Probabilistic            │   │
-     │      └───────────────────┬──────────────────────┘   │
-     │                          │                          │
-     │      ┌───────────────────▼──────────────────────┐   │
-     │      │  07: Ethnic Russian Population           │   │
-     │      │  07A: Ethnic Continuous                  │   │
-     │      │  07B: Ethnic Drop No-Time                │   │
-     │      │  07C: Ethnic Probabilistic               │   │
-     │      └───────────────────┬──────────────────────┘   │
-     │                          │                          │
-     └──────────────────────────┼──────────────────────────┘
-                                │
-                                ▼
-                   ┌─────────────────────┐
-                   │         08          │
-                   │    Publication      │────► figures/
-                   │      Outputs        │      (tables & plots)
-                   └─────────────────────┘
-```
+| Suffix | Variant | Running variable | In pipeline? |
+|--------|---------|------------------|--------------|
+| `a` (`_prob`) | Probabilistic time (primary) | `running_probabilistic` | Yes |
+| `b` (`_days`) | Day running variable | `running` | Yes |
+| `c` (`_cont`) | Continuous time | `running_continuous` | **Archived** |
+| `d` (`_drop`) | Drop no-time articles | `running_continuous` (has_time) | Yes |
 
 ## File Descriptions
 
@@ -97,434 +36,82 @@ Changes to make:
 | `02_data_cleaning.Rmd` | Clean and create variables | `02_cleaned_data.rds`, etc. |
 | `03A_descriptive_analysis.Rmd` | Summary statistics, EDA | Tables, time series plots |
 | `03B_coding_analysis.Rmd` | Confusion matrices, Krippendorff's alpha, region map | `figures/coding/` |
-| `04_main_rdd_analysis.Rmd` | Hypothesis 1: RDD (day) | `04_h1_results.rds`, figures |
-| `04A_main_rdd_analysis_continuous.Rmd` | Hypothesis 1: RDD (continuous) | `04_h1_results_continuous.rds`, figures |
-| `04B_main_rdd_analysis_drop.Rmd` | H1: RDD (drop no-time articles) | `04_h1_results_drop.rds` |
-| `04C_main_rdd_analysis_prob.Rmd` | H1: RDD (probabilistic time) | `04_h1_results_prob.rds` |
-| `05_diff_in_disc_analysis.Rmd` | Hypothesis 2: Diff-in-disc (day) | `05_h2_results.rds`, figures |
-| `05A_diff_in_disc_analysis_continuous.Rmd` | Hypothesis 2: Diff-in-disc (continuous) | `05_h2_results_continuous.rds`, figures |
-| `05B_diff_in_disc_analysis_drop.Rmd` | H2: Diff-in-disc (drop no-time) | `05_h2_results_drop.rds` |
-| `05C_diff_in_disc_analysis_prob.Rmd` | H2: Diff-in-disc (probabilistic time) | `05_h2_results_prob.rds` |
-| `06_russian_alignment_analysis.Rmd` | CSTO vs Neutral alignment (day) | `06_alignment_results.rds` |
-| `06A_russian_alignment_analysis_continuous.Rmd` | Alignment analysis (continuous) | `06_alignment_results_continuous.rds` |
-| `06B_russian_alignment_analysis_drop.Rmd` | Alignment analysis (drop no-time) | `06_alignment_results_drop.rds` |
-| `06C_russian_alignment_analysis_prob.Rmd` | Alignment analysis (probabilistic) | `06_alignment_results_prob.rds` |
-| `07_ethnic_russian_analysis.Rmd` | Ethnic Russian population effects (day) | `07_ethnic_results.rds` |
-| `07A_ethnic_russian_analysis_continuous.Rmd` | Ethnic Russian analysis (continuous) | `07_ethnic_results_continuous.rds` |
-| `07B_ethnic_russian_analysis_drop.Rmd` | Ethnic Russian analysis (drop no-time) | `07_ethnic_results_drop.rds` |
-| `07C_ethnic_russian_analysis_prob.Rmd` | Ethnic Russian analysis (probabilistic) | `07_ethnic_results_prob.rds` |
-| `08a_publication_outputs.Rmd` | Publication tables (Probabilistic Time, primary) | Publication-ready outputs (.tex + .html) |
-| `08b_publication_outputs_days.Rmd` | Publication tables (Day Running Variable) | Publication-ready outputs (.tex + .html) |
-| `08c_publication_outputs_cont.Rmd` | Publication tables (Continuous Running Variable) | Publication-ready outputs (.tex + .html) |
-| `08d_publication_outputs_drop.Rmd` | Publication tables (Drop No-Time Articles) | Publication-ready outputs (.tex + .html) |
+| `04a_main_rdd_analysis_prob.Rmd` | **H1**: RDD (probabilistic, primary) | `04_h1_results_prob.rds` |
+| `04b_main_rdd_analysis_days.Rmd` | H1: RDD (day) | `04_h1_results.rds` |
+| `04d_main_rdd_analysis_drop.Rmd` | H1: RDD (drop no-time) | `04_h1_results_drop.rds` |
+| `05a_diff_in_disc_analysis_prob.Rmd` | **H2**: Diff-in-disc (probabilistic, primary) | `05_h2_results_prob.rds` |
+| `05b_diff_in_disc_analysis_days.Rmd` | H2: Diff-in-disc (day) | `05_h2_results.rds` |
+| `05d_diff_in_disc_analysis_drop.Rmd` | H2: Diff-in-disc (drop no-time) | `05_h2_results_drop.rds` |
+| `06a_russian_alignment_analysis_prob.Rmd` | **H3a**: CSTO alignment (probabilistic, primary) | `06_alignment_results_prob.rds` |
+| `06b_russian_alignment_analysis_days.Rmd` | H3a: alignment (day) | `06_alignment_results.rds` |
+| `06d_russian_alignment_analysis_drop.Rmd` | H3a: alignment (drop no-time) | `06_alignment_results_drop.rds` |
+| `07a_ethnic_russian_analysis_prob.Rmd` | **H3b**: ethnic Russian pop. (probabilistic, primary) | `07_ethnic_results_prob.rds` |
+| `07b_ethnic_russian_analysis_days.Rmd` | H3b: ethnic (day) | `07_ethnic_results.rds` |
+| `07d_ethnic_russian_analysis_drop.Rmd` | H3b: ethnic (drop no-time) | `07_ethnic_results_drop.rds` |
+| `08a_publication_outputs_prob.Rmd` | Publication tables (probabilistic, primary) | `.tex` + `.html` |
+| `08b_publication_outputs_days.Rmd` | Publication tables (day) | `.tex` + `.html` |
+| `08d_publication_outputs_drop.Rmd` | Publication tables (drop no-time) | `.tex` + `.html` |
+| `09_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity analysis | Figures |
+
+Archived continuous-time scripts live in `scripts/archive/` (`04c`/`05c`/`06c`/`07c` and
+`08c_publication_outputs_cont.Rmd`), alongside the lifted non-parametric saturation checks.
 
 # Run Pipeline
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
-
-# Track timing
 pipeline_start <- Sys.time()
 ```
 
-## Step 1: Data Loading
+The pipeline renders each script in order. Scripts 01–02 build the data; 03 runs the
+descriptive/coding analyses; 04–07 run the three variants (prob → days → drop) of each
+hypothesis; 08 builds the publication outputs for each variant; 09 runs bandwidth sensitivity.
 
-```{r step1}
-step1_start <- Sys.time()
-cat("Running 01_data_loading.Rmd...\n")
-
-rmarkdown::render(
+```{r run-pipeline}
+# Ordered list of pipeline scripts. Within each analysis family the variants run
+# prob -> days -> drop. Continuous-time variants are archived and not run here.
+pipeline_scripts <- c(
   "01_data_loading.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step1_time <- difftime(Sys.time(), step1_start, units = "secs")
-cat("Completed in", round(step1_time, 1), "seconds\n")
-```
-
-## Step 2: Data Cleaning
-
-```{r step2}
-step2_start <- Sys.time()
-cat("Running 02_data_cleaning.Rmd...\n")
-
-rmarkdown::render(
   "02_data_cleaning.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step2_time <- difftime(Sys.time(), step2_start, units = "secs")
-cat("Completed in", round(step2_time, 1), "seconds\n")
-```
-
-## Step 3A: Descriptive Analysis
-
-```{r step3a}
-step3a_start <- Sys.time()
-cat("Running 03A_descriptive_analysis.Rmd...\n")
-
-rmarkdown::render(
   "03A_descriptive_analysis.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step3a_time <- difftime(Sys.time(), step3a_start, units = "secs")
-cat("Completed in", round(step3a_time, 1), "seconds\n")
-```
-
-## Step 3B: Coding Analysis
-
-```{r step3b}
-step3b_start <- Sys.time()
-cat("Running 03B_coding_analysis.Rmd...\n")
-
-rmarkdown::render(
   "03B_coding_analysis.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
 
-step3b_time <- difftime(Sys.time(), step3b_start, units = "secs")
-cat("Completed in", round(step3b_time, 1), "seconds\n")
-```
+  "04a_main_rdd_analysis_prob.Rmd",
+  "04b_main_rdd_analysis_days.Rmd",
+  "04d_main_rdd_analysis_drop.Rmd",
 
-## Step 4: Main RDD Analysis
+  "05a_diff_in_disc_analysis_prob.Rmd",
+  "05b_diff_in_disc_analysis_days.Rmd",
+  "05d_diff_in_disc_analysis_drop.Rmd",
 
-```{r step4}
-step4_start <- Sys.time()
-cat("Running 04_main_rdd_analysis.Rmd...\n")
+  "06a_russian_alignment_analysis_prob.Rmd",
+  "06b_russian_alignment_analysis_days.Rmd",
+  "06d_russian_alignment_analysis_drop.Rmd",
 
-rmarkdown::render(
-  "04_main_rdd_analysis.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
+  "07a_ethnic_russian_analysis_prob.Rmd",
+  "07b_ethnic_russian_analysis_days.Rmd",
+  "07d_ethnic_russian_analysis_drop.Rmd",
 
-step4_time <- difftime(Sys.time(), step4_start, units = "secs")
-cat("Completed in", round(step4_time, 1), "seconds\n")
-```
-
-## Step 4A: Main RDD Analysis (Continuous Running Variable)
-
-```{r step4a}
-step4a_start <- Sys.time()
-cat("Running 04A_main_rdd_analysis_continuous.Rmd...\n")
-
-rmarkdown::render(
-  "04A_main_rdd_analysis_continuous.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step4a_time <- difftime(Sys.time(), step4a_start, units = "secs")
-cat("Completed in", round(step4a_time, 1), "seconds\n")
-```
-
-## Step 5: Diff-in-Disc Analysis
-
-```{r step5}
-step5_start <- Sys.time()
-cat("Running 05_diff_in_disc_analysis.Rmd...\n")
-
-rmarkdown::render(
-  "05_diff_in_disc_analysis.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step5_time <- difftime(Sys.time(), step5_start, units = "secs")
-cat("Completed in", round(step5_time, 1), "seconds\n")
-```
-
-## Step 5A: Diff-in-Disc Analysis (Continuous Running Variable)
-
-```{r step5a}
-step5a_start <- Sys.time()
-cat("Running 05A_diff_in_disc_analysis_continuous.Rmd...\n")
-
-rmarkdown::render(
-  "05A_diff_in_disc_analysis_continuous.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step5a_time <- difftime(Sys.time(), step5a_start, units = "secs")
-cat("Completed in", round(step5a_time, 1), "seconds\n")
-```
-
-## Step 6: Russian Alignment Analysis
-
-```{r step6}
-step6_start <- Sys.time()
-cat("Running 06_russian_alignment_analysis.Rmd...\n")
-
-rmarkdown::render(
-  "06_russian_alignment_analysis.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step6_time <- difftime(Sys.time(), step6_start, units = "secs")
-cat("Completed in", round(step6_time, 1), "seconds\n")
-```
-
-## Step 6A: Russian Alignment Analysis (Continuous Running Variable)
-
-```{r step6a}
-step6a_start <- Sys.time()
-cat("Running 06A_russian_alignment_analysis_continuous.Rmd...\n")
-
-rmarkdown::render(
-  "06A_russian_alignment_analysis_continuous.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step6a_time <- difftime(Sys.time(), step6a_start, units = "secs")
-cat("Completed in", round(step6a_time, 1), "seconds\n")
-```
-
-## Step 4B: Main RDD Analysis (Drop No-Time Articles)
-
-```{r step4b}
-step4b_start <- Sys.time()
-cat("Running 04B_main_rdd_analysis_drop.Rmd...\n")
-
-rmarkdown::render(
-  "04B_main_rdd_analysis_drop.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step4b_time <- difftime(Sys.time(), step4b_start, units = "secs")
-cat("Completed in", round(step4b_time, 1), "seconds\n")
-```
-
-## Step 5B: Diff-in-Disc Analysis (Drop No-Time Articles)
-
-```{r step5b}
-step5b_start <- Sys.time()
-cat("Running 05B_diff_in_disc_analysis_drop.Rmd...\n")
-
-rmarkdown::render(
-  "05B_diff_in_disc_analysis_drop.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step5b_time <- difftime(Sys.time(), step5b_start, units = "secs")
-cat("Completed in", round(step5b_time, 1), "seconds\n")
-```
-
-## Step 6B: Russian Alignment Analysis (Drop No-Time Articles)
-
-```{r step6b}
-step6b_start <- Sys.time()
-cat("Running 06B_russian_alignment_analysis_drop.Rmd...\n")
-
-rmarkdown::render(
-  "06B_russian_alignment_analysis_drop.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step6b_time <- difftime(Sys.time(), step6b_start, units = "secs")
-cat("Completed in", round(step6b_time, 1), "seconds\n")
-```
-
-## Step 4C: Main RDD Analysis (Probabilistic Time)
-
-```{r step4c}
-step4c_start <- Sys.time()
-cat("Running 04C_main_rdd_analysis_prob.Rmd...\n")
-
-rmarkdown::render(
-  "04C_main_rdd_analysis_prob.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step4c_time <- difftime(Sys.time(), step4c_start, units = "secs")
-cat("Completed in", round(step4c_time, 1), "seconds\n")
-```
-
-## Step 5C: Diff-in-Disc Analysis (Probabilistic Time)
-
-```{r step5c}
-step5c_start <- Sys.time()
-cat("Running 05C_diff_in_disc_analysis_prob.Rmd...\n")
-
-rmarkdown::render(
-  "05C_diff_in_disc_analysis_prob.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step5c_time <- difftime(Sys.time(), step5c_start, units = "secs")
-cat("Completed in", round(step5c_time, 1), "seconds\n")
-```
-
-## Step 6C: Russian Alignment Analysis (Probabilistic Time)
-
-```{r step6c}
-step6c_start <- Sys.time()
-cat("Running 06C_russian_alignment_analysis_prob.Rmd...\n")
-
-rmarkdown::render(
-  "06C_russian_alignment_analysis_prob.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step6c_time <- difftime(Sys.time(), step6c_start, units = "secs")
-cat("Completed in", round(step6c_time, 1), "seconds\n")
-```
-
-## Step 7: Ethnic Russian Population Analysis
-
-```{r step7}
-step7_start <- Sys.time()
-cat("Running 07_ethnic_russian_analysis.Rmd...\n")
-
-rmarkdown::render(
-  "07_ethnic_russian_analysis.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step7_time <- difftime(Sys.time(), step7_start, units = "secs")
-cat("Completed in", round(step7_time, 1), "seconds\n")
-```
-
-## Step 7A: Ethnic Russian Population Analysis (Continuous Running Variable)
-
-```{r step7a}
-step7a_start <- Sys.time()
-cat("Running 07A_ethnic_russian_analysis_continuous.Rmd...\n")
-
-rmarkdown::render(
-  "07A_ethnic_russian_analysis_continuous.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step7a_time <- difftime(Sys.time(), step7a_start, units = "secs")
-cat("Completed in", round(step7a_time, 1), "seconds\n")
-```
-
-## Step 7B: Ethnic Russian Population Analysis (Drop No-Time Articles)
-
-```{r step7b}
-step7b_start <- Sys.time()
-cat("Running 07B_ethnic_russian_analysis_drop.Rmd...\n")
-
-rmarkdown::render(
-  "07B_ethnic_russian_analysis_drop.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step7b_time <- difftime(Sys.time(), step7b_start, units = "secs")
-cat("Completed in", round(step7b_time, 1), "seconds\n")
-```
-
-## Step 7C: Ethnic Russian Population Analysis (Probabilistic Time)
-
-```{r step7c}
-step7c_start <- Sys.time()
-cat("Running 07C_ethnic_russian_analysis_prob.Rmd...\n")
-
-rmarkdown::render(
-  "07C_ethnic_russian_analysis_prob.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step7c_time <- difftime(Sys.time(), step7c_start, units = "secs")
-cat("Completed in", round(step7c_time, 1), "seconds\n")
-```
-
-## Step 8a: Publication Outputs (Probabilistic Time)
-
-```{r step8a}
-step8a_start <- Sys.time()
-cat("Running 08a_publication_outputs.Rmd...\n")
-
-rmarkdown::render(
-  "08a_publication_outputs.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step8a_time <- difftime(Sys.time(), step8a_start, units = "secs")
-cat("Completed in", round(step8a_time, 1), "seconds\n")
-```
-
-## Step 8b: Publication Outputs (Day Running Variable)
-
-```{r step8b}
-step8b_start <- Sys.time()
-cat("Running 08b_publication_outputs_days.Rmd...\n")
-
-rmarkdown::render(
+  "08a_publication_outputs_prob.Rmd",
   "08b_publication_outputs_days.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step8b_time <- difftime(Sys.time(), step8b_start, units = "secs")
-cat("Completed in", round(step8b_time, 1), "seconds\n")
-```
-
-## Step 8c: Publication Outputs (Continuous Running Variable)
-
-```{r step8c}
-step8c_start <- Sys.time()
-cat("Running 08c_publication_outputs_cont.Rmd...\n")
-
-rmarkdown::render(
-  "08c_publication_outputs_cont.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step8c_time <- difftime(Sys.time(), step8c_start, units = "secs")
-cat("Completed in", round(step8c_time, 1), "seconds\n")
-```
-
-## Step 8d: Publication Outputs (Drop No-Time Articles)
-
-```{r step8d}
-step8d_start <- Sys.time()
-cat("Running 08d_publication_outputs_drop.Rmd...\n")
-
-rmarkdown::render(
   "08d_publication_outputs_drop.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
+
+  "09_bandwidth_sensitivity.Rmd"
 )
 
-step8d_time <- difftime(Sys.time(), step8d_start, units = "secs")
-cat("Completed in", round(step8d_time, 1), "seconds\n")
-```
+timings <- data.frame(script = character(), seconds = numeric(), stringsAsFactors = FALSE)
 
-## Step 9: Bandwidth Sensitivity Analysis
+for (s in pipeline_scripts) {
+  cat("Running", s, "...\n")
+  step_start <- Sys.time()
 
-```{r step9}
-step9_start <- Sys.time()
-cat("Running 09_bandwidth_sensitivity.Rmd...\n")
+  rmarkdown::render(s, output_dir = "../output", quiet = TRUE)
 
-rmarkdown::render(
-  "09_bandwidth_sensitivity.Rmd",
-  output_dir = "../output",
-  quiet = TRUE
-)
-
-step9_time <- difftime(Sys.time(), step9_start, units = "secs")
-cat("Completed in", round(step9_time, 1), "seconds\n")
+  step_secs <- as.numeric(difftime(Sys.time(), step_start, units = "secs"))
+  timings <- rbind(timings, data.frame(script = s, seconds = round(step_secs, 1),
+                                        stringsAsFactors = FALSE))
+  cat("  Completed in", round(step_secs, 1), "seconds\n")
+}
 ```
 
 # Cleanup
@@ -548,33 +135,11 @@ cat("=============================================================\n")
 cat("PIPELINE COMPLETE\n")
 cat("=============================================================\n")
 cat("\nStep Timings:\n")
-cat("  01_data_loading:         ", round(step1_time, 1), "s\n")
-cat("  02_data_cleaning:        ", round(step2_time, 1), "s\n")
-cat("  03A_descriptive_analysis:", round(step3a_time, 1), "s\n")
-cat("  03B_coding_analysis:    ", round(step3b_time, 1), "s\n")
-cat("  04_main_rdd_analysis:    ", round(step4_time, 1), "s\n")
-cat("  04A_rdd_continuous:      ", round(step4a_time, 1), "s\n")
-cat("  04B_rdd_drop:            ", round(step4b_time, 1), "s\n")
-cat("  04C_rdd_prob:            ", round(step4c_time, 1), "s\n")
-cat("  05_diff_in_disc:         ", round(step5_time, 1), "s\n")
-cat("  05A_disc_continuous:     ", round(step5a_time, 1), "s\n")
-cat("  05B_disc_drop:           ", round(step5b_time, 1), "s\n")
-cat("  05C_disc_prob:           ", round(step5c_time, 1), "s\n")
-cat("  06_alignment:            ", round(step6_time, 1), "s\n")
-cat("  06A_alignment_continuous:", round(step6a_time, 1), "s\n")
-cat("  06B_alignment_drop:      ", round(step6b_time, 1), "s\n")
-cat("  06C_alignment_prob:      ", round(step6c_time, 1), "s\n")
-cat("  07_ethnic:               ", round(step7_time, 1), "s\n")
-cat("  07A_ethnic_continuous:   ", round(step7a_time, 1), "s\n")
-cat("  07B_ethnic_drop:         ", round(step7b_time, 1), "s\n")
-cat("  07C_ethnic_prob:         ", round(step7c_time, 1), "s\n")
-cat("  08a_pub_outputs_prob:    ", round(step8a_time, 1), "s\n")
-cat("  08b_pub_outputs_days:    ", round(step8b_time, 1), "s\n")
-cat("  08c_pub_outputs_cont:    ", round(step8c_time, 1), "s\n")
-cat("  08d_pub_outputs_drop:    ", round(step8d_time, 1), "s\n")
-cat("  09_bw_sensitivity:       ", round(step9_time, 1), "s\n")
+for (i in seq_len(nrow(timings))) {
+  cat(sprintf("  %-42s %6.1f s\n", timings$script[i], timings$seconds[i]))
+}
 cat("  ─────────────────────────────\n")
-cat("  Total:                   ", round(pipeline_total, 2), "min\n")
+cat(sprintf("  %-42s %6.2f min\n", "Total:", as.numeric(pipeline_total)))
 cat("\n")
 cat("Outputs saved to:\n")
 cat("  - data/intermediate/  (RDS files)\n")

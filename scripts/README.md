@@ -36,19 +36,17 @@ rmarkdown::render("02_data_cleaning.Rmd")
      │                     02_data_non_ukraine.rds                           │
      │                     02_data_non_ukraine_ind.rds                       │
      │                                                                       │
-     ├────────────────┬────────────────┬─────────────────┐                   │
-     ▼                ▼                ▼                 │                   │
-03_descriptive   04_main_rdd     05_diff_in_disc        │                   │
-     │                │                │                 │                   │
-     │                └────────┬───────┘                 │                   │
-     │                         ▼                         │                   │
-     │               06_heterogeneity_analysis           │                   │
-     │                         │                         │                   │
-     └─────────────────────────┴─────────────────────────┘                   │
-                               │                                             │
-                               ▼                                             │
-                    07_publication_outputs ◄─────────────────────────────────┘
+     ├──────────┬───────────┬───────────┬───────────┐                         │
+     ▼          ▼           ▼           ▼           ▼                         │
+03A/03B     04{a,b,d}   05{a,b,d}   06{a,b,d}   07{a,b,d}                      │
+descriptive  H1 RDD     H2 DiD     H3a align.  H3b ethnic                     │
+     │          └───────────┴─────┬─────┴───────────┘                          │
+     │                            ▼                                            │
+     └───────────────► 08{a,b,d}_publication_outputs ◄────────────────────────┘
 ```
+
+Each of 04–08 has three variants: `a` = probabilistic (primary), `b` = day, `d` = drop
+no-time. Continuous-time (`c`) scripts are archived in `scripts/archive/`.
 
 ## File Descriptions
 
@@ -57,13 +55,16 @@ rmarkdown::render("02_data_cleaning.Rmd")
 | `00_setup.R` | Shared packages, functions, constants | - | - |
 | `01_data_loading.Rmd` | Load raw GPT-coded data | CSV files | `01_raw_data.rds` |
 | `02_data_cleaning.Rmd` | Clean data, create variables | `01_raw_data.rds` | `02_*.rds` files |
-| `03_descriptive_analysis.Rmd` | Summary stats, EDA, time series | `02_*.rds` | Tables, plots |
-| `04_main_rdd_analysis.Rmd` | Hypothesis 1: RDD analysis | `02_*.rds` | `04_h1_results.rds` |
-| `05_diff_in_disc_analysis.Rmd` | Hypothesis 2: Diff-in-disc | `02_*.rds` | `05_h2_results.rds` |
-| `06_heterogeneity_analysis.Rmd` | Alignment & ethnic effects | `02_*.rds` | `06_het_results.rds` |
-| `07_publication_outputs.Rmd` | Final tables and figures | `04/05/06_*.rds` | Publication outputs |
+| `03A_descriptive_analysis.Rmd` | Summary stats, EDA, time series | `02_*.rds` | Tables, plots |
+| `03B_coding_analysis.Rmd` | Coding reliability, region map | `02_*.rds` | `figures/coding/` |
+| `04{a,b,d}_main_rdd_analysis_*.Rmd` | H1: RDD (prob/days/drop) | `02_*.rds` | `04_h1_results{,_prob,_drop}.rds` |
+| `05{a,b,d}_diff_in_disc_analysis_*.Rmd` | H2: Diff-in-disc (prob/days/drop) | `02_*.rds` | `05_h2_results{,_prob,_drop}.rds` |
+| `06{a,b,d}_russian_alignment_analysis_*.Rmd` | H3a: alignment (prob/days/drop) | `02_*.rds` | `06_alignment_results{,_prob,_drop}.rds` |
+| `07{a,b,d}_ethnic_russian_analysis_*.Rmd` | H3b: ethnic (prob/days/drop) | `02_*.rds` | `07_ethnic_results{,_prob,_drop}.rds` |
+| `08{a,b,d}_publication_outputs_*.Rmd` | Final tables per variant | `04/05/06/07_*.rds` | `.tex` + `.html` |
+| `09_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity | `02_*.rds` | Figures |
 | `master.Rmd` | Run entire pipeline | All above | All outputs |
-| `analysis.Rmd` | Original monolithic script (archived) | - | - |
+| `archive/` | Retired continuous-time scripts + lifted non-parametric saturation checks | - | - |
 
 ## Required Packages
 

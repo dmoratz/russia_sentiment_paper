@@ -1,5 +1,5 @@
 ---
-title: "06C - Russian Alignment Analysis (Probabilistic Time Assignment) (CSTO vs Neutral)"
+title: "06a - Russian Alignment Analysis (Probabilistic Time Assignment) (CSTO vs Neutral)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:

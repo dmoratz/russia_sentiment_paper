@@ -1,5 +1,5 @@
 ---
-title: "06 - Russian Alignment Analysis (Days) (CSTO vs Neutral)"
+title: "06b - Russian Alignment Analysis (Day Running Variable) (CSTO vs Neutral)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:

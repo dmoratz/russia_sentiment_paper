@@ -1,5 +1,5 @@
 ---
-title: "05C - Difference-in-Discontinuities Analysis with Days (Hypothesis 2)"
+title: "05b - Difference-in-Discontinuities Analysis (Day Running Variable) (Hypothesis 2)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:

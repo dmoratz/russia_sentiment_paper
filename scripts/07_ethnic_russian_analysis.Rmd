@@ -1,5 +1,5 @@
 ---
-title: "07 - Ethnic Russian Population Analysis"
+title: "07b - Ethnic Russian Population Analysis (Day Running Variable)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
