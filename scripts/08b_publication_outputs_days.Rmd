@@ -1124,9 +1124,102 @@ if (!is.null(results_align$loo_summary)) {
 }
 ```
 
-## Table S11: Placebo Test Summary (Pattern E)
+## Table S11: H3a Heterogenous Treatment Effects
 
-```{r table-s11}
+```{r table-s11-decomposition}
+decomp <- results_align$decomposition
+pairs  <- decomp$group_effects_pairs
+bayes  <- decomp$group_effects_bayes
+
+# --- Panel A: Group-level effects with both bootstrap methods side-by-side ---
+panel_a <- pairs %>%
+  rename(se_pairs = se_boot, p_pairs = p_boot,
+         ci_lower_pairs = ci_lower, ci_upper_pairs = ci_upper) %>%
+  mutate(
+    se_bayes = bayes$se_boot,
+    p_bayes  = bayes$p_boot,
+    section  = "Panel A: Group-Level Effects",
+    estimate_fmt = sprintf("%.3f", estimate),
+    se_pairs_fmt = sprintf("(%.3f)", se_pairs),
+    p_pairs_fmt  = sprintf("%.3f%s", p_pairs,
+                     case_when(p_pairs < 0.001 ~ "***",
+                               p_pairs < 0.01 ~ "**",
+                               p_pairs < 0.05 ~ "*",
+                               p_pairs < 0.1 ~ "+",
+                               TRUE ~ "")),
+    se_bayes_fmt = sprintf("(%.3f)", se_bayes),
+    p_bayes_fmt  = sprintf("%.3f%s", p_bayes,
+                     case_when(p_bayes < 0.001 ~ "***",
+                               p_bayes < 0.01 ~ "**",
+                               p_bayes < 0.05 ~ "*",
+                               p_bayes < 0.1 ~ "+",
+                               TRUE ~ "")),
+    n_col = c(decomp$n_sources_csto,
+              decomp$n_sources_non_csto,
+              decomp$n_sources_csto + decomp$n_sources_non_csto)
+  ) %>%
+  select(section, group, estimate_fmt, se_pairs_fmt, p_pairs_fmt,
+         se_bayes_fmt, p_bayes_fmt, n_col)
+
+# --- Panel B: Source-level effects ---
+panel_b <- decomp$source_effects %>%
+  mutate(
+    section = "Panel B: Source-Level Effects",
+    group = ifelse(csto == 1, paste0(source, " (CSTO)"), paste0(source, " (Neutral)")),
+    estimate_fmt = sprintf("%.3f", theta),
+    se_pairs_fmt = "",
+    p_pairs_fmt  = "",
+    se_bayes_fmt = "",
+    p_bayes_fmt  = "",
+    n_col = N
+  ) %>%
+  arrange(desc(csto), source) %>%
+  select(section, group, estimate_fmt, se_pairs_fmt, p_pairs_fmt,
+         se_bayes_fmt, p_bayes_fmt, n_col)
+
+# Combine panels
+decomp_combined <- bind_rows(panel_a, panel_b)
+
+note_decomp <- str_wrap(paste(
+  "Panel A reports N-weighted average treatment effects by CSTO group,",
+  "estimated from separate RDD regressions within each source-topic cell.",
+  "Pairs bootstrap resamples sources with replacement (B =",
+  sprintf("%s).", format(decomp$B, big.mark = ",")),
+  "Bayesian bootstrap draws Dirichlet(1,...,1) source weights",
+  sprintf("(Rubin 1981; B = %s).", format(decomp$B, big.mark = ",")),
+  "Panel B reports source-level treatment effects (N-weighted average",
+  "across topics within each source). N in Panel A is number of sources;",
+  "N in Panel B is articles per source.",
+  "Sample restricted to state-owned, non-NATO, non-military articles",
+  "within the optimal bandwidth. Source-level Z-score normalization applied."
+), 80)
+
+table_s11 <- decomp_combined %>%
+  gt(groupname_col = "section") %>%
+  cols_label(
+    group = "",
+    estimate_fmt = "Estimate",
+    se_pairs_fmt = "SE (Pairs)",
+    p_pairs_fmt  = "p (Pairs)",
+    se_bayes_fmt = "SE (Bayes)",
+    p_bayes_fmt  = "p (Bayes)",
+    n_col = "N"
+  ) %>%
+  tab_header(
+    title = "Treatment Effect Decomposition by Source"
+  ) %>%
+  tab_footnote(footnote = note_decomp) %>%
+  sub_values(values = "", replacement = "—")
+
+table_s11
+save_table(table_s11, "table_s11_decomposition", TABLE_SUBDIR)
+
+```
+
+
+## Table S12: Placebo Test Summary (Pattern E)
+
+```{r table-s12}
 # H1 placebo (rdrobust)
 placebo_h1 <- results_h1$model_placebo
 h1_estimate <- placebo_h1$coef[1]
@@ -1189,7 +1282,7 @@ note_placebo <- str_wrap(paste(
   "Non-significant treatment effects suggest parallel trends assumption holds."
 ), 80)
 
-table_s11 <- placebo_summary %>%
+table_s12 <- placebo_summary %>%
   mutate(
     Estimate_fmt = sprintf("%.3f%s", Estimate,
                      case_when(p_value < 0.001 ~ "***",
@@ -1211,13 +1304,97 @@ table_s11 <- placebo_summary %>%
     Bandwidth_fmt = "Bandwidth",
     N_fmt = "N"
   ) %>%
-  tab_header(title = "Table S11: Placebo Test Summary (Day Running Variable)",
+  tab_header(title = "Table S12: Placebo Test Summary (Day Running Variable)",
              subtitle = "December 7, 2021 False Treatment Date") %>%
   tab_footnote(footnote = note_placebo)
 
-table_s11
-save_table(table_s11, "table_s11_placebo", TABLE_SUBDIR)
+table_s12
+save_table(table_s12, "table_s12_placebo", TABLE_SUBDIR)
 ```
+
+
+## Table S13: Placebo Test, Aligned State Media (Dec 7, 2021)
+
+```{r table-s13}
+# Dec-7 placebo restricted to state-owned media in the Russia-aligned (CSTO) group,
+# estimated separately per country (rdrobust on the source-level z-scored outcome;
+# MSE-optimal bandwidth; default HC SEs). Countries are shown side-by-side as columns.
+placebo_models <- results_align$placebo_aligned_models
+
+# Keep the aligned-country ordering; guard against any country that failed to estimate
+placebo_country_order <- CSTO_COUNTRIES[CSTO_COUNTRIES %in% names(placebo_models)]
+
+# Format one rdrobust model into a column of table statistics (in row order below)
+format_placebo_col <- function(m) {
+  stars <- case_when(m$pv[1] < 0.001 ~ "***",
+                     m$pv[1] < 0.01 ~ "**",
+                     m$pv[1] < 0.05 ~ "*",
+                     TRUE ~ "")
+  c(
+    sprintf("%.3f%s", m$coef[1], stars),
+    sprintf("(%.3f)", m$se[1]),
+    sprintf("[%.3f, %.3f]", m$ci[1, 1], m$ci[1, 2]),
+    sprintf("%.3f", m$pv[1]),
+    sprintf("%.1f", m$bws[1, 1]),
+    format(m$N_h[1] + m$N_h[2], big.mark = ",")
+  )
+}
+
+# Rows = statistics; one column per aligned country
+placebo_aligned_summary <- tibble(
+  Statistic = c("Estimate", "Std. Error", "95% CI", "p-value", "Bandwidth", "N")
+)
+for (cntry in placebo_country_order) {
+  placebo_aligned_summary[[cntry]] <- format_placebo_col(placebo_models[[cntry]])
+}
+
+note_placebo_aligned <- str_wrap(paste(
+  "Placebo tests using December 7, 2021 (US public warning of the buildup) as a false",
+  "treatment date, restricted to state-owned media in each Russia-aligned country,",
+  "non-military topics, pre-invasion period (before Feb 19, 2022). Each column is a",
+  "separate rdrobust fit on the source-level z-scored outcome with the MSE-optimal",
+  "bandwidth. Standard errors are rdrobust default (nearest-neighbor heteroskedasticity-",
+  "robust); source clustering is not used because each country has only 2-3 state-owned",
+  "sources. Non-significant discontinuities indicate no pre-invasion jump at the warning date."
+), 80)
+
+table_s13 <- placebo_aligned_summary %>%
+  gt() %>%
+  cols_label(Statistic = "") %>%
+  tab_header(title = "Placebo Test: Aligned State Media by Country (Day Running Variable)",
+             subtitle = "December 7, 2021 False Treatment Date") %>%
+  tab_footnote(footnote = note_placebo_aligned)
+
+table_s13
+save_table(table_s13, "table_s13_placebo_aligned", TABLE_SUBDIR)
+```
+
+
+# GT Caption Fix
+
+```{r}
+fix_gt_caption <- function(filepath) {
+  tex <- readLines(filepath)
+  text <- paste(tex, collapse = "\n")
+
+  # Match the full gt caption block and extract the title
+  text <- gsub(
+    "\\\\caption\\*\\{\\s*\n\\{\\\\fontsize\\{[^}]+\\}\\{[^}]+\\}\\\\selectfont\\s+(.+?)\\\\fontsize\\{[^}]+\\}\\{[^}]+\\}\\\\selectfont\\s*\\}\\s*\n\\}",
+    "\\\\caption{\\1}",
+    text
+  )
+
+  writeLines(text, filepath)
+}
+
+gt_tables <- c("table_s06_h2_loo", "table_s10_h3a_loo",
+               "table_s11_decomposition", "table_s12_placebo",
+               "table_s13_placebo_aligned")
+for (t in gt_tables) {
+  fix_gt_caption(here::here(paste0("figures/tables/",TABLE_SUBDIR), paste0(t, ".tex")))
+}
+```
+
 
 # Summary
 
@@ -1244,7 +1421,9 @@ cat("  S7  table_s07_h3a_fe_core            H3a FE interaction + robustness\n")
 cat("  S8  table_s08_h3a_z_topic            H3a by-topic Z-score\n")
 cat("  S9  table_s09_h3a_fe_topic           H3a by-topic Full Data\n")
 cat("  S10 table_s10_h3a_loo               H3a LOO robustness\n")
-cat("  S11 table_s11_placebo                Placebo test summary\n")
+cat("  S11 table_s11_decomposition          H3a heterogeneous treatment effects\n")
+cat("  S12 table_s12_placebo                Placebo test summary\n")
+cat("  S13 table_s13_placebo_aligned        Placebo test, aligned state media by country (Dec 7)\n")
 cat("=============================================================\n")
 ```
 
