@@ -135,6 +135,129 @@ ggsave(plot = state_align_discs_graph,
        width = 10, height = 7)
 ```
 
+## Pre-Trend Diagnostic: State Media in Russia-Aligned Countries
+
+Addresses the concern that sentiment toward Russia may have turned negative *before* the
+Feb 24, 2022 invasion (during the troop buildup) in state-owned media of Russia-aligned
+countries. We plot the daily mean sentiment for state-owned sources in each aligned country
+(Armenia, Azerbaijan, Belarus, Kazakhstan), mark both the Dec 7, 2021 US public-warning
+date and the Feb 24, 2022 invasion cutoff, and overlay a linear fit on the pre-invasion
+window only so any pre-existing slide is visible.
+
+```{r pretrend-by-country-aligned-drop, fig.width=10, fig.height=7}
+# Buildup display window (trim to keep the pre-invasion period readable)
+PRETREND_START <- as.Date("2021-06-01")
+PRETREND_END   <- as.Date("2022-06-01")
+INVASION_DATE  <- as.Date("2022-02-24")
+WARNING_DATE   <- as.Date("2021-12-07")
+
+# State-owned media in the Russia-aligned (CSTO) group; Ukraine already excluded (NATO)
+data_pretrend <- data %>%
+  filter(country %in% CSTO_COUNTRIES, state_owned == 1,
+         date_publish >= PRETREND_START, date_publish <= PRETREND_END) %>%
+  mutate(country = droplevels(country))
+
+# Daily mean sentiment per country (same outcome + daily aggregation as other figures)
+agg_pretrend <- data_pretrend %>%
+  group_by(country, date_publish) %>%
+  summarize(sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+            num_obs = n(), .groups = "drop")
+
+# Pre-invasion daily means only (the linear fit is restricted to this window)
+agg_pretrend_pre <- agg_pretrend %>%
+  filter(date_publish < INVASION_DATE)
+
+pretrend_by_country_aligned_graph <- ggplot(agg_pretrend,
+                                             aes(x = date_publish, y = sentiment_clean)) +
+  geom_point(aes(size = num_obs), alpha = 0.2, inherit.aes = TRUE) +
+  geom_smooth(data = agg_pretrend_pre, method = "lm", se = TRUE, color = "red4") +
+  geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
+  geom_vline(xintercept = WARNING_DATE, linetype = "dotted", color = "grey30") +
+  scale_size(name = "Observations") +
+  facet_wrap(~ country, scales = "free_y") +
+  theme_classic() +
+  labs(
+    title = "Pre-Invasion Sentiment Trend in State Media (Drop No-Time)",
+    subtitle = "Russia-aligned countries; dotted = Dec 7 warning, dashed = Feb 24 invasion",
+    x = "Publication date",
+    y = "Mean sentiment toward Russia"
+  )
+
+pretrend_by_country_aligned_graph
+
+ggsave(plot = pretrend_by_country_aligned_graph,
+       file.path(FIGURES_HETEROGENEITY_DROP, "pretrend_by_country_aligned.png"),
+       width = 10, height = 7)
+```
+
+```{r pretrend-slopes-aligned-drop}
+# Per-country pre-invasion linear slope (fit on the plotted daily means).
+# Slope is in sentiment units per day; also reported per 30 days for readability.
+pretrend_slopes <- agg_pretrend_pre %>%
+  group_by(country) %>%
+  group_modify(~ {
+    fit <- lm(sentiment_clean ~ as.numeric(date_publish), data = .x)
+    ct <- summary(fit)$coefficients["as.numeric(date_publish)", ]
+    tibble(
+      n_days       = nrow(.x),
+      slope_day    = ct["Estimate"],
+      slope_30day  = ct["Estimate"] * 30,
+      std_error    = ct["Std. Error"],
+      p_value      = ct["Pr(>|t|)"]
+    )
+  }) %>%
+  ungroup()
+
+cat("=== Task A: Pre-invasion sentiment slope in state media, by aligned country ===\n")
+cat("(slope in sentiment units per day; slope_30day = per 30 days)\n\n")
+print(as.data.frame(pretrend_slopes), row.names = FALSE, digits = 4)
+```
+
+Replica of the figure above with a later start date (Dec 1, 2021) to confirm the
+pre-invasion trend lines are not an artifact of fitting across a long (nine-month) window.
+INVASION_DATE and WARNING_DATE are reused from the chunk above.
+
+```{r pretrend-by-country-aligned-dec-drop, fig.width=10, fig.height=7}
+# Shorter buildup display window (later start; same invasion / warning markers)
+PRETREND_START_DEC <- as.Date("2021-12-01")
+
+data_pretrend_dec <- data %>%
+  filter(country %in% CSTO_COUNTRIES, state_owned == 1,
+         date_publish >= PRETREND_START_DEC, date_publish <= PRETREND_END) %>%
+  mutate(country = droplevels(country))
+
+agg_pretrend_dec <- data_pretrend_dec %>%
+  group_by(country, date_publish) %>%
+  summarize(sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+            num_obs = n(), .groups = "drop")
+
+# Pre-invasion daily means only (linear fit restricted to this window)
+agg_pretrend_dec_pre <- agg_pretrend_dec %>%
+  filter(date_publish < INVASION_DATE)
+
+pretrend_by_country_aligned_dec_graph <- ggplot(agg_pretrend_dec,
+                                                 aes(x = date_publish, y = sentiment_clean)) +
+  geom_point(aes(size = num_obs), alpha = 0.2, inherit.aes = TRUE) +
+  geom_smooth(data = agg_pretrend_dec_pre, method = "lm", se = TRUE, color = "red4") +
+  geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
+  geom_vline(xintercept = WARNING_DATE, linetype = "dotted", color = "grey30") +
+  scale_size(name = "Observations") +
+  facet_wrap(~ country, scales = "free_y") +
+  theme_classic() +
+  labs(
+    title = "Pre-Invasion Sentiment Trend in State Media, Dec 1 Start (Drop No-Time)",
+    subtitle = "Russia-aligned countries; dotted = Dec 7 warning, dashed = Feb 24 invasion",
+    x = "Publication date",
+    y = "Mean sentiment toward Russia"
+  )
+
+pretrend_by_country_aligned_dec_graph
+
+ggsave(plot = pretrend_by_country_aligned_dec_graph,
+       file.path(FIGURES_HETEROGENEITY_DROP, "pretrend_by_country_aligned_dec.png"),
+       width = 10, height = 7)
+```
+
 ## State Media Alignment Regressions
 
 ### CSTO Countries Only
@@ -850,6 +973,65 @@ cat("Bootstrap p-value (placebo):", boot_model_placebo_nonmil$p_val, "\n")
 cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
 ```
 
+## Placebo Test: December 7th Announcement (Aligned State Media, by Country)
+
+Directly addresses the reviewer concern: a placebo-cutoff RDD restricted to state-owned
+media in the Russia-aligned (CSTO) group, estimated **separately for each country**
+(Armenia, Azerbaijan, Belarus, Kazakhstan) so cross-country consistency is visible. Each
+model uses the z-scored outcome used throughout the CSTO state-media RDDs and rdrobust's
+MSE-optimal bandwidth. Because each country has only 2-3 state-owned sources — too few for
+cluster-robust inference — standard errors use rdrobust's default (nearest-neighbor
+heteroskedasticity-robust) variance rather than clustering by source. A non-significant
+discontinuity at the Dec 7, 2021 warning date indicates that sentiment was not already
+jumping during the buildup.
+
+```{r placebo-dec-aligned-drop}
+# Cutoff constant for the Dec 7, 2021 US public-warning date
+DEC7_CUTOFF <- as.POSIXct("2021-12-07 00:00:00", tz = "UTC")
+
+# One placebo RDD per aligned country: state-owned, non-military, pre-invasion.
+placebo_aligned_models <- list()
+
+for (cntry in CSTO_COUNTRIES) {
+  dat_c <- data_align %>%
+    filter(state_owned == 1, country == cntry,
+           !topic_clean %in% "Military",
+           date_publish < "2022-02-19") %>%
+    mutate(
+      topic_clean = droplevels(topic_clean),   # drop empty topic levels within this country
+      running_continuous = as.numeric(difftime(
+        date_publish_continuous, DEC7_CUTOFF, units = "secs")) / 86400,
+      treatment = ifelse(date_publish_continuous < DEC7_CUTOFF, 0, 1)
+    ) %>%
+    # Source-level z-score adjustment (as in the CSTO state-media RDDs)
+    group_by(source_domain) %>%
+    mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                          sd(sentiment_clean, na.rm = TRUE)) %>%
+    ungroup() %>%
+    filter(is.finite(sentiment_z))              # drop degenerate single-article sources
+
+  covs_c <- model.matrix(~ topic_clean - 1, data = dat_c)
+
+  # rdrobust default HC (nn) SEs; no clustering (only 2-3 sources per country)
+  placebo_aligned_models[[cntry]] <- rdrobust(
+    y = dat_c$sentiment_z,
+    x = dat_c$running_continuous,
+    covs = covs_c
+  )
+
+  m <- placebo_aligned_models[[cntry]]
+  cat("\n--- ", cntry, " ---\n", sep = "")
+  cat("Estimate:  ", round(m$coef[1], 3), "\n")
+  cat("95% CI:    [", round(m$ci[1, 1], 3), ",", round(m$ci[1, 2], 3), "]\n")
+  cat("p-value:   ", round(m$pv[1], 3), "\n")
+  cat("Bandwidth: ", round(m$bws[1, 1], 3), "days\n")
+  cat("N (within bw):", m$N_h[1] + m$N_h[2], "\n")
+  cat("Sources:", paste(sort(unique(dat_c$source_domain)), collapse = ", "), "\n")
+}
+
+cat("\nNote: Non-significant discontinuities suggest no pre-invasion jump at the warning date.\n")
+```
+
 ## Matching
 
 ### Initial Match
@@ -1128,6 +1310,509 @@ print(matched_loo_summary)
 ```
 
 
+## Pooled Fully Saturated Regression
+
+```{r}
+library(data.table)
+
+# ---- 0. DATA PREP -----------------------------------------------------------
+ 
+dt <- as.data.table(optimal_bandwidth_data_state_non_mil)
+ 
+# Ensure key variables are the right type
+invisible(dt[, treatment_num  := as.numeric(treatment)])
+invisible(dt[, running_num    := as.numeric(running_continuous)])
+invisible(dt[, treat_x_run    := treatment_num * running_num])
+ 
+# Create a clean source×topic cell identifier
+invisible(dt[, cell := paste(source_domain, topic_clean, sep = " :: ")])
+invisible(dt[, cell := factor(cell)])
+ 
+# Cell-level metadata: N, source, csto flag
+cell_info <- dt[, .(
+  N             = .N,
+  source_domain = source_domain[1],
+  csto          = csto[1],
+  n_treated     = sum(treatment_num),
+  n_control     = sum(1 - treatment_num)
+), by = cell]
+ 
+cat("=== Cell structure ===\n")
+print(cell_info[order(-N)])
+cat("\nTotal cells:", nrow(cell_info), "\n")
+cat("CSTO cells:", sum(cell_info$csto == 1),
+    "  |  Non-CSTO cells:", sum(cell_info$csto == 0), "\n\n")
+ 
+# Flag cells that can't identify a treatment effect (need obs on both sides)
+cell_info[, estimable := (n_treated >= 2 & n_control >= 2)]
+cat("Estimable cells:", sum(cell_info$estimable), "/", nrow(cell_info), "\n")
+cat("Dropped cells (insufficient variation):\n")
+if (any(!cell_info$estimable)) {
+  print(cell_info[estimable == FALSE])
+} else {
+  cat("  (none)\n")
+}
+ 
+# Restrict data to estimable cells
+estimable_cells <- cell_info[estimable == TRUE, cell]
+dt_est <- dt[cell %in% estimable_cells]
+invisible(dt_est[, cell := droplevels(cell)])
+ 
+# Update cell_info to estimable only
+cell_info_est <- cell_info[estimable == TRUE]
+```
+
+
+```{r}
+# ---- 1. FULLY SATURATED MODEL -----------------------------------------------
+# Formula: each cell gets its own intercept, running slope, treatment effect,
+#          and treatment×running interaction.
+#
+# sentiment = Σ_c [ α_c + β_c·running + τ_c·treatment + γ_c·treatment·running ]
+#
+# The τ_c coefficients are the cell-specific RDD treatment effects at the cutoff.
+ 
+model_saturated <- feols(
+  sentiment_z ~ cell + cell:running_num + cell:treatment_num + cell:treat_x_run - 1,
+  vcov = "hetero",
+  data   = dt_est
+)
+ 
+cat("\n=== Model summary (first 20 coefficients) ===\n")
+print(summary(model_saturated), n = 20)
+```
+
+
+```{r}
+# ---- 2. EXTRACT CELL-SPECIFIC TREATMENT EFFECTS (τ_c) -----------------------
+ 
+all_coefs <- coef(model_saturated)
+V_full    <- vcov(model_saturated)
+ 
+# Identify the treatment coefficients: named "cell<level>:treatment_num"
+treat_names <- grep(":treatment_num$", names(all_coefs), value = TRUE)
+ 
+theta   <- all_coefs[treat_names]
+V_theta <- V_full[treat_names, treat_names]
+ 
+# Map coefficient names back to cell labels
+coef_cells <- sub(":treatment_num$", "", treat_names)
+coef_cells <- sub("^cell", "", coef_cells)
+ 
+# Match to metadata
+match_idx      <- match(coef_cells, as.character(cell_info_est$cell))
+matched_info   <- cell_info_est[match_idx]
+ 
+# Sanity check: did all coefficients match?
+stopifnot(!any(is.na(match_idx)))
+ 
+cat("\n=== Cell-specific treatment effects (τ_c) ===\n")
+cell_results <- data.table(
+  cell   = coef_cells,
+  source = matched_info$source_domain,
+  csto   = matched_info$csto,
+  N      = matched_info$N,
+  theta  = as.numeric(theta),
+  se     = sqrt(diag(V_theta))
+)
+cell_results[, `:=`(t_stat = theta / se, p_val = 2 * pnorm(-abs(theta / se)))]
+print(cell_results[order(csto, source, cell)])
+```
+
+
+```{r}
+# ---- 3. BUILD WEIGHT VECTORS (R MATRIX) & WALD TESTS ------------------------
+# Weight = N_c / Σ N_c within the CSTO group
+# The weighted average τ_group = w' θ  is a linear combination of coefficients.
+# Var(τ_group) = w' V_θ w   (using clustered VCV)
+# Wald stat = τ_group² / Var(τ_group) ~ χ²(1)
+ 
+N_vec <- matched_info$N
+csto_flag <- matched_info$csto
+ 
+# --- 3a. CSTO group ---
+csto_mask <- (csto_flag == 1)
+w_csto    <- ifelse(csto_mask, N_vec / sum(N_vec[csto_mask]), 0)
+ 
+theta_csto <- as.numeric(crossprod(w_csto, theta))
+var_csto   <- as.numeric(t(w_csto) %*% V_theta %*% w_csto)
+se_csto    <- sqrt(var_csto)
+ 
+# --- 3b. Non-CSTO group ---
+non_mask    <- (csto_flag == 0)
+w_non       <- ifelse(non_mask, N_vec / sum(N_vec[non_mask]), 0)
+ 
+theta_non <- as.numeric(crossprod(w_non, theta))
+var_non   <- as.numeric(t(w_non) %*% V_theta %*% w_non)
+se_non    <- sqrt(var_non)
+ 
+# --- 3c. Difference (CSTO minus Non-CSTO) ---
+w_diff     <- w_csto - w_non
+theta_diff <- as.numeric(crossprod(w_diff, theta))
+var_diff   <- as.numeric(t(w_diff) %*% V_theta %*% w_diff)
+se_diff    <- sqrt(var_diff)
+ 
+# --- Wald statistics and p-values ---
+wald_results <- data.table(
+  group     = c("CSTO", "Non-CSTO", "Difference (CSTO - Non)"),
+  estimate  = c(theta_csto, theta_non, theta_diff),
+  se        = c(se_csto, se_non, se_diff),
+  z_stat    = c(theta_csto / se_csto, theta_non / se_non, theta_diff / se_diff),
+  p_value   = c(
+    2 * pnorm(-abs(theta_csto / se_csto)),
+    2 * pnorm(-abs(theta_non / se_non)),
+    2 * pnorm(-abs(theta_diff / se_diff))
+  ),
+  N_total   = c(sum(N_vec[csto_mask]), sum(N_vec[non_mask]),
+                sum(N_vec[csto_mask]) + sum(N_vec[non_mask])),
+  n_cells   = c(sum(csto_mask), sum(non_mask), sum(csto_mask) + sum(non_mask))
+)
+ 
+cat("\n")
+cat("=====================================================================\n")
+cat("  WALD TEST RESULTS: N-Weighted Treatment Effects by CSTO Group\n")
+cat("=====================================================================\n")
+print(wald_results, digits = 4)
+cat("=====================================================================\n")
+cat("Notes:\n")
+cat("  - HC-robust SEs (cells nest within clusters, so cell estimates\n")
+cat("    are independent and cluster-robust SEs are unnecessary)\n")
+cat("  - Weights proportional to N within each CSTO group\n")
+cat("  - Treatment effect = RDD estimate at the cutoff (running = 0)\n")
+cat("=====================================================================\n\n")
+```
+
+
+```{r}
+# ---- 4. DIAGNOSTICS ---------------------------------------------------------
+ 
+# Show the weight each cell contributes
+cat("=== Cell weights within CSTO groups ===\n")
+weight_table <- data.table(
+  cell   = coef_cells,
+  source = matched_info$source_domain,
+  csto   = matched_info$csto,
+  N      = N_vec,
+  weight = ifelse(csto_flag == 1, w_csto, w_non)
+)
+print(weight_table[order(csto, -weight)])
+ 
+# Check: weights sum to 1 within each group
+cat("\nWeight sums (should be 1.0 each):\n")
+cat("  CSTO:    ", sum(w_csto), "\n")
+cat("  Non-CSTO:", sum(w_non), "\n")
+```
+
+
+## Mini-Regressions Approach
+
+```{r}
+# ---- 2A. MINI-REGRESSIONS WITHIN EACH SOURCE × TOPIC CELL -------------------
+# Estimate: sentiment ~ running + treatment + treatment×running
+# within each source_domain × topic_clean cell.
+# τ_c = coefficient on `treatment` = RDD effect at cutoff.
+ 
+cat("=== APPROACH 2: Mini-Regressions ===\n\n")
+ 
+cells_to_estimate <- cell_info_est[estimable == TRUE]
+ 
+mini_results <- rbindlist(lapply(seq_len(nrow(cells_to_estimate)), function(i) {
+  cc <- cells_to_estimate$cell[i]
+  d  <- dt_est[cell == cc]
+ 
+  m <- tryCatch(
+    lm(sentiment_z ~ running_num + treatment_num + treat_x_run, data = d),
+    error = function(e) NULL
+  )
+ 
+  if (is.null(m)) {
+    return(data.table(
+      cell = as.character(cc), source = cells_to_estimate$source_domain[i],
+      topic = NA_character_, csto = cells_to_estimate$csto[i],
+      N = nrow(d), theta = NA_real_, se = NA_real_,
+      converged = FALSE
+    ))
+  }
+ 
+  # Extract treatment coefficient
+  cf <- summary(m)$coefficients
+  if (!"treatment_num" %in% rownames(cf)) {
+    return(data.table(
+      cell = as.character(cc), source = cells_to_estimate$source_domain[i],
+      topic = NA_character_, csto = cells_to_estimate$csto[i],
+      N = nrow(d), theta = NA_real_, se = NA_real_,
+      converged = FALSE
+    ))
+  }
+ 
+  data.table(
+    cell   = as.character(cc),
+    source = cells_to_estimate$source_domain[i],
+    topic  = sub("^.* :: ", "", as.character(cc)),
+    csto   = cells_to_estimate$csto[i],
+    N      = nrow(d),
+    theta  = cf["treatment_num", "Estimate"],
+    se     = cf["treatment_num", "Std. Error"],
+    converged = TRUE
+  )
+}))
+ 
+mini_results <- mini_results[converged == TRUE & !is.na(theta)]
+ 
+cat("Mini-regression results (cell-level):\n")
+print(mini_results[order(csto, source, topic)], digits = 4)
+```
+
+
+```{r}
+# ---- 2B. VERIFY: POINT ESTIMATES MATCH APPROACH 1 ---------------------------
+ 
+cat("\n=== VERIFICATION: Approach 1 vs Approach 2 point estimates ===\n")
+ 
+# N-weighted average within CSTO groups
+verify <- mini_results[, .(
+  theta_mini = weighted.mean(theta, N),
+  N_total    = sum(N),
+  n_cells    = .N
+), by = csto]
+ 
+cat("\nApproach 2 (mini-regressions):\n")
+print(verify, digits = 6)
+ 
+cat("\nApproach 1 (pooled saturated):\n")
+cat("  CSTO:     ", round(theta_csto, 6), "\n")
+cat("  Non-CSTO: ", round(theta_non, 6), "\n")
+ 
+cat("\nDifference (should be ~0 or very small):\n")
+cat("  CSTO:     ", round(verify[csto == 1, theta_mini] - theta_csto, 8), "\n")
+cat("  Non-CSTO: ", round(verify[csto == 0, theta_mini] - theta_non, 8), "\n\n")
+```
+
+
+```{r}
+# ---- 2C. SOURCE-LEVEL PAIRS BOOTSTRAP ---------------------------------------
+# For each bootstrap iteration:
+#   1. Resample 13 sources with replacement from the full set of 13
+#   2. Carry along ALL their topic-level estimates and Ns
+#   3. Classify drawn sources by their csto flag
+#   4. Compute N-weighted average within CSTO / Non-CSTO groups
+#   5. Store CSTO effect, Non-CSTO effect, and difference
+ 
+run_source_pairs_bootstrap <- function(mini_results, B = 9999) {
+ 
+  sources <- unique(mini_results$source)
+  n_sources <- length(sources)
+ 
+  source_data <- lapply(sources, function(s) {
+    mini_results[source == s, .(topic, csto, N, theta)]
+  })
+  names(source_data) <- sources
+ 
+  theta_boot_csto <- numeric(B)
+  theta_boot_non  <- numeric(B)
+  theta_boot_diff <- numeric(B)
+  n_valid <- 0
+ 
+  for (b in seq_len(B)) {
+    drawn_idx <- sample(n_sources, n_sources, replace = TRUE)
+    drawn_sources <- sources[drawn_idx]
+    boot_data <- rbindlist(source_data[drawn_sources])
+ 
+    csto_rows <- boot_data[csto == 1]
+    non_rows  <- boot_data[csto == 0]
+ 
+    if (nrow(csto_rows) == 0 || nrow(non_rows) == 0) next
+ 
+    n_valid <- n_valid + 1
+    theta_boot_csto[n_valid] <- weighted.mean(csto_rows$theta, csto_rows$N)
+    theta_boot_non[n_valid]  <- weighted.mean(non_rows$theta, non_rows$N)
+    theta_boot_diff[n_valid] <- theta_boot_csto[n_valid] - theta_boot_non[n_valid]
+  }
+ 
+  theta_boot_csto <- theta_boot_csto[seq_len(n_valid)]
+  theta_boot_non  <- theta_boot_non[seq_len(n_valid)]
+  theta_boot_diff <- theta_boot_diff[seq_len(n_valid)]
+ 
+  cat("  Valid bootstrap samples:", n_valid, "/", B, "\n")
+ 
+  orig_csto <- weighted.mean(mini_results[csto == 1, theta], mini_results[csto == 1, N])
+  orig_non  <- weighted.mean(mini_results[csto == 0, theta], mini_results[csto == 0, N])
+  orig_diff <- orig_csto - orig_non
+ 
+  list(
+    results = data.table(
+      group     = c("CSTO", "Non-CSTO", "Difference"),
+      estimate  = c(orig_csto, orig_non, orig_diff),
+      se_boot   = c(sd(theta_boot_csto), sd(theta_boot_non), sd(theta_boot_diff)),
+      p_boot    = c(
+        2 * min(mean(theta_boot_csto >= 0), mean(theta_boot_csto <= 0)),
+        2 * min(mean(theta_boot_non  >= 0), mean(theta_boot_non  <= 0)),
+        2 * min(mean(theta_boot_diff >= 0), mean(theta_boot_diff <= 0))
+      ),
+      ci_lower  = c(quantile(theta_boot_csto, 0.025), quantile(theta_boot_non, 0.025), quantile(theta_boot_diff, 0.025)),
+      ci_upper  = c(quantile(theta_boot_csto, 0.975), quantile(theta_boot_non, 0.975), quantile(theta_boot_diff, 0.975))
+    ),
+    boot_dist = list(csto = theta_boot_csto, non = theta_boot_non, diff = theta_boot_diff)
+  )
+}
+ 
+ 
+# ---- 2D. BAYESIAN BOOTSTRAP (Rubin 1981) ------------------------------------
+# For each bootstrap iteration:
+#   1. Draw Dirichlet(1,1,...,1) weights for all 13 sources
+#   2. Every source always contributes — no source is ever dropped
+#   3. Effective weight for each topic = dirichlet_weight_source × N_topic
+#   4. Compute weighted average within CSTO / Non-CSTO groups
+#   5. Store CSTO effect, Non-CSTO effect, and difference
+ 
+run_bayesian_bootstrap <- function(mini_results, B = 9999) {
+ 
+  # Source-level structure
+  sources   <- unique(mini_results$source)
+  n_sources <- length(sources)
+ 
+  # Map each source to an index, and store its csto flag
+  source_idx  <- setNames(seq_along(sources), sources)
+  source_csto <- mini_results[, .(csto = csto[1]), by = source]
+  csto_flag   <- source_csto$csto  # length n_sources, aligned with sources
+ 
+  # Pre-compute cell-level vectors aligned with mini_results rows
+  cell_source_idx <- source_idx[mini_results$source]
+  cell_csto       <- mini_results$csto
+  cell_N          <- mini_results$N
+  cell_theta      <- mini_results$theta
+  n_cells         <- nrow(mini_results)
+ 
+  # Masks for CSTO / Non-CSTO cells
+  csto_mask <- (cell_csto == 1)
+  non_mask  <- (cell_csto == 0)
+ 
+  # Storage
+  theta_boot_csto <- numeric(B)
+  theta_boot_non  <- numeric(B)
+  theta_boot_diff <- numeric(B)
+ 
+  for (b in seq_len(B)) {
+ 
+    # 1. Draw Dirichlet(1,1,...,1) weights for all sources
+    #    Dirichlet draw = normalize independent Gamma(1,1) draws
+    gam_draws <- rgamma(n_sources, shape = 1, rate = 1)
+    dir_weights <- gam_draws / sum(gam_draws)
+ 
+    # 2. Effective weight for each cell = source's Dirichlet weight × cell N
+    cell_weights <- dir_weights[cell_source_idx] * cell_N
+ 
+    # 3. Weighted averages within each CSTO group
+    w_csto <- cell_weights[csto_mask]
+    w_non  <- cell_weights[non_mask]
+ 
+    theta_boot_csto[b] <- sum(w_csto * cell_theta[csto_mask]) / sum(w_csto)
+    theta_boot_non[b]  <- sum(w_non  * cell_theta[non_mask])  / sum(w_non)
+    theta_boot_diff[b] <- theta_boot_csto[b] - theta_boot_non[b]
+  }
+ 
+  cat("  Bayesian bootstrap iterations:", B, "\n")
+  cat("  (All iterations valid — no sources are ever dropped)\n")
+ 
+  # Point estimates (from original data, standard N-weighting)
+  orig_csto <- weighted.mean(
+    mini_results[csto == 1, theta], mini_results[csto == 1, N]
+  )
+  orig_non <- weighted.mean(
+    mini_results[csto == 0, theta], mini_results[csto == 0, N]
+  )
+  orig_diff <- orig_csto - orig_non
+ 
+  # Posterior SEs (SD of bootstrap distribution)
+  se_csto <- sd(theta_boot_csto)
+  se_non  <- sd(theta_boot_non)
+  se_diff <- sd(theta_boot_diff)
+ 
+  # Percentile CIs (95% credible intervals)
+  ci_csto <- quantile(theta_boot_csto, c(0.025, 0.975))
+  ci_non  <- quantile(theta_boot_non,  c(0.025, 0.975))
+  ci_diff <- quantile(theta_boot_diff, c(0.025, 0.975))
+ 
+  # P-values: posterior probability of sign reversal (two-sided)
+  p_csto <- 2 * min(mean(theta_boot_csto >= 0), mean(theta_boot_csto <= 0))
+  p_non  <- 2 * min(mean(theta_boot_non  >= 0), mean(theta_boot_non  <= 0))
+  p_diff <- 2 * min(mean(theta_boot_diff >= 0), mean(theta_boot_diff <= 0))
+ 
+  list(
+    results = data.table(
+      group     = c("CSTO", "Non-CSTO", "Difference"),
+      estimate  = c(orig_csto, orig_non, orig_diff),
+      se_boot   = c(se_csto, se_non, se_diff),
+      p_boot    = c(p_csto, p_non, p_diff),
+      ci_lower  = c(ci_csto[1], ci_non[1], ci_diff[1]),
+      ci_upper  = c(ci_csto[2], ci_non[2], ci_diff[2])
+    ),
+    boot_dist = list(
+      csto = theta_boot_csto,
+      non  = theta_boot_non,
+      diff = theta_boot_diff
+    )
+  )
+}
+ 
+cat("Running source-level pairs bootstrap for Approach 2...\n")
+boot2_pairs <- run_source_pairs_bootstrap(mini_results, B = 9999)
+ 
+cat("\n")
+cat("=====================================================================\n")
+cat("  APPROACH 2a: Source-Level Pairs Bootstrap Results\n")
+cat("=====================================================================\n")
+print(boot2_pairs$results, digits = 4)
+cat("=====================================================================\n\n")
+```
+
+
+```{r}
+cat("Running Bayesian bootstrap for Approach 2...\n")
+boot2_bayes <- run_bayesian_bootstrap(mini_results, B = 9999)
+ 
+cat("\n")
+cat("=====================================================================\n")
+cat("  APPROACH 2b: Bayesian Bootstrap Results (Rubin 1981)\n")
+cat("=====================================================================\n")
+print(boot2_bayes$results, digits = 4)
+cat("=====================================================================\n\n")
+```
+
+```{r}
+# Write out of data
+# Source-level treatment effects (N-weighted average across topics within source)
+source_level_effects <- mini_results[, .(
+  theta  = weighted.mean(theta, N),
+  N      = sum(N),
+  csto   = csto[1],
+  n_topics = .N
+), by = source]
+setorder(source_level_effects, csto, source)
+ 
+# Group-level summary (CSTO / Non-CSTO / Difference)
+decomposition_results <- list(
+  # Cell-level estimates (source x topic)
+  cell_effects   = mini_results[order(csto, source, topic)],
+  # Source-level estimates (averaged across topics)
+  source_effects = source_level_effects,
+  # Group-level estimates with both bootstrap methods
+  group_effects_pairs = boot2_pairs$results,
+  group_effects_bayes = boot2_bayes$results,
+  # Bootstrap distributions (for plotting if needed)
+  boot_distributions_pairs = boot2_pairs$boot_dist,
+  boot_distributions_bayes = boot2_bayes$boot_dist,
+  # Metadata
+  n_sources_csto     = sum(source_level_effects$csto == 1),
+  n_sources_non_csto = sum(source_level_effects$csto == 0),
+  n_cells            = nrow(mini_results),
+  B                  = length(boot2_pairs$boot_dist$csto)
+)
+```
+
+
+
+
 ## Heavily Saturated Non-Mil Model
 
 ```{r saturated-model-drop}
@@ -1240,113 +1925,6 @@ summary(model5a_fully_saturated)
 # cat("Saturated model bootstrap results extracted\n")
 ```
 
-# Country-Level Analysis
-
-## State Media by Country and Alliance
-
-```{r country-facet-drop, fig.width=12, fig.height=8}
-# Create alliance for faceting
-data_long <- data %>%
-  pivot_longer(cols = c(nato, csto, neutral),
-               names_to = "alliance",
-               values_to = "membership") %>%
-  filter(membership == 1) %>%
-  mutate(
-    alliance = factor(alliance, levels = c("nato", "csto", "neutral")),
-    state_indicator = factor(paste(country, treatment, sep = ", "))
-  )
-
-data_long %>%
-  filter(state_owned == 1) %>%
-  ggplot(aes(x = running_continuous, y = sentiment_clean, group = state_indicator, color = country)) +
-  geom_smooth(method = "lm", se = FALSE) +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic() +
-  facet_wrap(~alliance, nrow = 2) +
-  labs(
-    title = "Effect of Invasion on State Media Sentiment by Country (Drop No-Time)",
-    subtitle = "Faceted by Alliance",
-    x = "Hours Pre/Post Invasion",
-    y = "Sentiment"
-  )
-```
-
-# Summary Tables
-
-## Summary Table (Table 3F)
-
-```{r table3f-drop}
-note_text <- "All standard errors are clustered at the source level. Model 1 uses no fixed effects. Model 2 uses full data with topic fixed effects. Model 3 uses the optimal bandwidth with topic fixed effects. Model 4 omits military-related articles and uses a re-optimized bandwidth. Model 5 uses only Russian-related (non-military) articles with a re-optimized bandwidth. Model 6 uses optimal bandwidth with full FEs (topic + source). Model 7 uses non-military subset with full FEs. Model 8 uses full saturation (source-topic and topic-treatment FEs). Articles without publication times are dropped."
-note_wrapped <- str_wrap(note_text, width = 80)
-
-table_3f <- modelsummary(
-  list("(1)" = model5a, "(2)" = model5a_full, "(3)" = model5a_opt,
-       "(4)" = model5a_opt_non_mil, "(5)" = model5a_opt_russian,
-       "(6)" = model5a_opt_full_fe, "(7)" = model5a_opt_non_mil_full_fe,
-       "(8)" = model5a_fully_saturated),
-  output = "gt",
-  fmt = fmt_significant(2),
-  stars = TRUE,
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Russian Alignment: Difference in Discontinuity Analysis (Drop No-Time Articles)",
-  notes = note_wrapped
-)
-
-table_3f
-```
-
-## Summary Table: By Topic (Optimal Bandwidth)
-
-```{r table3f-topic-opt-drop}
-note_topic_opt <- "All standard errors are clustered at the source level. Each model uses a per-topic re-optimized bandwidth. State media in non-NATO countries only. Articles without publication times are dropped."
-note_topic_opt_wrapped <- str_wrap(note_topic_opt, width = 80)
-
-table_3f_topic_opt <- modelsummary(
-  list("Political" = model5a_opt_pol, "Military" = model5a_opt_mil,
-       "Economic" = model5a_opt_econ, "Cultural" = model5a_opt_cult, "Other" = model5a_opt_oth),
-  output = "gt",
-  fmt = fmt_significant(2),
-  stars = TRUE,
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Russian Alignment By Topic (Per-Topic Optimal Bandwidth, Drop No-Time Articles)",
-  notes = note_topic_opt_wrapped
-)
-
-table_3f_topic_opt
-```
-
-## Summary Table: By Topic (Full Data)
-
-```{r table3f-topic-full-drop}
-note_topic_full <- "All standard errors are clustered at the source level. Each model uses the full dataset (no bandwidth restriction). State media in non-NATO countries only. Articles without publication times are dropped."
-note_topic_full_wrapped <- str_wrap(note_topic_full, width = 80)
-
-table_3f_topic_full <- modelsummary(
-  list("Political" = model5a_full_pol, "Military" = model5a_full_mil,
-       "Economic" = model5a_full_econ, "Cultural" = model5a_full_cult, "Other" = model5a_full_oth),
-  output = "gt",
-  fmt = fmt_significant(2),
-  stars = TRUE,
-  coef_map = c(
-    "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
-  ),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors",
-  title = "Russian Alignment By Topic (Full Data, Drop No-Time Articles)",
-  notes = note_topic_full_wrapped
-)
-
-table_3f_topic_full
-```
-
 # Save Results
 
 ```{r save-drop}
@@ -1438,7 +2016,13 @@ results_het_drop <- list(
   matched_loo_results = matched_loo_results,
   matched_loo_summary = matched_loo_summary,
   model_placebo_nonmil = model_placebo_nonmil,
-  optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil
+  optimal_bw_placebo_nonmil = optimal_bw_placebo_nonmil,
+
+  # Dec-7 placebo restricted to aligned (CSTO) state media, one rdrobust per country
+  placebo_aligned_models = placebo_aligned_models,
+
+  # Mini-Regressions: Heterogeneous treatment effect decomposition
+  decomposition = decomposition_results
 )
 
 saveRDS(results_het_drop, file.path(DATA_INTERMEDIATE, "06_alignment_results_drop.rds"))

@@ -443,9 +443,9 @@ cat("Bootstrap p-value:", boot_model5a_opt$p_val, "\n")
 
 ### Optimal Bandwidth Full FE
 
-```{r align-optimal-prob}
+```{r align-optimal-prob-full-fe}
 
-model5a_opt_full_fe <- feols(sentiment_clean ~ running_probabilistic 
+model5a_opt_full_fe <- feols(sentiment_clean ~ running_probabilistic
                                      * treatment * csto 
                                        | topic_clean + source_domain,
                                      cluster = ~source_domain,
@@ -678,7 +678,7 @@ cat("Bootstrap p-value:", boot_model5a_opt_russian$p_val, "\n")
 
 ### Russia Only, Full FE
 
-```{r align-non-mil-prob-full-fe}
+```{r align-russian-prob-full-fe}
 
 model5a_opt_rus_full_fe <- feols(sentiment_clean ~ running_probabilistic
                                     * treatment * csto
@@ -698,7 +698,7 @@ cat("Bootstrap p-value:", boot_model5a_opt_rus_full_fe$p_val, "\n")
 
 ### Russia Only, Sentiment Z
 
-```{r align-non-mil-prob}
+```{r align-russian-prob-z}
 # Create New z score
 data_align_state_russian <- data_align_state_russian %>%
   group_by(source_domain) %>%

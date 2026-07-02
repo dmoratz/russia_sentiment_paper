@@ -1,0 +1,158 @@
+---
+title: "Archived - Non-Parametric Saturation Check (Alignment, H3a)"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This is an **archived** robustness diagnostic that was lifted out of the Russian alignment
+analysis (`06*_russian_alignment_analysis*`). Using one CSTO and one non-CSTO country, it
+builds a fully non-parametric, hierarchically-weighted estimate of the CSTO treatment effect
+(source-topic → source → country → CSTO vs non-CSTO) and compares it against several `feols`
+specifications. It is retained here for reference and is **not** part of the main pipeline.
+
+The code uses the day running variable (`running`) to match the base (day) analysis. To
+reproduce the probabilistic or drop variants, swap the running variable and input data
+accordingly.
+
+**Inputs:**
+- `data/intermediate/02_cleaned_data.rds`
+
+```{r setup-archive}
+source(here::here("scripts", "00_setup.R"))
+
+set.seed(3184)
+```
+
+```{r load-archive}
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+data <- data %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
+
+# Reconstruct the state-owned, non-military, optimal-bandwidth alignment sample
+# (mirrors the Non-Military section of the 06 alignment analysis).
+data_align <- data %>%
+  filter(nato == 0) %>%
+  drop_na()
+
+data_align_state_non_mil <- data_align %>%
+  filter(state_owned == 1, !topic_clean %in% "Military")
+
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_clean ~ 1 | topic_clean + source_domain + csto,
+                 data = data_align_state_non_mil)$residuals
+
+bw_align_non_mil <- rdbwselect(y = resid_y,
+                               x = data_align_state_non_mil$running,
+                               kernel = "triangular",
+                               cluster = data_align_state_non_mil$source_domain,
+                               p = 1,
+                               bwselect = "mserd")
+
+optimal_bw_align_non_mil <- bw_align_non_mil$bws[1, 1]
+
+optimal_bandwidth_data_state_non_mil <- data_align_state_non_mil %>%
+  filter(running < optimal_bw_align_non_mil, running > -optimal_bw_align_non_mil)
+```
+
+# Non-Parametric Saturation Check
+
+```{r nonparam-check}
+# Select one CSTO country and one non-CSTO country
+csto_country <- "Armenia"  # Replace with actual CSTO country
+non_csto_country <- "Kosovo"  # Replace with actual non-CSTO country
+
+two_country_data <- optimal_bandwidth_data_state_non_mil %>%
+  filter(country %in% c(csto_country, non_csto_country))
+
+# Check the structure
+table(two_country_data$country, two_country_data$csto)
+
+# Step 1: Source-topic level - pre vs post difference
+source_topic_effects <- two_country_data %>%
+  group_by(source_domain, topic_clean, treatment, csto, country) %>%
+  summarize(
+    mean_sentiment = mean(sentiment_clean, na.rm = TRUE),
+    n_articles = n(),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = treatment,
+    values_from = c(mean_sentiment, n_articles)
+  ) %>%
+  mutate(
+    diff = mean_sentiment_1 - mean_sentiment_0,
+    total_articles = n_articles_0 + n_articles_1
+  )
+
+# Step 2: Source level - weighted average across topics
+source_effects <- source_topic_effects %>%
+  group_by(source_domain, csto, country) %>%
+  summarize(
+    source_effect = weighted.mean(diff, w = total_articles, na.rm = TRUE),
+    total_articles = sum(total_articles, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 3: Country level - weighted average across sources (if multiple sources per country)
+country_effects <- source_effects %>%
+  group_by(country, csto) %>%
+  summarize(
+    country_effect = weighted.mean(source_effect, w = total_articles, na.rm = TRUE),
+    total_articles = sum(total_articles, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 4: CSTO vs non-CSTO difference
+csto_effect <- country_effects %>%
+  filter(csto == 1) %>%
+  pull(country_effect)
+
+non_csto_effect <- country_effects %>%
+  filter(csto == 0) %>%
+  pull(country_effect)
+
+treatment_effect_csto <- csto_effect - non_csto_effect
+
+print(paste("Non-parametric treatment effect of CSTO:", treatment_effect_csto))
+
+```
+
+```{r nonparam-compare}
+# Now run the regression on just these two countries
+model_two_countries <- feols(
+  sentiment_clean ~ treatment * csto,
+  cluster = ~source_domain,
+  data = two_country_data
+)
+
+model_two_countries_fe <- feols(
+  sentiment_clean ~ treatment * csto | topic_clean + source_domain,
+  cluster = ~source_domain,
+  data = two_country_data
+)
+
+model_two_countries_sat <- feols(
+  sentiment_clean ~ treatment * csto |
+    source_domain^topic_clean + topic_clean^treatment,
+  cluster = ~source_domain,
+  data = two_country_data
+)
+
+
+# Compare
+comparison <- data.frame(
+  Method = c("Non-parametric", "Regression", "Regression FE", "Regression Sat."),
+  Estimate = c(treatment_effect_csto,
+               coef(model_two_countries)["treatment:csto"],
+               coef(model_two_countries_fe)["treatment:csto"],
+               coef(model_two_countries_sat)["treatment:csto"])
+)
+
+print(comparison)
+```
