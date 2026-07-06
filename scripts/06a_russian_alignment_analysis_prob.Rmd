@@ -1891,119 +1891,68 @@ decomposition_results <- list(
 ```
 
 
+## Total Effect, Sentiment-Z (No Fes)
 
+### Russia-Aligned Only
 
-## Heavily Saturated Non-Mil Model
+```{r total-russia-aligned}
+# RDD On Total Effect for Russia Aligned Only
+model5_full_csto_z <- rdrobust(
+  y = data_align_state_csto$sentiment_z,
+  x = data_align_state_csto$running_probabilistic,
+  cluster = data_align_state_csto$source_domain
+)
 
-```{r}
-# # Change source and topic to factor
-# optimal_bandwidth_data_state_non_mil <- optimal_bandwidth_data_state_non_mil %>%
-#   mutate(
-#     source_domain = as.factor(source_domain),
-#     topic_clean = as.factor(topic_clean)
-#   )
-# 
-# # Heavily saturated model
-# model5a_fully_saturated <- feols(
-#   sentiment_clean ~ running_probabilistic * treatment * csto * source_domain * topic_clean |
-#     0,
-#   cluster = ~source_domain,
-#   data = optimal_bandwidth_data_state_non_mil
-# )
-# 
-# summary(model5a_fully_saturated)
+summary(model5_full_csto_z)
 ```
 
-### Manual Wild Bootstrap Standard Errors
+### Neutral-Aligned Only
 
-```{r}
-# set.seed(3184)
-# B <- 99
-# 
-# # Original model
-# model_original <- model5a_fully_saturated
-# original_coef <- coef(model_original)["treatment:csto"]
-# original_se <- se(model_original)["treatment:csto"]
-# original_t <- original_coef / original_se
-# 
-# cat("Original t-stat:", original_t, "\n")
-# 
-# # CRITICAL: Estimate RESTRICTED model under the null (treatment:csto = 0)
-# # Remove treatment:csto from the formula
-# model_restricted <- feols(
-#   sentiment_clean ~ running_probabilistic + treatment + csto + running_probabilistic:treatment + running_probabilistic:csto +
-#     running_probabilistic:treatment:csto |  # Keep triple interaction but not treatment:csto
-#     source_domain^topic_clean + topic_clean^treatment,
-#   cluster = ~source_domain,
-#   data = optimal_bandwidth_data_state_non_mil
-# )
-# 
-# # Get residuals and fitted values from RESTRICTED model
-# residuals_restricted <- residuals(model_restricted)
-# fitted_restricted <- fitted(model_restricted)
-# 
-# cat("Using restricted model residuals (null imposed)\n")
-# 
-# # Get clusters
-# clusters <- unique(optimal_bandwidth_data_state_non_mil$source_domain)
-# n_clusters <- length(clusters)
-# 
-# # Bootstrap
-# boot_t_stats <- numeric(B)
-# 
-# for(b in 1:B) {
-#   # Generate Rademacher weights
-#   cluster_weights <- sample(c(-1, 1), n_clusters, replace = TRUE)
-# 
-#   # Assign to observations
-#   data_boot <- optimal_bandwidth_data_state_non_mil
-#   data_boot$weight <- sapply(data_boot$source_domain, function(clust) {
-#     cluster_weights[which(clusters == clust)]
-#   })
-# 
-#   # Create bootstrap outcome using RESTRICTED fitted values
-#   data_boot$sentiment_boot <- fitted_restricted + data_boot$weight * residuals_restricted
-# 
-#   # Re-estimate FULL model on bootstrap data
-#   model_boot <- feols(
-#     sentiment_boot ~ running_probabilistic * treatment * csto |
-#       source_domain^topic_clean + topic_clean^treatment,
-#     cluster = ~source_domain,
-#     data = data_boot
-#   )
-# 
-#   boot_coef <- coef(model_boot)["treatment:csto"]
-#   boot_se <- se(model_boot)["treatment:csto"]
-#   boot_t_stats[b] <- boot_coef / boot_se
-# 
-#   if(b %% 100 == 0) cat("Iteration:", b, "\n")
-# }
-# 
-# # Calculate p-value
-# p_value <- mean(abs(boot_t_stats) >= abs(original_t))
-# 
-# cat("\n=== Results ===\n")
-# cat("Original t-stat:", original_t, "\n")
-# cat("Mean bootstrap t-stat (should be ~0):", mean(boot_t_stats), "\n")
-# cat("P-value:", p_value, "\n")
-# 
-# # Plot
-# hist(boot_t_stats, breaks=30, main="Wild Bootstrap t-statistics (Null Imposed)",
-#      xlab="t-statistic")
-# abline(v=original_t, col="red", lwd=2)
-# abline(v=0, col="blue", lwd=2, lty=2)
-# legend("topright", c("Original t", "Null (t=0)"), col=c("red","blue"), lty=c(1,2), lwd=2)
-# 
-# # Extract bootstrap results for saturated model in standard format
-# boot_model5a_fully_saturated <- list(
-#   se = original_se,
-#   p_val = p_value,
-#   ci_lower = NA,  # Not computed in manual bootstrap
-#   ci_upper = NA,  # Not computed in manual bootstrap
-#   t_stat = original_t
-# )
-# cat("Saturated model bootstrap results extracted\n")
+```{r total-neutral-aligned}
+# RDD On Total Effect for Neutral Aligned Only
+model5_total_neutral <- rdrobust(
+  y = data_align_state_neutral$sentiment_clean,
+  x = data_align_state_neutral$running_probabilistic,
+  covs = covs_matrix,
+  cluster = data_align_state_neutral$source_domain
+)
+
+summary(model5_total_neutral)
 ```
+
+### Optimal Bandwidth RDID
+
+```{r total-effect-z}
+# Residualize the dependent variable for fixed effects to do bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | csto, 
+                 data = data_align_state)$residuals
+
+bw_align <- rdbwselect(y = resid_y,
+                       x = data_align_state$running_probabilistic,
+                       kernel = "triangular",
+                       cluster = data_align_state$source_domain,
+                       p = 1,
+                       bwselect = "mserd")
+
+optimal_bw_align <- bw_align$bws[1, 1]
+cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
+
+optimal_bandwidth_data_state <- data_align_state %>%
+  filter(running_probabilistic < optimal_bw_align, running_probabilistic > -optimal_bw_align)
+
+model5_total_opt_z <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
+                     cluster = ~source_domain,
+                     data = optimal_bandwidth_data_state)
+
+summary(model5_total_opt_z)
+
+# Wild cluster bootstrap for model5a_opt
+boot_model5_total_opt_z <- run_wild_bootstrap(model5_total_opt_z, "treatment:csto")
+cat("Bootstrap SE for treatment:csto:", boot_model5_total_opt_z$se, "\n")
+cat("Bootstrap p-value:", boot_model5_total_opt_z$p_val, "\n")
+
+```
+
 
 # Country-Level Analysis
 
