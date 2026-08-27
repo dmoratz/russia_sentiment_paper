@@ -202,6 +202,7 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 | **E** | **DONE** | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
 | **F** | **DONE** | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
 | **G** | **DONE** | new `10_preperiod_diagnostics.Rmd` | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
+| **G2** | **DONE** | `10_preperiod_diagnostics.Rmd` (Section 4) | both pre-period variants re-run on the matched preferred models (Table 2 Model 6, Table 4 Model 5); side-by-side to text/CSV |
 | **C** | **DONE** | `04b`, `05b`, `06b` | direct series labels, new suffixed filenames only |
 
 Serialization: F and C both touch `05b` — F first, C last. B / D / E fan out across
@@ -511,6 +512,71 @@ every article in all three samples (0 disagreements), and H1's running variable 
 **seconds** (04a never divides by 86400) while H2/H3a are in days — hence H1's
 bandwidths printing as ~2.1e6. That is pre-existing 04a behaviour, preserved.
 
+### Task G2 — pre-period variants on the matched preferred models — DONE
+
+Task G ran the variants against the *unmatched* headline specs. This section repeats
+both against the preferred matched columns — **Table 2 Model 6** (`matched_model_z`,
+05a) and **Table 4 Model 5** (`matched_model`, 06a) — as Section 4 of
+`10_preperiod_diagnostics.Rmd`. Still author diagnostics; still not registered in
+`master.Rmd`.
+
+**Matched headlines reproduced exactly before anything else was estimated**, as
+required: `0.2222964347` and `-0.3803738052`, `|diff| = 0` against the serialized
+objects. Matching is `method = "exact"` and therefore deterministic; the matched
+rows are built once and then held fixed, so neither variant re-runs matching.
+
+| Spec | Variant | Estimate | SE | Analytic p | Bootstrap p |
+|---|---|---|---|---|---|
+| H2 matched | headline | 0.2223 | 0.0690 | 0.00247 | 0.0334 |
+| H2 matched | (i) pre-period topic demeaned | 0.2368 | 0.0688 | 0.00132 | 0.0232 |
+| H2 matched | (ii) pre-period z-score | 0.2650 | 0.0644 | 0.000176 | 0.0084 |
+| H3a matched | headline | -0.3804 | 0.1120 | 0.00530 | 0.0262 |
+| H3a matched | (i) pre-period topic demeaned | -0.3821 | 0.1118 | 0.00510 | 0.0242 |
+| H3a matched | (ii) pre-period z-score | -0.3521 | 0.0860 | 0.00148 | 0.0100 |
+
+N is 31,379 (43 source clusters) for every H2 row and 5,721 (13 clusters) for every
+H3a row — **no source was dropped** by the pre-period z-scoring in either matched
+sample, unlike the unmatched case where three were.
+
+**Reading.** Both variants leave the matched results intact, and if anything
+strengthen them: every variant is significant on the bootstrap p-value the paper
+reports, and both bootstrap p-values fall relative to their headline. Variant (i)
+moves H2 by 0.21 headline SEs and H3a by 0.015 — essentially nothing. That H3a is
+almost perfectly insensitive here is expected rather than surprising: exact matching
+on topic and publication day already balances the topic composition across the
+comparison groups, which is the channel variant (i) probes, so there is little left
+for a frozen topic adjustment to change.
+
+**Two implementation notes.**
+
+1. `06a` selects only
+   `sentiment_z, running, running_probabilistic, treatment, csto, topic_clean,
+   source_domain, country` into its matching frame, dropping `sentiment_clean`,
+   which variant (ii) needs in order to rebuild the z-score from pre-invasion
+   moments. `sentiment_clean` is carried through here. Matching is on
+   `csto ~ running + topic_clean` only, so a passenger column cannot change which
+   rows match — and the `|diff| = 0` check above proves it did not.
+2. Both files match on `running` (the day-scale variable), not
+   `running_probabilistic`. Preserved as-is.
+
+> **Repo-wide finding, surfaced not fixed.** `dqrng::dqset.seed()` is called
+> **nowhere** in this repository, and `fwildclusterboot` >= 0.13 draws its bootstrap
+> weights through `dqrng`'s own RNG stream. `set.seed(3184)` alone therefore does
+> **not** make `boottest()` reproducible: re-running Task G's own script shifted its
+> bootstrap p-values by a few thousandths (e.g. H2 section-2 headline 0.2517 ->
+> 0.2613) while every estimate, SE, analytic p, N and bandwidth stayed byte
+> identical. That is Monte Carlo error at B = 4999, well within the noise band and
+> changing no conclusion, but it means **every wild-bootstrap p-value in the paper is
+> reproducible only up to Monte Carlo error**, including the starred ones in Tables
+> 2 and 4.
+>
+> A one-line `dqrng::dqset.seed(3184)` was added to `10_preperiod_diagnostics.Rmd`
+> only, which is in scope for this task and now makes that file exactly
+> reproducible — verified by two independent runs producing byte-identical CSVs.
+> The same line in `00_setup.R` would fix it repo-wide, but that would shift the
+> published bootstrap p-values in every table, so it is left as **Donald's call**
+> rather than made silently.
+
 ## Re-render queue (for Donald, at leisure)
 
 Re-render these so the `.rds` files are once again a clean product of their host
@@ -548,6 +614,16 @@ The three canonical PNGs are byte-for-byte unchanged.
   total columns paired for H1, H2, H3a
 - `figures/tables/prob/table_s14_total_effect.html`
 - `figures/tables/prob/total_effect_comparison.csv` — estimates, SEs, N, bandwidth
+
+**Task G2** (author diagnostics, not paper outputs)
+
+- `output/diagnostics/preperiod_matched_comparison.csv` — six rows: matched
+  headline plus both variants, for H2 and H3a
+- `output/diagnostics/preperiod_matched_shifts.csv` — shift of each variant against
+  its own matched headline
+- `output/diagnostics/preperiod_matched_dropped_sources.csv` — empty; no source was
+  dropped from either matched sample
+- Section 4 block appended to `output/diagnostics/preperiod_diagnostics_summary.txt`
 
 **Task G** (author diagnostics, not paper outputs)
 

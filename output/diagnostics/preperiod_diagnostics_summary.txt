@@ -1,7 +1,7 @@
 =============================================================
 PRE-PERIOD ADJUSTMENT DIAGNOSTICS (PROBABILISTIC VARIANT)
 Produced by scripts/10_preperiod_diagnostics.Rmd
-Generated: 2026-08-27 15:59:32.960962 
+Generated: 2026-08-27 17:06:28.823758 
 =============================================================
 
 AUTHOR DIAGNOSTICS ONLY. Not paper outputs; not registered in master.Rmd.
@@ -21,11 +21,11 @@ HEADLINE ESTIMATES (recomputed on the samples above)
 -------------------------------------------------------------
   section spec   scale         outcome estimate     se        p boot_p n_obs
  headline   H1 z-score     sentiment_z  -0.2172 0.0362 1.96e-09     NA 45366
- headline   H2 z-score     sentiment_z   0.0797 0.0633 2.13e-01  0.252 40710
- headline  H3a z-score     sentiment_z  -0.1926 0.1110 1.08e-01  0.262  7164
+ headline   H2 z-score     sentiment_z   0.0797 0.0633 2.13e-01  0.260 40710
+ headline  H3a z-score     sentiment_z  -0.1926 0.1110 1.08e-01  0.266  7164
  headline   H1     raw sentiment_clean  -0.1153 0.0209 3.35e-08     NA 40674
- headline   H2     raw sentiment_clean   0.0323 0.0332 3.34e-01  0.347 37622
- headline  H3a     raw sentiment_clean  -0.1074 0.0524 6.29e-02  0.194  7008
+ headline   H2     raw sentiment_clean   0.0323 0.0332 3.34e-01  0.367 37622
+ headline  H3a     raw sentiment_clean  -0.1074 0.0524 6.29e-02  0.192  7008
   bandwidth n_clusters
  2129700.73         61
       20.93         60
@@ -51,11 +51,11 @@ the raw-scale headline siblings.
  s1_pre_topic_demeaned  H3a     raw   sentiment_tdm  -0.1207 0.0583 6.06e-02
  boot_p n_obs  bandwidth n_clusters
      NA 43396 1959000.75         61
-  0.153 42599      22.32         60
-  0.229  7111      37.70         13
+  0.149 42599      22.32         60
+  0.246  7111      37.70         13
      NA 37444 1633640.65         61
-  0.169 39156      19.99         60
-  0.181  7063      37.51         13
+  0.172 39156      19.99         60
+  0.195  7063      37.51         13
 
 Shift relative to headline:
  spec   scale headline diagnostic abs_change pct_change shift_in_headline_ses
@@ -74,6 +74,52 @@ Shift relative to headline:
    6.29e-02     6.06e-02
 
 
+SECTION 4: PRE-PERIOD VARIANTS ON THE MATCHED PREFERRED MODELS
+-------------------------------------------------------------
+Table 2 Model 6 (matched_model_z) and Table 4 Model 5 (matched_model).
+Matched samples rebuilt and each headline reproduced at |diff| = 0 before
+either variant was estimated:
+
+                          spec          object                  term
+  H2 matched (Table 2 Model 6) matched_model_z treatment:state_owned
+ H3a matched (Table 4 Model 5)   matched_model        treatment:csto
+    serialized    recomputed abs_diff exact
+  0.2222964347  0.2222964347        0  TRUE
+ -0.3803738052 -0.3803738052        0  TRUE
+
+    section        spec   scale         outcome estimate     se        p boot_p
+ s4_matched  H2 matched z-score     sentiment_z   0.2223 0.0690 0.002470 0.0334
+ s4_matched  H2 matched z-score sentiment_z_tdm   0.2368 0.0688 0.001320 0.0232
+ s4_matched  H2 matched z-score sentiment_z_pre   0.2650 0.0644 0.000176 0.0084
+ s4_matched H3a matched z-score     sentiment_z  -0.3804 0.1120 0.005300 0.0262
+ s4_matched H3a matched z-score sentiment_z_tdm  -0.3821 0.1118 0.005100 0.0242
+ s4_matched H3a matched z-score sentiment_z_pre  -0.3521 0.0860 0.001480 0.0100
+ n_obs bandwidth n_clusters
+ 31379     42.28         43
+ 31379     42.28         43
+ 31379     42.28         43
+  5721     40.52         13
+  5721     40.52         13
+  5721     40.52         13
+
+Shift relative to the matched headline:
+        spec                       variant headline diagnostic abs_change
+  H2 matched (i) pre-period topic demeaned   0.2223     0.2368     0.0145
+  H2 matched       (ii) pre-period z-score   0.2223     0.2650     0.0427
+ H3a matched (i) pre-period topic demeaned  -0.3804    -0.3821    -0.0017
+ H3a matched       (ii) pre-period z-score  -0.3804    -0.3521     0.0283
+ pct_change shift_in_headline_ses headline_p diagnostic_p headline_boot_p
+        6.5                 0.210    0.00247     0.001320          0.0334
+       19.2                 0.618    0.00247     0.000176          0.0334
+       -0.5                -0.015    0.00530     0.005100          0.0262
+        7.4                 0.253    0.00530     0.001480          0.0262
+ diagnostic_boot_p
+            0.0232
+            0.0084
+            0.0242
+            0.0100
+
+
 SECTION 2: PRE-PERIOD-ONLY Z-SCORING
 -------------------------------------------------------------
 Outcome re-standardized on pre-invasion source means/SDs; topic FE kept.
@@ -89,8 +135,8 @@ Sources dropped for zero/undefined pre-invasion SD:
  s2_pre_period_zscore  H3a z-score sentiment_z_pre  -0.2545 0.1061 3.36e-02
  boot_p n_obs  bandwidth n_clusters
      NA 46365 2213439.22         60
-  0.159 43639      22.80         60
-  0.100  7326      39.91         13
+  0.154 43639      22.80         60
+  0.106  7326      39.91         13
 
 Shift relative to headline:
  spec headline diagnostic abs_change pct_change se_ratio headline_p
@@ -182,15 +228,15 @@ Full estimation window:
 BOOTSTRAP STATUS
 -------------------------------------------------------------
                section spec   scale boot_p status
-              headline   H2 z-score  0.252     ok
-              headline  H3a z-score  0.262     ok
-              headline   H2     raw  0.347     ok
-              headline  H3a     raw  0.194     ok
- s1_pre_topic_demeaned   H2 z-score  0.153     ok
- s1_pre_topic_demeaned  H3a z-score  0.229     ok
- s1_pre_topic_demeaned   H2     raw  0.169     ok
- s1_pre_topic_demeaned  H3a     raw  0.181     ok
-  s2_pre_period_zscore   H2 z-score  0.159     ok
-  s2_pre_period_zscore  H3a z-score  0.100     ok
+              headline   H2 z-score  0.260     ok
+              headline  H3a z-score  0.266     ok
+              headline   H2     raw  0.367     ok
+              headline  H3a     raw  0.192     ok
+ s1_pre_topic_demeaned   H2 z-score  0.149     ok
+ s1_pre_topic_demeaned  H3a z-score  0.246     ok
+ s1_pre_topic_demeaned   H2     raw  0.172     ok
+ s1_pre_topic_demeaned  H3a     raw  0.195     ok
+  s2_pre_period_zscore   H2 z-score  0.154     ok
+  s2_pre_period_zscore  H3a z-score  0.106     ok
 
 =============================================================

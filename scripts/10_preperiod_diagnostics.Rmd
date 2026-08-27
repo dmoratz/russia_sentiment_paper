@@ -95,6 +95,13 @@ dir.create(OUTPUT_DIAGNOSTICS, showWarnings = FALSE, recursive = TRUE)
 # 00_setup.R (`run_wild_bootstrap`); it is NOT reduced for these diagnostics.
 BOOT_B <- 4999
 
+# fwildclusterboot >= 0.13 draws its bootstrap weights through dqrng, which has
+# its own RNG stream: set.seed() alone does NOT make boottest() reproducible.
+# Without this, every bootstrap p-value in this file drifts by a few thousandths
+# between runs. Note that no other script in the repository seeds dqrng, so their
+# bootstrap p-values are reproducible only up to Monte Carlo error.
+if (requireNamespace("dqrng", quietly = TRUE)) dqrng::dqset.seed(3184)
+
 cat("Diagnostics directory:", OUTPUT_DIAGNOSTICS, "\n")
 cat("Wild cluster bootstrap B:", BOOT_B, "\n")
 ```
@@ -939,6 +946,266 @@ write_csv(topic_mapping_diagnostic,
 cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "topic_mapping_diagnostic.csv"), "\n")
 ```
 
+# Section 4: Pre-Period Variants on the Matched Preferred Models
+
+Sections 1 and 2 ran the pre-period variants against the *unmatched* headline
+specifications. The preferred columns in the paper are the matched ones -- Table 2
+Model 6 (`matched_model_z`, from `05a`) and Table 4 Model 5 (`matched_model`, from
+`06a`) -- so this section repeats both variants against those.
+
+The matched samples differ from the unmatched ones in ways that matter here. They
+are exact-matched on topic and publication day, which means the topic composition
+is balanced across the comparison groups by construction; that is precisely the
+channel Section 1 probes, so the two sections are not expected to give the same
+answer. They are also smaller, and H3a's matched sample is drawn from state-owned
+outlets in non-NATO countries only.
+
+Both variants below hold the matched sample fixed. Matching is never re-run: the
+matched rows are constructed once, the headline is reproduced on them, and only the
+outcome and the fixed-effect structure change afterwards.
+
+## Rebuilding the Matched Samples
+
+Reproduces each host script's matching pipeline. Both use `MatchIt` with
+`method = "exact"`, which is deterministic, so the matched rows are reproducible
+without any RNG concern. Note that both match on `running` -- the day-scale running
+variable -- not on `running_probabilistic`.
+
+One deliberate departure: `06a` selects only
+`sentiment_z, running, running_probabilistic, treatment, csto, topic_clean,
+source_domain, country` into its matching frame, dropping `sentiment_clean`.
+Variant (ii) has to rebuild the z-score from pre-invasion `sentiment_clean`
+moments, so `sentiment_clean` is carried through here. Matching is on
+`csto ~ running + topic_clean` only, so an extra passenger column cannot change
+which rows are matched -- and the headline check in the next chunk confirms it did
+not, at `|diff| = 0`.
+
+```{r diag-s4-matched-samples}
+# Following 05a_diff_in_disc_analysis_prob.Rmd, chunks `non-mil-prob`,
+# `non-nato-prob` (z-score variant), `matching-h2-prob` and `matched-model-h2-prob`
+h2_non_mil <- h2_data %>%
+  filter(!topic_clean %in% c("Military")) %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+           sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+h2_non_nato <- h2_non_mil %>%
+  filter(!country %in% NATO_COUNTRIES)
+
+resid_y_h2m <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
+                     data = h2_non_nato)$residuals
+bw_h2m <- rdbwselect(y = resid_y_h2m,
+                     x = h2_non_nato$running_probabilistic,
+                     kernel = "triangular",
+                     cluster = h2_non_nato$source_domain,
+                     p = 1,
+                     bwselect = "mserd")$bws[1, 1]
+
+h2_matching_frame <- h2_non_nato %>%
+  filter(running_probabilistic < bw_h2m, running_probabilistic > -bw_h2m) %>%
+  droplevels() %>%
+  select(sentiment_clean, sentiment_z, running, running_probabilistic, treatment,
+         state_owned, topic_clean, source_domain, country)
+
+h2_ps <- matchit(state_owned ~ running + topic_clean,
+                 data = h2_matching_frame, method = "exact", ratio = 1)
+h2_matched <- match.data(h2_ps)
+
+# Following 06a_russian_alignment_analysis_prob.Rmd, chunks `align-non-mil-prob-z`
+# and the matching chunks that follow it
+h3_non_mil <- h3_data %>%
+  filter(!topic_clean %in% "Military") %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+           sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+resid_y_h3m <- feols(sentiment_z ~ 1 | topic_clean + csto,
+                     data = h3_non_mil)$residuals
+bw_h3m <- rdbwselect(y = resid_y_h3m,
+                     x = h3_non_mil$running_probabilistic,
+                     kernel = "triangular",
+                     cluster = h3_non_mil$source_domain,
+                     p = 1,
+                     bwselect = "mserd")$bws[1, 1]
+
+h3_matching_frame <- h3_non_mil %>%
+  filter(running_probabilistic < bw_h3m, running_probabilistic > -bw_h3m) %>%
+  # sentiment_clean added relative to 06a; see the note above this chunk
+  select(sentiment_clean, sentiment_z, running, running_probabilistic, treatment,
+         csto, topic_clean, source_domain, country)
+
+h3_ps <- matchit(csto ~ running + topic_clean,
+                 data = h3_matching_frame, method = "exact", ratio = 1)
+h3_matched <- match.data(h3_ps)
+
+cat(sprintf("H2  matched sample: %6d articles, %3d sources (bandwidth %.2f days)\n",
+            nrow(h2_matched), length(unique(as.character(h2_matched$source_domain))),
+            bw_h2m))
+cat(sprintf("H3a matched sample: %6d articles, %3d sources (bandwidth %.2f days)\n",
+            nrow(h3_matched), length(unique(as.character(h3_matched$source_domain))),
+            bw_h3m))
+```
+
+## Reproducing the Matched Headline Estimates
+
+Nothing downstream is trustworthy unless the matched samples rebuilt above are the
+same ones the paper uses. This chunk refits each matched headline and compares it
+to the serialized object, requiring exact equality. A nonzero difference would mean
+the matching pipeline drifted and the diagnostics below would be measuring the
+wrong thing, so it is a hard `stopifnot()` rather than a warning.
+
+```{r diag-s4-headline-check}
+results_h2_ser    <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_prob.rds"))
+results_align_ser <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results_prob.rds"))
+
+# Table 2 Model 6 and Table 4 Model 5, refit on the rebuilt matched samples
+h2_matched_headline <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned |
+                               topic_clean,
+                             cluster = ~source_domain, data = h2_matched)
+h3_matched_headline <- feols(sentiment_z ~ running_probabilistic * treatment * csto |
+                               topic_clean,
+                             cluster = ~source_domain, data = h3_matched)
+
+matched_reproduction <- tibble(
+  spec       = c("H2 matched (Table 2 Model 6)", "H3a matched (Table 4 Model 5)"),
+  object     = c("matched_model_z", "matched_model"),
+  term       = c("treatment:state_owned", "treatment:csto"),
+  serialized = c(unname(coef(results_h2_ser$matched_model_z)[["treatment:state_owned"]]),
+                 unname(coef(results_align_ser$matched_model)[["treatment:csto"]])),
+  recomputed = c(unname(coef(h2_matched_headline)[["treatment:state_owned"]]),
+                 unname(coef(h3_matched_headline)[["treatment:csto"]]))
+) %>%
+  mutate(abs_diff = abs(recomputed - serialized),
+         exact    = abs_diff == 0)
+
+print(as.data.frame(matched_reproduction), row.names = FALSE, digits = 10)
+
+stopifnot(all(matched_reproduction$exact))
+cat("\nBoth matched headlines reproduce at |diff| = 0.\n")
+```
+
+## Variant (i): Topic Adjustment Fixed at Pre-Invasion Values
+
+The model's outcome is `sentiment_z`, so it is `sentiment_z` that gets demeaned by
+its pre-invasion topic mean, computed within each matched sample. Topic fixed
+effects are then removed, since the adjustment they would apply is now baked into
+the outcome at pre-invasion values. The matched rows, the clustering and the
+running-variable interaction are untouched.
+
+```{r diag-s4-variant1}
+h2_m_s1 <- add_pre_topic_demean(h2_matched, "H2 matched")
+h3_m_s1 <- add_pre_topic_demean(h3_matched, "H3a matched")
+
+h2_m_v1 <- feols(sentiment_z_tdm ~ running_probabilistic * treatment * state_owned,
+                 cluster = ~source_domain, data = h2_m_s1)
+h3_m_v1 <- feols(sentiment_z_tdm ~ running_probabilistic * treatment * csto,
+                 cluster = ~source_domain, data = h3_m_s1)
+
+summary(h2_m_v1)
+summary(h3_m_v1)
+```
+
+## Variant (ii): Pre-Period-Only Z-Scoring
+
+The outcome is re-standardized using each source's pre-invasion mean and standard
+deviation only, computed within the matched sample. Everything else -- matched
+rows, topic fixed effects, clustering -- is exactly as in the headline. Sources
+with no usable pre-invasion variance are dropped and reported.
+
+```{r diag-s4-variant2}
+h2_m_s2 <- add_pre_period_z(h2_matched, "H2 matched")
+h3_m_s2 <- add_pre_period_z(h3_matched, "H3a matched")
+
+h2_m_v2 <- feols(sentiment_z_pre ~ running_probabilistic * treatment * state_owned |
+                   topic_clean,
+                 cluster = ~source_domain, data = h2_m_s2$data)
+h3_m_v2 <- feols(sentiment_z_pre ~ running_probabilistic * treatment * csto |
+                   topic_clean,
+                 cluster = ~source_domain, data = h3_m_s2$data)
+
+summary(h2_m_v2)
+summary(h3_m_v2)
+
+dropped_sources_matched <- bind_rows(h2_m_s2$dropped, h3_m_s2$dropped)
+write_csv(dropped_sources_matched,
+          file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_dropped_sources.csv"))
+cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_dropped_sources.csv"), "\n")
+```
+
+## Side-by-Side Comparison
+
+Each row carries the analytic cluster-robust p-value and the wild cluster bootstrap
+p-value, since the paper reports the bootstrap one for these models. The bootstrap
+runs at the same `B` as everywhere else in this file.
+
+```{r diag-s4-comparison}
+# Assemble in the shape row_fe() expects, so these rows stack with sections 1-3
+as_fit <- function(model, coef_name, data, bw) {
+  list(model = model, coef_name = coef_name, data = data, bw = bw,
+       boot = safe_wild_bootstrap(model, coef_name))
+}
+
+section4_estimates <- bind_rows(
+  row_fe(as_fit(h2_matched_headline, "treatment:state_owned", h2_matched, bw_h2m),
+         "s4_matched", "H2 matched", "z-score", "sentiment_z", "topic"),
+  row_fe(as_fit(h2_m_v1, "treatment:state_owned", h2_m_s1, bw_h2m),
+         "s4_matched", "H2 matched", "z-score", "sentiment_z_tdm", "none"),
+  row_fe(as_fit(h2_m_v2, "treatment:state_owned", h2_m_s2$data, bw_h2m),
+         "s4_matched", "H2 matched", "z-score", "sentiment_z_pre", "topic"),
+  row_fe(as_fit(h3_matched_headline, "treatment:csto", h3_matched, bw_h3m),
+         "s4_matched", "H3a matched", "z-score", "sentiment_z", "topic"),
+  row_fe(as_fit(h3_m_v1, "treatment:csto", h3_m_s1, bw_h3m),
+         "s4_matched", "H3a matched", "z-score", "sentiment_z_tdm", "none"),
+  row_fe(as_fit(h3_m_v2, "treatment:csto", h3_m_s2$data, bw_h3m),
+         "s4_matched", "H3a matched", "z-score", "sentiment_z_pre", "topic")
+) %>%
+  mutate(variant = rep(c("headline", "(i) pre-period topic demeaned",
+                         "(ii) pre-period z-score"), times = 2), .after = spec)
+
+print_comparison(section4_estimates)
+
+# Shift of each variant against its own matched headline
+section4_comparison <- section4_estimates %>%
+  group_by(spec) %>%
+  mutate(headline_estimate = estimate[variant == "headline"],
+         headline_se       = std_error[variant == "headline"],
+         headline_p        = p_value[variant == "headline"],
+         headline_boot_p   = boot_p[variant == "headline"]) %>%
+  ungroup() %>%
+  filter(variant != "headline") %>%
+  transmute(spec, variant,
+            headline_estimate, estimate,
+            abs_change = estimate - headline_estimate,
+            pct_change = 100 * (estimate - headline_estimate) / abs(headline_estimate),
+            shift_in_headline_ses = (estimate - headline_estimate) / headline_se,
+            headline_se, std_error,
+            headline_p, p_value,
+            headline_boot_p, boot_p,
+            n_obs, n_clusters)
+
+cat("\nShift relative to the matched headline:\n")
+print(as.data.frame(section4_comparison %>%
+  transmute(spec, variant,
+            headline = round(headline_estimate, 4),
+            diagnostic = round(estimate, 4),
+            abs_change = round(abs_change, 4),
+            pct_change = round(pct_change, 1),
+            shift_in_headline_ses = round(shift_in_headline_ses, 3),
+            headline_p = signif(headline_p, 3),
+            diagnostic_p = signif(p_value, 3),
+            headline_boot_p = signif(headline_boot_p, 3),
+            diagnostic_boot_p = signif(boot_p, 3))), row.names = FALSE)
+
+write_csv(section4_estimates,
+          file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_comparison.csv"))
+write_csv(section4_comparison,
+          file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_shifts.csv"))
+cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_comparison.csv"), "\n")
+cat("Wrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_shifts.csv"), "\n")
+```
+
 # Combined Summary File
 
 Everything printed above is also written to a single plain-text file, so the three
@@ -995,6 +1262,27 @@ summary_lines <- capture.output({
               shift_in_headline_ses = round(shift_in_headline_ses, 3),
               headline_p = signif(headline_p, 3),
               diagnostic_p = signif(p_value, 3))), row.names = FALSE)
+
+  cat("\n\nSECTION 4: PRE-PERIOD VARIANTS ON THE MATCHED PREFERRED MODELS\n")
+  cat("-------------------------------------------------------------\n")
+  cat("Table 2 Model 6 (matched_model_z) and Table 4 Model 5 (matched_model).\n")
+  cat("Matched samples rebuilt and each headline reproduced at |diff| = 0 before\n")
+  cat("either variant was estimated:\n\n")
+  print(as.data.frame(matched_reproduction), row.names = FALSE, digits = 10)
+  cat("\n")
+  print_comparison(section4_estimates)
+  cat("\nShift relative to the matched headline:\n")
+  print(as.data.frame(section4_comparison %>%
+    transmute(spec, variant,
+              headline = round(headline_estimate, 4),
+              diagnostic = round(estimate, 4),
+              abs_change = round(abs_change, 4),
+              pct_change = round(pct_change, 1),
+              shift_in_headline_ses = round(shift_in_headline_ses, 3),
+              headline_p = signif(headline_p, 3),
+              diagnostic_p = signif(p_value, 3),
+              headline_boot_p = signif(headline_boot_p, 3),
+              diagnostic_boot_p = signif(boot_p, 3))), row.names = FALSE)
 
   cat("\n\nSECTION 2: PRE-PERIOD-ONLY Z-SCORING\n")
   cat("-------------------------------------------------------------\n")
