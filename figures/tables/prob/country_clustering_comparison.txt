@@ -1,0 +1,27 @@
+Country-level clustering check, H2 and H3a RDID estimates
+=========================================================
+
+Wild cluster restricted (WCR) bootstrap: Webb six-point weights, null imposed,
+bootstrap_type = fnw11, B = 4999.
+
+Clustering affects inference only, so the point estimate is shared across the
+two clustering levels. Sources are nested within countries; country clustering
+is the more conservative level when shocks are country-wide.
+
+Side-by-side
+------------
+        model estimate n_obs source_domain_clusters source_domain_p
+  H2_headline  0.07971 40710                     60         0.25965
+   H2_matched  0.22230 31379                     43         0.02981
+ H3a_headline -0.19263  7164                     13         0.25305
+  H3a_matched -0.38037  5721                     13         0.02561
+ source_domain_ci_lower source_domain_ci_upper country_clusters country_p
+               -0.08911                0.21020               11   0.15803
+                0.03328                0.36042                8   0.02480
+               -0.48429                0.10932                8   0.27405
+               -0.75963               -0.05335                8   0.03281
+ country_ci_lower country_ci_upper
+         -0.05856          0.17457
+          0.03400          0.31341
+         -0.52515          0.13547
+         -0.81088         -0.03779

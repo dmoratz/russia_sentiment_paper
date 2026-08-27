@@ -1232,6 +1232,45 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 
 
 
+### Country-Level Clustering Check
+
+The headline H3a inference clusters at the source level, but the treatment
+contrast here is between country groups and only eight countries contribute
+state-owned sources. This chunk re-runs the same WCR bootstrap clustered by
+country for the two H3a RDIDs the paper reports (the optimal-bandwidth
+interaction and the matched interaction) and reports both levels side by side.
+Clustering affects inference only, so the estimates must be unchanged.
+
+```{r country-cluster-check-h3a-prob}
+# Drop unused factor levels before bootstrapping: boottest() errors on cluster
+# levels with no observations, and this file does not droplevels() after the
+# bandwidth filter, so the non-NATO samples still declare the NATO countries.
+# Dropping them cannot move the estimate (asserted below).
+optimal_bandwidth_data_state_dl <- droplevels(optimal_bandwidth_data_state)
+matched_data_dl                 <- droplevels(matched_data)
+
+model5a_opt_z_dl <- feols(sentiment_z ~ running_probabilistic * treatment * csto |
+                            topic_clean,
+                          cluster = ~source_domain, data = optimal_bandwidth_data_state_dl)
+matched_model_dl <- feols(sentiment_z ~ running_probabilistic * treatment * csto |
+                            topic_clean,
+                          cluster = ~source_domain, data = matched_data_dl)
+
+stopifnot(
+  isTRUE(all.equal(coef(model5a_opt_z_dl)[["treatment:csto"]],
+                   coef(model5a_opt_z)[["treatment:csto"]], tolerance = 0)),
+  isTRUE(all.equal(coef(matched_model_dl)[["treatment:csto"]],
+                   coef(matched_model)[["treatment:csto"]], tolerance = 0))
+)
+
+country_cluster_check <- bind_rows(
+  compare_cluster_levels(model5a_opt_z_dl, "treatment:csto", "H3a_headline"),
+  compare_cluster_levels(matched_model_dl, "treatment:csto", "H3a_matched")
+)
+
+print(as.data.frame(country_cluster_check), row.names = FALSE, digits = 4)
+```
+
 ### Sensitivity of OVB
 
 ```{r}
@@ -2286,6 +2325,9 @@ results_het_prob <- list(
   placebo_aligned_pooled = placebo_aligned_pooled,
   placebo_aligned_pooled_cl = placebo_aligned_pooled_cl,
   placebo_aligned_estimates = placebo_aligned_estimates,
+
+  # Source- vs country-level WCR inference for the reported H3a RDIDs
+  country_cluster_check = country_cluster_check,
 
   # Mini-Regressions: Heterogeneous treatment effect decomposition
   decomposition = decomposition_results

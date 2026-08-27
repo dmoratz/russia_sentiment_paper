@@ -994,6 +994,46 @@ cat("Bootstrap SE for treatment:state_owned:", boot_matched_model_z$se, "\n")
 cat("Z-score matched model — Bootstrap p-value:", boot_matched_model_z$p_val, "\n")
 ```
 
+## Country-Level Clustering Check
+
+The headline H2 inference clusters at the source level. Sources are nested within
+countries, so if the invasion shifted coverage country-wide the source-level
+bootstrap understates the true uncertainty. This chunk re-runs the same WCR
+bootstrap clustered by country for the two H2 RDIDs the paper reports (the
+optimal-bandwidth interaction and the matched interaction), and reports both
+levels side by side. Point estimates are unchanged by construction -- clustering
+affects inference only -- so any divergence in the estimate column would mean the
+sample silently changed and must be investigated, not reported.
+
+```{r country-cluster-check-h2-prob}
+# Drop unused factor levels before bootstrapping: boottest() errors on cluster
+# levels with no observations. This cannot move the estimate, since country
+# enters neither the formula nor the fixed effects (asserted below).
+optimal_bandwidth_data_z_dl <- droplevels(optimal_bandwidth_data_z)
+matched_data_dl             <- droplevels(matched_data)
+
+model2a_opt_z_dl <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned |
+                            topic_clean,
+                          cluster = ~source_domain, data = optimal_bandwidth_data_z_dl)
+matched_model_z_dl <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned |
+                              topic_clean,
+                            cluster = ~source_domain, data = matched_data_dl)
+
+stopifnot(
+  isTRUE(all.equal(coef(model2a_opt_z_dl)[["treatment:state_owned"]],
+                   coef(model2a_opt_z)[["treatment:state_owned"]], tolerance = 0)),
+  isTRUE(all.equal(coef(matched_model_z_dl)[["treatment:state_owned"]],
+                   coef(matched_model_z)[["treatment:state_owned"]], tolerance = 0))
+)
+
+country_cluster_check <- bind_rows(
+  compare_cluster_levels(model2a_opt_z_dl, "treatment:state_owned", "H2_headline"),
+  compare_cluster_levels(matched_model_z_dl, "treatment:state_owned", "H2_matched")
+)
+
+print(as.data.frame(country_cluster_check), row.names = FALSE, digits = 4)
+```
+
 ## Sensitivity Analysis (OVB)
 
 ```{r sensitivity-h2-prob}
@@ -1517,7 +1557,10 @@ results_h2_prob <- list(
   optimal_bw_econ = optimal_bw_econ,
   optimal_bw_cult = optimal_bw_cult,
   optimal_bw_oth = optimal_bw_oth,
-  optimal_bw_placebo = optimal_bw_placebo
+  optimal_bw_placebo = optimal_bw_placebo,
+
+  # Source- vs country-level WCR inference for the reported H2 RDIDs
+  country_cluster_check = country_cluster_check
 )
 
 saveRDS(results_h2_prob, file.path(DATA_INTERMEDIATE, "05_h2_results_prob.rds"))

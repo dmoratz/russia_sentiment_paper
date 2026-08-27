@@ -372,6 +372,69 @@ run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999
   )
 }
 
+#' Compare WCR inference across two clustering levels
+#'
+#' Re-runs the wild cluster restricted bootstrap on a single fitted model at two
+#' different clustering levels and returns both side by side. Clustering changes
+#' inference only, so the point estimate is shared by construction and is
+#' returned once.
+#'
+#' Note on empty factor levels: boottest() errors with "length(g) must match
+#' length(x)" if the clustering variable is a factor carrying levels with no
+#' observations. Sub-samples built without droplevels() hit this. Pass a model
+#' fitted on droplevels(data); dropping unused levels cannot move the estimate
+#' when the cluster variable is not in the formula or the fixed effects.
+#'
+#' @param model Fitted fixest model
+#' @param param Coefficient name to test (e.g. "treatment:csto")
+#' @param label Short identifier for the model, used in the returned row
+#' @param levels Character vector of two clustering variables
+#' @param B Bootstrap replications (default 4999, matching run_wild_bootstrap)
+#' @return One-row tibble: estimate, then p/CI/cluster count at each level
+compare_cluster_levels <- function(model, param, label,
+                                   levels = c("source_domain", "country"),
+                                   B = 4999) {
+  one <- function(clustid) {
+    tryCatch({
+      r <- boottest(object = model, param = param, clustid = clustid, B = B,
+                    impose_null = TRUE, bootstrap_type = "fnw11", type = "webb")
+      list(se = unname(r$point_estimate / r$t_stat), p_val = unname(r$p_val),
+           ci_lower = r$conf_int[1], ci_upper = r$conf_int[2],
+           n_clusters = unname(r$N_G), ok = TRUE, err = NA_character_)
+    }, error = function(e) {
+      list(se = NA_real_, p_val = NA_real_, ci_lower = NA_real_, ci_upper = NA_real_,
+           n_clusters = NA_integer_, ok = FALSE, err = conditionMessage(e))
+    })
+  }
+
+  a <- one(levels[1])
+  b <- one(levels[2])
+
+  # Computed before the tibble() call: the 'model' column below would otherwise
+  # shadow the 'model' argument under tibble's sequential data masking.
+  est <- unname(coef(model)[param])
+  n   <- nobs(model)
+
+  tibble::tibble(
+    model    = label,
+    param    = param,
+    estimate = est,
+    n_obs    = n,
+    !!paste0(levels[1], "_clusters") := a$n_clusters,
+    !!paste0(levels[1], "_se")       := a$se,
+    !!paste0(levels[1], "_p")        := a$p_val,
+    !!paste0(levels[1], "_ci_lower") := a$ci_lower,
+    !!paste0(levels[1], "_ci_upper") := a$ci_upper,
+    !!paste0(levels[2], "_clusters") := b$n_clusters,
+    !!paste0(levels[2], "_se")       := b$se,
+    !!paste0(levels[2], "_p")        := b$p_val,
+    !!paste0(levels[2], "_ci_lower") := b$ci_lower,
+    !!paste0(levels[2], "_ci_upper") := b$ci_upper,
+    boot_ok  = a$ok && b$ok,
+    boot_err = paste(na.omit(c(a$err, b$err)), collapse = "; ")
+  )
+}
+
 # -----------------------------------------------------------------------------
 # Time Specification Helper Functions
 # -----------------------------------------------------------------------------

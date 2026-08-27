@@ -1,0 +1,5 @@
+model,param,estimate_headline,estimate_refit,estimate_refit_droplevels,abs_diff_refit,abs_diff_droplevels,identical_estimate,country_levels_used,country_levels_declared
+H2_headline,treatment:state_owned,0.07970986922756436,0.07970986922756436,0.07970986922756436,0,0,TRUE,11,11
+H2_matched,treatment:state_owned,0.22229643467973667,0.22229643467973667,0.22229643467973667,0,0,TRUE,8,8
+H3a_headline,treatment:csto,-0.1926311188646402,-0.1926311188646402,-0.1926311188646402,0,0,TRUE,8,12
+H3a_matched,treatment:csto,-0.38037380516206487,-0.38037380516206487,-0.38037380516206487,0,0,TRUE,8,12

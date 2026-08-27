@@ -198,7 +198,7 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 |---|---|---|---|
 | A1 fix | **DONE** | `06a` | slopes → `figures/heterogeneity/prob/pretrend_slopes_aligned.csv` (shipped with B) |
 | **B** | **DONE** | `06a`, `09a` | pooled aligned Dec-7 placebo (`placebo_aligned_pooled`); `table_s13_placebo_aligned.{tex,html}`; pooled + per-country est/CI/p/bw/N CSV |
-| **D** | TODO | `05a`, `06a` | country-clustered WCR for 4 models; side-by-side txt + CSV; explicit point-estimate identity check |
+| **D** | **DONE** | `00_setup.R`, `05a`, `06a`, `09a` | country-clustered WCR for 4 models; side-by-side txt + CSV; explicit point-estimate identity check |
 | **E** | TODO | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
 | **F** | TODO | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
 | **G** | TODO | new `10_preperiod_diagnostics.Rmd` | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
@@ -265,6 +265,65 @@ covariates dropped." on both the per-country and pooled fits. This is pre-existi
 behaviour of the per-country chunk (collinear topic dummies after `droplevels`), not
 something introduced here.
 
+### Task D — country-level clustering check — DONE
+
+**Method.** Serialized `fixest` objects cannot be re-bootstrapped: `fixest` fetches
+the estimation data from the environment where the fit happened, and that is gone
+once the object has been through `saveRDS`. So the runner replays 05a and 06a from
+`02_*.rds` with `run_wild_bootstrap()` and `ggsave()` stubbed out, rebuilds the four
+models with the host scripts' own code, and bootstraps those.
+
+Two consequences worth recording:
+
+- Both replays **abort partway**, in the `sensemakr` sensitivity chunk, because the
+  stub returns an `NA` SE and `adjusted_estimate()` rejects it. That chunk runs
+  strictly *after* every object Task D needs. Correctness therefore does not rest on
+  the replay completing — it rests on the identity check below.
+- The exact-matching in both files is `method = "exact"`, i.e. deterministic, so the
+  matched samples reproduce without any RNG concern.
+
+**Point-estimate identity: verified, all four exact.** Clustering changes inference
+only, so this is the check that the sample and spec did not silently move:
+
+| Model | Headline | Refit | Refit + droplevels | max abs diff |
+|---|---|---|---|---|
+| H2 headline (`model2a_opt_z`) | 0.0797099 | 0.0797099 | 0.0797099 | 0 |
+| H2 matched (`matched_model_z`) | 0.2222964 | 0.2222964 | 0.2222964 | 0 |
+| H3a headline (`model5a_opt_z`) | -0.1926311 | -0.1926311 | -0.1926311 | 0 |
+| H3a matched (`matched_model`) | -0.3803738 | -0.3803738 | -0.3803738 | 0 |
+
+**The known WCR incompatibility, diagnosed rather than worked around.**
+`boottest()` fails with `length(g) must match length(x)` when the clustering
+variable is a factor carrying levels with **no observations**. 06a does not
+`droplevels()` after its bandwidth filter (05a does), so its non-NATO samples still
+declare all 12 countries while using 8 — which is exactly why country clustering
+failed for H3a and succeeded for H2. Dropping unused levels fixes it and cannot move
+the estimate, because `country` appears in neither the formula nor the fixed
+effects; the third column of the table above is the evidence, and the same
+assertion is baked into the chunks as `stopifnot()`.
+
+**Results** (WCR, Webb six-point weights, null imposed, fnw11, B = 4999):
+
+| Model | Estimate | N | Source clusters | Source p | Source 95% CI | Country clusters | Country p | Country 95% CI |
+|---|---|---|---|---|---|---|---|---|
+| H2 headline | 0.0797 | 40,710 | 60 | 0.2597 | [-0.0891, 0.2102] | 11 | 0.1580 | [-0.0586, 0.1746] |
+| H2 matched | 0.2223 | 31,379 | 43 | 0.0298 | [0.0333, 0.3604] | 8 | 0.0248 | [0.0340, 0.3134] |
+| H3a headline | -0.1926 | 7,164 | 13 | 0.2531 | [-0.4843, 0.1093] | 8 | 0.2741 | [-0.5251, 0.1355] |
+| H3a matched | -0.3804 | 5,721 | 13 | 0.0256 | [-0.7596, -0.0534] | 8 | 0.0328 | [-0.8109, -0.0378] |
+
+**Reading.** No conclusion changes. Both matched RDIDs stay significant at the 5%
+level under country clustering (H2 0.0298 → 0.0248, H3a 0.0256 → 0.0328) and both
+headline interactions stay null. Cluster counts match the brief's expectation for
+the two optimal-bandwidth models (H2 = 11, H3a = 8). The H2 **matched** model has 8
+country clusters rather than 11, because it is fit on the non-NATO sample — flagged
+in advance, and now confirmed.
+
+**Incidental bug found and fixed separately** (commit `Fix duplicate chunk labels in
+05a`): 05a reused the chunk labels `state-only-rdd-prob` and `ind-only-rdd-prob` for
+its z-score chunks, which made the file **unknittable** — `knitr` aborts on duplicate
+labels, so 05a could not be rendered or purled at all. A sweep of every `.Rmd` in
+`scripts/` found no other file affected.
+
 ## Re-render queue (for Donald, at leisure)
 
 Re-render these so the `.rds` files are once again a clean product of their host
@@ -272,10 +331,19 @@ script, rather than a patched version. Nothing depends on this being done soon �
 the patched objects reproduce exactly (see Task B above).
 
 - `06a_russian_alignment_analysis_prob.Rmd` — adds `placebo_aligned_pooled`,
-  `placebo_aligned_pooled_cl`, `placebo_aligned_estimates` to
-  `06_alignment_results_prob.rds` by a clean run (Task B).
+  `placebo_aligned_pooled_cl`, `placebo_aligned_estimates` (Task B) and
+  `country_cluster_check` (Task D) to `06_alignment_results_prob.rds`.
+- `05a_diff_in_disc_analysis_prob.Rmd` — adds `country_cluster_check` to
+  `05_h2_results_prob.rds` (Task D).
 
 ## Output manifest
+
+**Task D**
+
+- `figures/tables/prob/country_clustering_comparison.csv` — full side-by-side
+- `figures/tables/prob/country_clustering_comparison.txt` — printed side-by-side
+- `figures/tables/prob/country_clustering_identity_check.csv` — point-estimate
+  identity evidence
 
 **Task B / A1**
 

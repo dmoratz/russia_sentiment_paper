@@ -1364,6 +1364,60 @@ save_table(table_s13, "table_s13_placebo_aligned", TABLE_SUBDIR)
 ```
 
 
+# Country-Level Clustering Check
+
+Assembles the source-level versus country-level WCR comparison for the four
+reported RDIDs into one side-by-side summary. The estimates are identical across
+the two clustering levels by construction; only the p-values, confidence
+intervals and cluster counts differ. This is an appendix/robustness artefact
+rather than a numbered table, so it is written as CSV and text alongside the
+tables it supports.
+
+```{r country-cluster-check}
+country_cluster_summary <- bind_rows(
+  results_h2$country_cluster_check,
+  results_align$country_cluster_check
+)
+
+if (is.null(country_cluster_summary) || nrow(country_cluster_summary) == 0) {
+  warning("country_cluster_check not found in the H2/H3a results; ",
+          "re-run 05a and 06a to generate it.")
+} else {
+  side_by_side <- country_cluster_summary %>%
+    select(model, estimate, n_obs,
+           source_domain_clusters, source_domain_p,
+           source_domain_ci_lower, source_domain_ci_upper,
+           country_clusters, country_p, country_ci_lower, country_ci_upper)
+
+  print(as.data.frame(side_by_side), row.names = FALSE, digits = 4)
+
+  out_dir <- file.path(FIGURES_TABLES, TABLE_SUBDIR)
+  write_csv(country_cluster_summary,
+            file.path(out_dir, "country_clustering_comparison.csv"))
+
+  con <- file(file.path(out_dir, "country_clustering_comparison.txt"), open = "wt")
+  writeLines(c(
+    "Country-level clustering check, H2 and H3a RDID estimates",
+    "=========================================================",
+    "",
+    "Wild cluster restricted (WCR) bootstrap: Webb six-point weights, null imposed,",
+    "bootstrap_type = fnw11, B = 4999.",
+    "",
+    "Clustering affects inference only, so the point estimate is shared across the",
+    "two clustering levels. Sources are nested within countries; country clustering",
+    "is the more conservative level when shocks are country-wide.",
+    "",
+    "Side-by-side",
+    "------------"
+  ), con)
+  writeLines(capture.output(print(as.data.frame(side_by_side),
+                                  row.names = FALSE, digits = 4)), con)
+  close(con)
+
+  cat("\nSaved to:", file.path(out_dir, "country_clustering_comparison.{csv,txt}"), "\n")
+}
+```
+
 # GT Caption Fix
 
 ```{r}
