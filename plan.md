@@ -202,17 +202,60 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 | **E** | **DONE** | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
 | **F** | **DONE** | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
 | **G** | **DONE** | new `10_preperiod_diagnostics.Rmd` | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
-| **C** | TODO (optional, last) | `04b`, `05b`, `06b` | direct series labels, new suffixed filenames only |
+| **C** | **DONE** | `04b`, `05b`, `06b` | direct series labels, new suffixed filenames only |
 
 Serialization: F and C both touch `05b` — F first, C last. B / D / E fan out across
 `04a` / `05a` / `06a` where independent.
+
+### Task C — direct figure labels — DONE (kept)
+
+This is the task that had failed repeatedly before, so the self-assessment is
+recorded rather than just the outcome.
+
+**What made it work.** The first attempt anchored each label just *outside* the end
+of its fitted line and widened the x-axis to make room. That is the brittle approach:
+the label is clipped whenever it is longer than the padding, and every fix for one
+side breaks the other. Two rounds of this reproduced the historical failure exactly
+— widening the right edge un-clipped "Russia-Aligned Post" and immediately clipped
+"Russia-Aligned Pre" on the left.
+
+The version kept anchors each label at the outer end of its own line but points the
+text **inward** (`hjust = 0` for a left-hand series, `hjust = 1` for a right-hand
+one), sitting just above the line via `vjust = -0.9`. Clipping is then impossible
+regardless of label length, so the result does not depend on hand-tuned padding. The
+shared helper `series_label_positions()` lives in `00_setup.R` beside the other
+plotting helpers and computes the anchor from the same simple linear fit
+`geom_smooth(method = "lm")` draws.
+
+**Verification.**
+- All three figures were produced by running the real chunks out of `04b`/`05b`/`06b`
+  (via `knitr::purl`), not from a prototype, so what is on disk is what the scripts
+  generate.
+- Colour mappings were compared against the canonical figures and match exactly.
+  This mattered: an early prototype of the 06b figure had a *different* mapping
+  because it hand-rewrote the `align_indicator` construction; the real chunk
+  reproduces the canonical assignment (Russia-Aligned Pre = blue, Neutral Pre =
+  green, Russia-Aligned Post = dark red, Neutral Post = orange).
+- All three canonical PNGs are unchanged. Worth noting: replaying the scripts to the
+  labelled chunk *did* re-execute the original `ggsave()` calls and rewrite eight
+  canonical PNGs with byte-different but visually identical output. Those were
+  restored with `git checkout -- figures/`, and only the three `_labeled` files are
+  new. Any future replay of these files needs the same cleanup.
+- Both files purl cleanly, so no duplicate chunk labels were introduced.
+
+**Assessment: keep.** The labelled versions are easier to read than the legend
+versions — the eye stays on the discontinuity instead of moving to a key, and the
+four-series plots in particular benefit. They are additions, not replacements: the
+canonical figures still exist and nothing else references the new filenames.
 
 ## PHASE 3 — DEFERRED, not executed
 
 Observations bearing on a future retirement of the `b`/`d` clones:
 
 - The `05b` half of Task F and all of Task C are work a `b`-retirement would discard.
-  Both were authorized with that known.
+  Both were authorized with that known. Task C in particular adds three new figure
+  chunks to `04b`/`05b`/`06b`; if those files are retired, the labelled figures
+  either move to the `a` files or go with them.
 - All three canonical discontinuity PNGs the paper uses are produced by `b` files
   (A5). A thin typology-robustness replacement must either keep those figure chunks
   or move them into the `a` files first, or the paper loses its figures.
@@ -485,6 +528,14 @@ the patched objects reproduce exactly (see Task B above).
   `model5a_opt_z_total`, `optimal_bw_align_total` and its bootstrap (Task E).
 
 ## Output manifest
+
+**Task C**
+
+- `figures/rdd/days/invasion_on_sentiment_non_mil_labeled.png`
+- `figures/diff_in_disc/days/invasion_discs_non_mil_labeled.png`
+- `figures/heterogeneity/days/state_align_discs_labeled.png`
+
+The three canonical PNGs are byte-for-byte unchanged.
 
 **Task F**
 

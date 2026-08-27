@@ -141,6 +141,57 @@ ggsave(plot = state_align_discs_graph,
        width = 10, height = 7)
 ```
 
+### Direct-Labelled Variant
+
+The same plot with the series named directly on their own fitted lines instead of
+in a colour legend, which keeps the reader's eye on the discontinuity rather than
+moving between panel and key. Written to a separate `_labeled` file; the canonical
+figure above is left untouched.
+
+```{r align-state-plot-labeled, fig.width=10, fig.height=7}
+plot_data_labeled <- data_align %>%
+  filter(state_owned == 1) %>%
+  mutate(align_indicator = as.factor(align_indicator)) %>%
+  mutate(align_indicator = fct_recode(align_indicator,
+    "Russia-Aligned Pre" = "Pre. State CSTO",
+    "Neutral Pre" = "Pre. State Neut",
+    "Russia-Aligned Post" = "Post State CSTO",
+    "Neutral Post" = "Post State Neut"
+  )) %>%
+  droplevels()
+
+labels_align_state <- series_label_positions(plot_data_labeled, "align_indicator")
+
+state_align_discs_labeled <- plot_data_labeled %>%
+  ggplot(aes(x = running, y = sentiment_clean,
+             group = align_indicator, color = align_indicator)) +
+  geom_point(data = agg_data_align_state,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  geom_text(data = labels_align_state,
+            aes(x = .x, y = .y, label = .series, color = .series, hjust = .hjust),
+            vjust = -0.9, inherit.aes = FALSE, fontface = "bold", size = 3.6,
+            show.legend = FALSE) +
+  scale_color_manual(values = COLORS_DISCS, guide = "none") +
+  scale_size(name = "Observations") +
+  scale_x_continuous(expand = expansion(mult = 0.04)) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on State Media Sentiment (Days)",
+    subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+state_align_discs_labeled
+
+ggsave(plot = state_align_discs_labeled,
+       file.path(FIGURES_HETEROGENEITY_DAYS, "state_align_discs_labeled.png"),
+       width = 10, height = 7)
+```
+
 
 ### State Media by Alignment, Presentation
 

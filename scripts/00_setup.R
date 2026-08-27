@@ -435,6 +435,38 @@ compare_cluster_levels <- function(model, param, label,
   )
 }
 
+#' Anchor points for labelling regression series directly on a plot
+#'
+#' Returns one row per series giving the coordinates at which to draw a direct
+#' label instead of relying on a colour legend. The anchor is the fitted value
+#' of the same simple linear fit `geom_smooth(method = "lm")` draws, evaluated at
+#' the OUTER end of that series' own x range: pre-invasion series run leftward,
+#' post-invasion series rightward.
+#'
+#' `.hjust` points the text INWARD from that end (0 for a left-hand series, 1 for
+#' a right-hand one), so an arbitrarily long label can never be clipped by the
+#' panel edge. Draw with a small negative `vjust` to sit the text above its line.
+#'
+#' @param df Data frame containing the series, x and y columns
+#' @param series_col Name of the grouping column, as a string
+#' @param x_col,y_col Names of the x and y columns, as strings
+#' @return Tibble with columns .series, .x, .y, .hjust
+series_label_positions <- function(df, series_col, x_col = "running",
+                                   y_col = "sentiment_clean") {
+  df %>%
+    rename(.series = all_of(series_col), .x = all_of(x_col), .y = all_of(y_col)) %>%
+    group_by(.series) %>%
+    group_modify(~ {
+      fit  <- lm(.y ~ .x, data = .x)
+      xend <- if (max(.x$.x, na.rm = TRUE) <= 0) min(.x$.x, na.rm = TRUE)
+              else max(.x$.x, na.rm = TRUE)
+      tibble(.x = xend,
+             .y = unname(predict(fit, newdata = data.frame(.x = xend))),
+             .hjust = if (xend <= 0) 0 else 1)
+    }) %>%
+    ungroup()
+}
+
 # -----------------------------------------------------------------------------
 # Time Specification Helper Functions
 # -----------------------------------------------------------------------------
