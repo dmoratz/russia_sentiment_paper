@@ -994,6 +994,48 @@ cat("Bootstrap SE for treatment:state_owned:", boot_matched_model_z$se, "\n")
 cat("Z-score matched model — Bootstrap p-value:", boot_matched_model_z$p_val, "\n")
 ```
 
+## Total Effect (No Topic Adjustment)
+
+The headline H2 interaction conditions on topic, so it measures how state and
+independent outlets diverged *within* topics. The total effect additionally lets
+the topic mix move, which is what a reader experiences. This clone keeps the
+sample (all articles, military included), the source-level z-scored outcome and
+the source clustering, and removes topic from both the model and the bandwidth
+residualization — keeping the bandwidth MSE-optimal for the specification that is
+actually estimated.
+
+```{r model2a-opt-total-prob}
+# Following `model2a-opt-prob-z`, with topic_clean removed from the
+# residualization and from the fixed effects.
+resid_y_total <- feols(sentiment_z ~ 1 | state_owned,
+                       data = data_non_ukraine)$residuals
+
+bw_select_total <- rdbwselect(y = resid_y_total,
+                              x = data_non_ukraine$running_probabilistic,
+                              kernel = "triangular",
+                              cluster = data_non_ukraine$source_domain,
+                              p = 1,
+                              bwselect = "mserd")
+
+optimal_bw_total <- bw_select_total$bws[1, 1]
+cat("Total-effect optimal bandwidth:", round(optimal_bw_total, 1), "days\n")
+
+optimal_bandwidth_data_total <- data_non_ukraine %>%
+  filter(running_probabilistic < optimal_bw_total,
+         running_probabilistic > -optimal_bw_total) %>%
+  droplevels()
+
+model2a_opt_z_total <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned,
+                             cluster = ~source_domain,
+                             data = optimal_bandwidth_data_total)
+
+summary(model2a_opt_z_total)
+
+boot_model2a_opt_z_total <- run_wild_bootstrap(model2a_opt_z_total, "treatment:state_owned")
+cat("Bootstrap SE for treatment:state_owned (total):", boot_model2a_opt_z_total$se, "\n")
+cat("Bootstrap p-value (total):", boot_model2a_opt_z_total$p_val, "\n")
+```
+
 ## Country-Level Clustering Check
 
 The headline H2 inference clusters at the source level. Sources are nested within
@@ -1524,6 +1566,7 @@ results_h2_prob <- list(
     #model3a_opt_saturated = boot_model3a_opt_saturated,
     model_did = boot_model_did,
     model_placebo = boot_model4a,
+    model2a_opt_z_total = boot_model2a_opt_z_total,
     matched_model = boot_matched_model,
     matched_model_z = boot_matched_model_z,
     # Topic models (optimal BW)
@@ -1560,7 +1603,11 @@ results_h2_prob <- list(
   optimal_bw_placebo = optimal_bw_placebo,
 
   # Source- vs country-level WCR inference for the reported H2 RDIDs
-  country_cluster_check = country_cluster_check
+  country_cluster_check = country_cluster_check,
+
+  # Total effect: headline interaction without topic adjustment (appendix S14)
+  model2a_opt_z_total = model2a_opt_z_total,
+  optimal_bw_total = optimal_bw_total
 )
 
 saveRDS(results_h2_prob, file.path(DATA_INTERMEDIATE, "05_h2_results_prob.rds"))

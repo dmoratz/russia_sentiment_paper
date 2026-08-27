@@ -1232,6 +1232,46 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 
 
 
+### Total Effect (No Topic Adjustment)
+
+The headline H3a interaction conditions on topic, so it measures how
+Russia-aligned and neutral state media diverged *within* topics. The total effect
+also lets the topic mix move. This clone keeps the sample (state-owned, non-NATO,
+all articles including military), the source-level z-scored outcome and the source
+clustering, and removes topic from both the model and the bandwidth
+residualization.
+
+```{r align-optimal-total-prob}
+# Following `align-optimal-prob-z`, with topic_clean removed from the
+# residualization and from the fixed effects.
+resid_y_total <- feols(sentiment_z ~ 1 | csto,
+                       data = data_align_state)$residuals
+
+bw_align_total <- rdbwselect(y = resid_y_total,
+                             x = data_align_state$running_probabilistic,
+                             kernel = "triangular",
+                             cluster = data_align_state$source_domain,
+                             p = 1,
+                             bwselect = "mserd")
+
+optimal_bw_align_total <- bw_align_total$bws[1, 1]
+cat("Total-effect optimal bandwidth:", round(optimal_bw_align_total, 1), "days\n")
+
+optimal_bandwidth_data_state_total <- data_align_state %>%
+  filter(running_probabilistic < optimal_bw_align_total,
+         running_probabilistic > -optimal_bw_align_total)
+
+model5a_opt_z_total <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
+                             cluster = ~source_domain,
+                             data = optimal_bandwidth_data_state_total)
+
+summary(model5a_opt_z_total)
+
+boot_model5a_opt_z_total <- run_wild_bootstrap(model5a_opt_z_total, "treatment:csto")
+cat("Bootstrap SE for treatment:csto (total):", boot_model5a_opt_z_total$se, "\n")
+cat("Bootstrap p-value (total):", boot_model5a_opt_z_total$p_val, "\n")
+```
+
 ### Country-Level Clustering Check
 
 The headline H3a inference clusters at the source level, but the treatment
@@ -2301,7 +2341,8 @@ results_het_prob <- list(
     model5a_full_oth = boot_model5a_full_oth,
 
     # Placebo test
-    model_placebo_nonmil = boot_model_placebo_nonmil
+    model_placebo_nonmil = boot_model_placebo_nonmil,
+    model5a_opt_z_total = boot_model5a_opt_z_total
   ),
 
   optimal_bandwidth_align = optimal_bw_align,
@@ -2328,6 +2369,10 @@ results_het_prob <- list(
 
   # Source- vs country-level WCR inference for the reported H3a RDIDs
   country_cluster_check = country_cluster_check,
+
+  # Total effect: headline interaction without topic adjustment (appendix S14)
+  model5a_opt_z_total = model5a_opt_z_total,
+  optimal_bw_align_total = optimal_bw_align_total,
 
   # Mini-Regressions: Heterogeneous treatment effect decomposition
   decomposition = decomposition_results

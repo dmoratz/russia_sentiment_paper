@@ -1364,6 +1364,152 @@ save_table(table_s13, "table_s13_placebo_aligned", TABLE_SUBDIR)
 ```
 
 
+## Table S14: Total Effect, No Topic Adjustment (Dec Estimand)
+
+The headline specifications all condition on topic, so they identify the shift in
+sentiment *within* topics. Table S14 reports the **total** effect for each
+hypothesis: the same sample, outcome, bandwidth procedure and clustering, with the
+topic adjustment removed, so that reallocation of coverage across topics is
+included rather than partialled out. Headline and total columns are shown in pairs
+so the contribution of the topic mix is legible directly.
+
+```{r table-s14}
+s14_models <- list(
+  "H1 Headline\u2021"     = results_h1$model5_opt,
+  "H1 Total\u2021"        = results_h1$model5_opt_total,
+  "H2 Headline\u2020"     = results_h2$model2a_opt_z,
+  "H2 Total\u2020"        = results_h2$model2a_opt_z_total,
+  "H3a Headline\u2020"    = results_align$model5a_opt_z,
+  "H3a Total\u2020"       = results_align$model5a_opt_z_total
+)
+
+# Bootstrap results for the four feols (RDID) columns, in column order
+boot_results_s14 <- list(
+  results_h2$bootstrap_se[["model2a_opt_z"]],
+  results_h2$bootstrap_se[["model2a_opt_z_total"]],
+  results_align$bootstrap_se[["model5a_opt_z"]],
+  results_align$bootstrap_se[["model5a_opt_z_total"]]
+)
+
+# rdrobust columns keep their own cluster-robust vcov (NULL); feols columns take
+# the WCR bootstrap SE, exactly as tables 2 and 4 do
+vcov_s14 <- list(
+  "H1 Headline\u2021"  = NULL,
+  "H1 Total\u2021"     = NULL,
+  "H2 Headline\u2020"  = create_bootstrap_vcov(results_h2$model2a_opt_z,
+                                               boot_results_s14[[1]], "treatment:state_owned"),
+  "H2 Total\u2020"     = create_bootstrap_vcov(results_h2$model2a_opt_z_total,
+                                               boot_results_s14[[2]], "treatment:state_owned"),
+  "H3a Headline\u2020" = create_bootstrap_vcov(results_align$model5a_opt_z,
+                                               boot_results_s14[[3]], "treatment:csto"),
+  "H3a Total\u2020"    = create_bootstrap_vcov(results_align$model5a_opt_z_total,
+                                               boot_results_s14[[4]], "treatment:csto")
+)
+
+n_cl_s14 <- sapply(s14_models, get_n_clusters)
+
+# modelsummary's Num.Obs. reports the FULL sample for rdrobust but the
+# bandwidth-restricted sample for feols, which would put two different
+# quantities on one row. Report the effective (within-bandwidth) N for all six
+# columns instead, and omit Num.Obs.
+effective_n <- function(m) {
+  if (inherits(m, "rdrobust")) format(m$N_h[1] + m$N_h[2], big.mark = ",")
+  else format(nobs(m), big.mark = ",")
+}
+n_obs_s14 <- vapply(s14_models, effective_n, character(1))
+
+rows_s14 <- tibble::tribble(
+  ~term,            ~c1,  ~c2,  ~c3,  ~c4,  ~c5,  ~c6,
+  "Topic FEs",      "X",  "-",  "X",  "-",  "X",  "-",
+  "Source Z-Score", "X",  "X",  "X",  "X",  "X",  "X",
+  "N (within bandwidth)", n_obs_s14[1], n_obs_s14[2], n_obs_s14[3],
+                          n_obs_s14[4], n_obs_s14[5], n_obs_s14[6],
+  "Clusters",       n_cl_s14[1], n_cl_s14[2], n_cl_s14[3],
+                    n_cl_s14[4], n_cl_s14[5], n_cl_s14[6]
+)
+attr(rows_s14, "position") <- NULL
+
+note_s14 <- str_wrap(paste(
+  "Total-effect columns remove the topic adjustment from the corresponding headline",
+  "specification and are a distinct estimand, not a robustness check: they include",
+  "shifts in the topic composition of coverage rather than holding it fixed.",
+  "Sample, source-level Z-Score outcome and clustering are unchanged; all articles",
+  "are used, military topics included. The MSE-optimal bandwidth is re-selected for",
+  "each total-effect column with topic removed from the residualization, so the",
+  "bandwidth remains optimal for the specification actually estimated.",
+  "H1 is an rdrobust fit; the H2 and H3a columns are the state-ownership and",
+  "Russia-aligned interactions respectively.", SE_NOTE
+), 80)
+
+table_s14 <- modelsummary(
+  s14_models,
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  vcov = vcov_s14,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State-Owned x Treat",
+    "treatment:csto" = "Russia-Aligned x Treat"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|Num.Obs.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
+  title = "Total Effect Without Topic Adjustment (Probabilistic Time)",
+  add_rows = rows_s14,
+  notes = note_s14
+)
+
+table_s14
+
+s14_boot_cols <- c("H2 Headline\u2020", "H2 Total\u2020",
+                   "H3a Headline\u2020", "H3a Total\u2020")
+table_s14 <- override_interaction_stars(table_s14, boot_results_s14, s14_boot_cols)
+
+save_table(table_s14, "table_s14_total_effect", TABLE_SUBDIR)
+```
+
+### Total Effect vs Headline: Printed Comparison
+
+Writes the paired comparison to CSV so the estimates, standard errors and sample
+sizes behind Table S14 are available without re-reading the table.
+
+```{r table-s14-comparison}
+# rdrobust and fixest expose their estimates differently; one row-builder each
+row_rd <- function(m, spec, kind) {
+  tibble(spec = spec, kind = kind, term = "treatment",
+         estimate = m$coef[1], std_error = m$se[1], p_value = m$pv[1],
+         n_obs = m$N_h[1] + m$N_h[2], bandwidth = m$bws[1, 1],
+         boot_p = NA_real_)
+}
+row_fe <- function(m, spec, kind, term, boot) {
+  tibble(spec = spec, kind = kind, term = term,
+         estimate = unname(coef(m)[term]),
+         std_error = if (!is.null(boot$se)) boot$se else unname(se(m)[term]),
+         p_value = unname(pvalue(m)[term]),
+         n_obs = nobs(m), bandwidth = NA_real_,
+         boot_p = if (!is.null(boot$p_val)) boot$p_val else NA_real_)
+}
+
+total_effect_comparison <- bind_rows(
+  row_rd(results_h1$model5_opt,       "H1",  "headline"),
+  row_rd(results_h1$model5_opt_total, "H1",  "total"),
+  row_fe(results_h2$model2a_opt_z,       "H2",  "headline", "treatment:state_owned",
+         results_h2$bootstrap_se[["model2a_opt_z"]]),
+  row_fe(results_h2$model2a_opt_z_total, "H2",  "total",    "treatment:state_owned",
+         results_h2$bootstrap_se[["model2a_opt_z_total"]]),
+  row_fe(results_align$model5a_opt_z,       "H3a", "headline", "treatment:csto",
+         results_align$bootstrap_se[["model5a_opt_z"]]),
+  row_fe(results_align$model5a_opt_z_total, "H3a", "total",    "treatment:csto",
+         results_align$bootstrap_se[["model5a_opt_z_total"]])
+)
+
+print(as.data.frame(total_effect_comparison), row.names = FALSE, digits = 4)
+
+write_csv(total_effect_comparison,
+          file.path(FIGURES_TABLES, TABLE_SUBDIR, "total_effect_comparison.csv"))
+cat("\nSaved to:",
+    file.path(FIGURES_TABLES, TABLE_SUBDIR, "total_effect_comparison.csv"), "\n")
+```
+
 # Country-Level Clustering Check
 
 Assembles the source-level versus country-level WCR comparison for the four

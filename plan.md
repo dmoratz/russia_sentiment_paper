@@ -199,7 +199,7 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 | A1 fix | **DONE** | `06a` | slopes → `figures/heterogeneity/prob/pretrend_slopes_aligned.csv` (shipped with B) |
 | **B** | **DONE** | `06a`, `09a` | pooled aligned Dec-7 placebo (`placebo_aligned_pooled`); `table_s13_placebo_aligned.{tex,html}`; pooled + per-country est/CI/p/bw/N CSV |
 | **D** | **DONE** | `00_setup.R`, `05a`, `06a`, `09a` | country-clustered WCR for 4 models; side-by-side txt + CSV; explicit point-estimate identity check |
-| **E** | TODO | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
+| **E** | **DONE** | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
 | **F** | TODO | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
 | **G** | **DONE** | new `10_preperiod_diagnostics.Rmd` | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
 | **C** | TODO (optional, last) | `04b`, `05b`, `06b` | direct series labels, new suffixed filenames only |
@@ -324,6 +324,48 @@ its z-score chunks, which made the file **unknittable** — `knitr` aborts on du
 labels, so 05a could not be rendered or purled at all. A sweep of every `.Rmd` in
 `scripts/` found no other file affected.
 
+### Task E — total-effect columns — DONE
+
+A new estimand, not a robustness check: the headline specifications condition on
+topic and so identify the shift in sentiment *within* topics, while the total effect
+lets the topic mix move as well, which is what a reader of these outlets actually
+experiences.
+
+Built by cloning each headline and removing only the topic adjustment. "Model 5" was
+unambiguous in code — 04a carries a literal `## Model 5: Z-Score Model (Topic FE)`
+heading — so the three bases are `model5_opt` (04a, rdrobust with topic dummies as
+`covs`), `model2a_opt_z` (05a) and `model5a_opt_z` (06a). Sample, source-level
+z-scored outcome and source clustering are unchanged; all articles are used,
+military included.
+
+**Bandwidth re-selected**, per the decision above: the same mserd/triangular/
+source-clustered `rdbwselect`, with topic dropped from the residualization so the
+bandwidth stays MSE-optimal for the specification actually being fit. For H1 the
+selection is internal to `rdrobust`.
+
+**All three headline siblings reproduce exactly** before the new estimand is
+reported (|diff| = 0 against `04_h1_results_prob.rds`, `05_h2_results_prob.rds`,
+`06_alignment_results_prob.rds`).
+
+| Spec | Term | Headline | Total | Δ | Bandwidth (headline → total) | N (headline → total) |
+|---|---|---|---|---|---|---|
+| H1 | Invasion | -0.2172 (SE 0.0362) | **-0.2398** (SE 0.0346) | -0.0226 (+10%) | 24.65 → 24.68 d | 45,366 → 45,398 |
+| H2 | State-Owned × Treat | 0.0797 (boot SE 0.0633, p 0.246) | **0.0965** (boot SE 0.0584, p 0.144) | +0.0168 (+21%) | 20.93 → 24.59 d | 40,710 → 45,304 |
+| H3a | Russia-Aligned × Treat | -0.1926 (boot SE 0.1110, p 0.255) | **-0.2218** (boot SE 0.1219, p 0.219) | -0.0292 (+15%) | 38.42 → 37.01 d | 7,164 → 6,999 |
+
+**Reading.** Every total effect is larger in magnitude than its headline, so
+including topic reallocation strengthens rather than weakens the pattern. H1 remains
+strongly significant. Both interactions remain null on the bootstrap p-values the
+paper reports, though H3a's total effect reaches the 10% analytic threshold. This
+sits consistently with Task G section (i), which found that freezing the topic
+adjustment at pre-invasion values barely moves anything — the topic mix contributes
+a modest amount in a consistent direction rather than driving the results.
+
+*Presentation note:* `modelsummary`'s `Num.Obs.` reports the full sample for
+`rdrobust` but the bandwidth-restricted sample for `feols`, which would have put two
+different quantities on one row of a table mixing both. `Num.Obs.` is omitted and an
+explicit `N (within bandwidth)` row is added instead.
+
 ### Task G — pre-period adjustment diagnostics — DONE
 
 Built as `scripts/10_preperiod_diagnostics.Rmd`, assembled by copying the estimation
@@ -405,10 +447,21 @@ the patched objects reproduce exactly (see Task B above).
 - `06a_russian_alignment_analysis_prob.Rmd` — adds `placebo_aligned_pooled`,
   `placebo_aligned_pooled_cl`, `placebo_aligned_estimates` (Task B) and
   `country_cluster_check` (Task D) to `06_alignment_results_prob.rds`.
-- `05a_diff_in_disc_analysis_prob.Rmd` — adds `country_cluster_check` to
-  `05_h2_results_prob.rds` (Task D).
+- `05a_diff_in_disc_analysis_prob.Rmd` — adds `country_cluster_check` (Task D) and
+  `model2a_opt_z_total`, `optimal_bw_total`, `bootstrap_se$model2a_opt_z_total`
+  (Task E) to `05_h2_results_prob.rds`.
+- `04a_main_rdd_analysis_prob.Rmd` — adds `model5_opt_total` to
+  `04_h1_results_prob.rds` (Task E). 06a additionally gains
+  `model5a_opt_z_total`, `optimal_bw_align_total` and its bootstrap (Task E).
 
 ## Output manifest
+
+**Task E**
+
+- `figures/tables/prob/table_s14_total_effect.tex` — appendix table, headline and
+  total columns paired for H1, H2, H3a
+- `figures/tables/prob/table_s14_total_effect.html`
+- `figures/tables/prob/total_effect_comparison.csv` — estimates, SEs, N, bandwidth
 
 **Task G** (author diagnostics, not paper outputs)
 

@@ -252,6 +252,36 @@ model5_opt <- rdrobust(
 summary(model5_opt)
 ```
 
+## Total Effect (No Topic Adjustment)
+
+Model 5 conditions on topic, so it estimates the shift in sentiment *within*
+topics — the invasion's effect holding the topic mix fixed. The paper also wants
+the **total** effect: what a reader of these outlets actually saw, which includes
+the outlets reallocating coverage across topics. This clone drops the topic
+covariates and keeps everything else identical to Model 5 — same sample (all
+articles, military included), same source-level z-scored outcome, rdrobust's own
+MSE-optimal bandwidth, same source clustering. It is a different estimand, not a
+robustness check on Model 5.
+
+```{r model5-total-prob}
+# Following `model5-optimal-prob` exactly, minus the `covs` argument.
+model5_opt_total <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_z,
+  x = optimal_bandwidth_data$running_probabilistic,
+  cluster = optimal_bandwidth_data$source_domain
+)
+
+summary(model5_opt_total)
+
+cat("\nH1 total effect vs headline (Model 5):\n")
+cat("  headline (topic FE):", round(model5_opt$coef[1], 4),
+    " SE", round(model5_opt$se[1], 4),
+    " N", model5_opt$N_h[1] + model5_opt$N_h[2], "\n")
+cat("  total (no topic FE):", round(model5_opt_total$coef[1], 4),
+    " SE", round(model5_opt_total$se[1], 4),
+    " N", model5_opt_total$N_h[1] + model5_opt_total$N_h[2], "\n")
+```
+
 ## Non-Mil Models
 
 ### Model 6: Non-Military Topics Only
@@ -976,7 +1006,10 @@ results_h1_prob <- list(
   model5_opt_oth = model5_opt_oth,
   optimal_bandwidth = optimal_bw,
   model_placebo = model_placebo,
-  model_placebo_z = model_placebo_z
+  model_placebo_z = model_placebo_z,
+
+  # Total effect: Model 5 without topic adjustment (new estimand, appendix S14)
+  model5_opt_total = model5_opt_total
 )
 
 saveRDS(results_h1_prob, file.path(DATA_INTERMEDIATE, "04_h1_results_prob.rds"))
