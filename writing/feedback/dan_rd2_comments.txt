@@ -1,0 +1,20 @@
+Thanks for sending this, and my apologies for the delayed formal reply. Overall, this is an absolutely vital topic and a really interesting application of a range of methods to argue that state media provide a credible middle ground for dependent states to signal. I also like that the figures provide binned observations so that one can get a sense of what’s going on with the data.
+
+As we talked about during our conversation a few weeks ago, I would strongly consider beefing up the methods content in the abstract and introduction. Many people will only read those parts of the job market paper, so especially in marketing yourself as someone who can teach methods alongside IR, I think that would be valuable. For instance, on page 4, I wanted to know more about how to think about the RDID—is this an innovation novel to your work, or are you building on existing estimators? Give us a sentence about your methods contribution. Also, I wanted more on the size of the data set, the techniques used to translate and validate, etc. You start to get to these questions around page 31, but most readers will expect a consolidated estimation strategy that is 1) in one place and 2) earlier.
+
+This research is obviously at the intersection of various strands of work, so I am hesitant to suggest adding a new one. That said, there’s a robust literature on media in autocracies, and I don’t really have a sense of how this work fits in there.  
+
+On page 19, is it really the “causal effect of the invasion,” or something more like “the discontinuous impact of the invasion and the processes it triggered”? I have this suspicion, not formalized, that over-time discontinuities raise novel issues about what exactly the treatment is. More generally, does the research literature distinguish between regression discontinuity designs with their well-known assumptions and event studies? I particularly wanted a bit more discussion of the difference in regression discontinuities. What are the key assumptions such an estimator requires? How has prior literature treated it? It seems like the smoothness assumption is questionable—if not the invasion of Ukraine, might there have been another event instead that produced a correlated shock across papers?
+
+On pages 22-23, are you essentially talking about mediation? So, there’s a treatment at time t=0 which is the invasion, and you want to partial out the treatment effect that doesn’t flow through the change in topics, correct? Topic is post-treatment. My own advice here is to at least present some estimates which look at the total treatment effect (including through topic). Just fwiw, I myself tend to be skeptical of the assumptions required for mediation (but Dean would know way more than I do ofc), so I don’t love models that condition on post-treatment variables such as topic. But I appreciate that not all models do so.
+
+More generally, my read on the methods section is that there is so much going on that a reader may lose the forest for the trees. I’d recommend highlighting the 1-2 major issues, and then subordinate the rest. At times, the manuscript feels like it’s a grab-bag of different methodological issues, but some are much more important than others.
+
+MINOR COMMENTS
+* Pg. 2, you write, “state media is a formal institution under government control,” but you might want to nuance this just a bit. Presumably, the degree of government control and how it’s exercised varies? (As in my ICWSM paper…)
+
+I *think* in Russian “near abroad” has a connotation similar to the CIS, meaning states that were formerly part of the Soviet Union. I didn’t think it included, for example, Serbia, which was not just outside the USSR but wasn’t aligned with the USSR. I might avoid this term (if specialists will object) and just describe your sample.
+
+* On page 29, are the clusters themselves clustered within countries?
+
+* With figures like 5 and 6, I would also put labels directly on the figures so that readers don’t need to toggle between the legend and the figure itself. 
