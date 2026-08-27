@@ -1,5 +1,5 @@
 ---
-title: "09 - Bandwidth Sensitivity Analysis"
+title: "08 - Bandwidth Sensitivity Analysis"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
@@ -141,7 +141,7 @@ plot_bw_sensitivity <- function(results, optimal_bw, title, subtitle = NULL) {
 
 ```{r h1-prob-data}
 # H1 uses data_non_ukraine, all topics, Z-score DV, rdrobust
-# Following 04C_main_rdd_analysis_prob.Rmd
+# Following 04a_main_rdd_analysis_prob.Rmd
 
 h1_data_prob <- data_non_ukraine %>%
   group_by(source_domain) %>%
@@ -201,7 +201,7 @@ ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_h1.png"),
 
 ```{r h2-prob-data}
 # H2 uses data_non_ukraine, non-mil, Z-score, feols interaction
-# Following 05C_diff_in_disc_analysis_prob.Rmd
+# Following 05a_diff_in_disc_analysis_prob.Rmd
 
 h2_data_prob <- data_non_ukraine %>%
   drop_na() %>%
@@ -271,7 +271,7 @@ ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_h2.png"),
 
 ```{r h3a-prob-data}
 # H3a uses full data filtered to non-NATO, state-owned, non-mil, Z-score
-# Following 06C_russian_alignment_analysis_prob.Rmd
+# Following 06a_russian_alignment_analysis_prob.Rmd
 
 # Filter to non-NATO countries
 data_align_prob <- data %>%
@@ -344,7 +344,7 @@ ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_h3a.png"),
 
 ```{r h3b-prob-data}
 # H3b uses full data filtered to non-NATO, state-owned, non-mil, Z-score
-# Following 07C_ethnic_russian_analysis_prob.Rmd
+# Following 07a_ethnic_russian_analysis_prob.Rmd
 
 # Filter to non-NATO countries
 data_ethnic_prob <- data %>%
@@ -430,7 +430,7 @@ ggsave(file.path(FIGURES_TABLES, "prob", "bw_sensitivity_combined.png"),
 
 ```{r h1-days-data}
 # H1 days: uses data_non_ukraine with `running` variable (already in days)
-# Following 04_main_rdd_analysis.Rmd
+# Following 04b_main_rdd_analysis_days.Rmd
 
 h1_data_days <- data_non_ukraine %>%
   group_by(source_domain) %>%
@@ -483,7 +483,7 @@ ggsave(file.path(FIGURES_TABLES, "days", "bw_sensitivity_h1.png"),
 # H2: State vs Independent Media (Days)
 
 ```{r h2-days-data}
-# Following 05_diff_in_disc_analysis.Rmd (days variant)
+# Following 05b_diff_in_disc_analysis_days.Rmd
 
 h2_data_days <- data_non_ukraine %>%
   drop_na() %>%
@@ -556,7 +556,7 @@ ggsave(file.path(FIGURES_TABLES, "days", "bw_sensitivity_h2.png"),
 # H3a: CSTO vs Neutral Alignment (Days)
 
 ```{r h3a-days-data}
-# Following 06_russian_alignment_analysis.Rmd (days variant)
+# Following 06b_russian_alignment_analysis_days.Rmd
 
 data_align_days <- data %>%
   filter(nato == 0) %>%
@@ -624,7 +624,7 @@ ggsave(file.path(FIGURES_TABLES, "days", "bw_sensitivity_h3a.png"),
 # H3b: Ethnic Russian Population (Days)
 
 ```{r h3b-days-data}
-# Following 07_ethnic_russian_analysis.Rmd (days variant)
+# Following 07b_ethnic_russian_analysis_days.Rmd
 
 data_ethnic_days <- data %>%
   filter(nato == 0)

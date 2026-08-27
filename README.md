@@ -19,8 +19,8 @@ russia_sentiment_paper/
 │   ├── 05{a,b,d}_diff_in_disc_analysis_*.Rmd    # H2 (prob/days/drop)
 │   ├── 06{a,b,d}_russian_alignment_analysis_*.Rmd # H3a (prob/days/drop)
 │   ├── 07{a,b,d}_ethnic_russian_analysis_*.Rmd  # H3b (prob/days/drop)
-│   ├── 08{a,b,d}_publication_outputs_*.Rmd      # Final tables per variant
-│   ├── 09_bandwidth_sensitivity.Rmd
+│   ├── 08_bandwidth_sensitivity.Rmd
+│   ├── 09{a,b,d}_publication_outputs_*.Rmd      # Final tables per variant
 │   ├── archive/             # Retired continuous-time (c) scripts + lifted diagnostics
 │   ├── master.Rmd           # Run entire pipeline
 │   └── README.md            # Scripts documentation
@@ -83,8 +83,8 @@ Each hypothesis is run in three time-treatment **variants**, suffixed `a`/`b`/`d
 | 5 | `05{a,b,d}_diff_in_disc_analysis_*.Rmd` | **H2**: State vs independent media (Diff-in-Disc) |
 | 6 | `06{a,b,d}_russian_alignment_analysis_*.Rmd` | **H3a**: CSTO alignment (incl. pre-trend + Dec-7 placebo) |
 | 7 | `07{a,b,d}_ethnic_russian_analysis_*.Rmd` | **H3b**: Ethnic Russian population effects |
-| 8 | `08{a,b,d}_publication_outputs_*.Rmd` | Generate final tables (`.tex`/`.html`) per variant |
-| 9 | `09_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity analysis |
+| 8 | `08_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity analysis |
+| 9 | `09{a,b,d}_publication_outputs_*.Rmd` | Generate final tables (`.tex`/`.html`) per variant |
 
 Run the whole pipeline via `scripts/master.Rmd`.
 
@@ -113,17 +113,30 @@ Contact the repository owner for access to these files.
 ## Outputs
 
 ### Tables
-- `figures/table_1.html` - Main RDD results
-- `figures/table_2.html` - Diff-in-disc results
-- `figures/table_3.html` - Heterogeneity analysis
+
+Publication tables are written per variant to `figures/tables/{prob,days,drop}/`, in both
+`.tex` and `.html`. The probabilistic variant is primary.
+
+- `figures/tables/prob/table_01_main.*` - H1 RDD, effect of the invasion on sentiment
+- `figures/tables/prob/table_02_main.*` - H2 diff-in-disc, state ownership interaction
+- `figures/tables/prob/table_03_main.*` - H2 diff-in-disc by topic
+- `figures/tables/prob/table_04_main.*` - H3a alignment interaction
+- `figures/tables/prob/table_05_main.*` - H3b ethnic Russian population (null result)
 - `figures/tables/prob/table_s12_placebo.tex` - Placebo test summary (Dec 7, 2021 false cutoff)
 - `figures/tables/prob/table_s13_placebo_aligned.tex` - Placebo RDD for state-owned media in
   the Russia-aligned group, run separately per country (columns), Dec 7, 2021 cutoff
 
 ### Figures
-- `figures/invasion_on_sentiment.png` - Main RDD visualization
-- `figures/invasion_discs_graph.png` - Diff-in-disc visualization
-- `figures/articles_per_day.png` - Time series of article counts
+
+Figures are written to per-variant subdirectories (`days`, `prob`, `drop`) under the
+relevant family folder, so the variants do not overwrite one another. The three
+discontinuity plots used in the paper come from the **day** variant, whose coarser
+grouping keeps the scatter legible:
+
+- `figures/rdd/days/invasion_on_sentiment_non_mil.png` - Main RDD visualization
+- `figures/diff_in_disc/days/invasion_discs_non_mil.png` - Diff-in-disc visualization
+- `figures/heterogeneity/days/state_align_discs.png` - Alignment diff-in-disc visualization
+- `figures/descriptive/articles_per_day.png` - Time series of article counts
 - `figures/heterogeneity/prob/pretrend_by_country_aligned.png` - Pre-invasion sentiment
   trend in state media, one panel per Russia-aligned country, marking the Dec 7, 2021
   warning date and the Feb 24, 2022 invasion cutoff with a linear pre-invasion fit
@@ -138,12 +151,12 @@ the pre-invasion troop buildup, especially in state-owned media of Russia-aligne
 (Armenia, Azerbaijan, Belarus, Kazakhstan):
 
 - **Pre-trend figures** (`pretrend_by_country_aligned.png` and the later-start replica
-  `pretrend_by_country_aligned_dec.png`, built in `06C_russian_alignment_analysis_prob.Rmd`):
+  `pretrend_by_country_aligned_dec.png`, built in `06a_russian_alignment_analysis_prob.Rmd`):
   daily mean sentiment for state-owned sources by aligned country, with a linear fit on the
   pre-invasion window only. The two versions differ only in start date (2021-06-01 vs
   2021-12-01) to show the slope is not a long-window artifact.
-- **Per-country aligned placebos** (`table_s13_placebo_aligned`, models built in `06C`,
-  table in `08a_publication_outputs.Rmd`): a Dec 7, 2021 placebo RDD (`rdrobust`, MSE-optimal
+- **Per-country aligned placebos** (`table_s13_placebo_aligned`, models built in `06a`,
+  table in `09a_publication_outputs_prob.Rmd`): a Dec 7, 2021 placebo RDD (`rdrobust`, MSE-optimal
   bandwidth, source-level z-scored outcome, default HC SEs) run separately for each aligned
   country's state-owned, non-military media, reported side-by-side.
 

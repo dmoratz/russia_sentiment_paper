@@ -167,14 +167,24 @@ reported per model rather than assumed.
 
 ---
 
-## PHASE 1 — Renumber + documentation fix — TODO
+## PHASE 1 — Renumber + documentation fix — **DONE**
 
-- [ ] `git mv scripts/08{a,b,d}_publication_outputs_* → scripts/09{a,b,d}_...`
-- [ ] `git mv scripts/09_bandwidth_sensitivity.Rmd → scripts/08_bandwidth_sensitivity.Rmd`
-- [ ] `master.Rmd`: `pipeline_scripts` order and the file-descriptions table
-- [ ] Root `README.md`: A4 corrections + renumber
-- [ ] `scripts/README.md`: A4 corrections + renumber + ASCII diagram
-- [ ] Internal cross-references in the renamed files
+- [x] `git mv scripts/08{a,b,d}_publication_outputs_* → scripts/09{a,b,d}_...`
+- [x] `git mv scripts/09_bandwidth_sensitivity.Rmd → scripts/08_bandwidth_sensitivity.Rmd`
+- [x] YAML `title:` fields in all four renamed files
+- [x] `master.Rmd`: `pipeline_scripts` order, file-descriptions table, and the three
+      prose sentences that named the old ordering
+- [x] Root `README.md`: A4 corrections + renumber. Replaced the nonexistent
+      `figures/table_{1,2,3}.html` list with the real `figures/tables/prob/table_0*_main.*`
+      paths, and the root-level figure paths with their real per-variant subdirectories
+- [x] `scripts/README.md`: A4 corrections + renumber + ASCII diagram + the "04–08 has
+      three variants" sentence, which was wrong now that 08 is a single script
+- [x] Internal cross-references: all eight `# Following ...` provenance comments in
+      `08_bandwidth_sensitivity.Rmd` used retired names (old `C` suffix for the prob
+      files, old unsuffixed names for the day files); corrected to `04a`–`07a` / `04b`–`07b`
+
+Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
+`09_bandwidth_sensitivity` outside `scripts/archive/` returns nothing.
 
 ## PHASE 2 — Additions — TODO
 

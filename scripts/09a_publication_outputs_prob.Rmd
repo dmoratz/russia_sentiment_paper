@@ -1,5 +1,5 @@
 ---
-title: "08b - Publication Outputs (Day Running Variable)"
+title: "09a - Publication Outputs (Probabilistic Time)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
@@ -11,21 +11,24 @@ output:
 
 # Overview
 
-This file generates publication-quality tables for the **day running variable** data variant. All tables are saved to `FIGURES_TABLES/days/`.
+This file generates publication-quality tables for the **probabilistic (KDE) time assignment** data variant. All tables are saved to `FIGURES_TABLES/prob/`.
+
+# To Do
+Add Russia models (results_h2$model3a_z, results_align$model5a_opt_russian_z) back into appendix, currently removed
 
 ```{r setup}
 source("00_setup.R")
 
-TABLE_SUBDIR <- "days"
+TABLE_SUBDIR <- "prob"
 ```
 
 # Data Loading
 
 ```{r load-data}
-results_h1    <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results.rds"))
-results_h2    <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results.rds"))
-results_align <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results.rds"))
-results_ethnic <- readRDS(file.path(DATA_INTERMEDIATE, "07_ethnic_results.rds"))
+results_h1    <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_prob.rds"))
+results_h2    <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_prob.rds"))
+results_align <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results_prob.rds"))
+results_ethnic <- readRDS(file.path(DATA_INTERMEDIATE, "07_ethnic_results_prob.rds"))
 data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 ```
 
@@ -101,6 +104,10 @@ for (m in c("model5a_csto_z", "model5a_neutral_z",
   check_model(results_align, m, "results_align")
 }
 
+# Per-country Dec-7 aligned placebos (stored as a named list of rdrobust models)
+cat(sprintf("  %-45s %s\n", "results_align$placebo_aligned_models",
+            if (length(results_align$placebo_aligned_models) > 0) "OK" else "WARNING: NOT FOUND"))
+
 cat("\n=== H3a Bootstrap Keys ===\n")
 for (m in c("model5a_z", "model5a_opt_z", "model5a_opt_non_mil_z",
             "model5a_opt_russian_z", "matched_model",
@@ -156,13 +163,13 @@ n_cl_t1 <- sapply(h1_models, get_n_clusters)
 
 rows_t1 <- tibble::tribble(
   ~term,            ~`(1)`, ~`(2)`, ~`(3)`, ~`(4)`, ~`(5)`, ~`(6)`, ~`(7)`,
-  "Topic FEs",      "-",    "-",    "-",    "X",    "X",    "X",    "X",
-  "State FEs",      "-",    "X",    "X",    "X",    "-",    "-",    "-",
+  "Topic FEs",      "-",    "X",    "X",    "X",    "X",    "X",    "X",
+  "State FEs",      "-",    "-",    "-",    "X",    "-",    "-",    "-",
   "Source FEs",     "-",    "-",    "X",    "X",    "-",    "-",    "-",
   "Source Z-Score", "-",    "-",    "-",    "-",    "X",    "X",    "X",
-  "Clusters",       n_cl_t1[1], n_cl_t1[2], n_cl_t1[3], n_cl_t1[4], n_cl_t1[5], n_cl_t1[6], n_cl_t1[7]
+  "Clusters",       "61", "61", "61", "61", "61", "61", "45"
 )
-attr(rows_t1, "position") <- c(3, 4, 5, 6, 7)
+attr(rows_t1, "position") <- NULL
 
 note_t1 <- str_wrap(paste(
   SE_NOTE_CLUSTER,
@@ -176,9 +183,10 @@ table_1 <- modelsummary(
   output = "gt",
   fmt = fmt_significant(2),
   stars = TRUE,
+  statistic = "({std.error})",
   coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table 1: H1 RDD — Effect of Russian Invasion on Media Sentiment (Day Running Variable)",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|Num.Obs.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
+  title = "H1 RDD — Effect of Russian Invasion on Media Sentiment (Probabilistic Time)",
   add_rows = rows_t1,
   notes = note_t1
 )
@@ -192,47 +200,48 @@ save_table(table_1, "table_01_main", TABLE_SUBDIR)
 ```{r table-02}
 # Define model list and bootstrap keys
 h2_z_models <- list(
-  "(1)\u2021" = results_h2$model2_state_rdd_z,
-  "(2)\u2021" = results_h2$model2_ind_rdd_z,
+  "(1) State-Owned\u2021" = results_h2$model2_state_rdd_z,
+  "(2) Ind.\u2021" = results_h2$model2_ind_rdd_z,
   "(3)\u2020" = results_h2$model2a_opt_z,
   "(4)\u2020" = results_h2$model2b_z,
   "(5)\u2020" = results_h2$model2d_z,
-  "(6)\u2020" = results_h2$model3a_z,
-  "(7)\u2020" = results_h2$matched_model_z
+#  "(6)\u2020" = results_h2$model3a_z,
+  "(6)\u2020" = results_h2$matched_model_z
 )
 
 boot_keys_t2 <- c("model2a_opt_z", "model2b_z", "model2d_z",
-                   "model3a_z", "matched_model_z")
+                  # "model3a_z", 
+                  "matched_model_z")
 boot_results_t2 <- lapply(boot_keys_t2, function(k) results_h2$bootstrap_se[[k]])
 
 # Build vcov list: NULL for rdrobust, create_bootstrap_vcov for felm
 vcov_t2 <- list(
-  "(1)\u2021" = NULL,
-  "(2)\u2021" = NULL,
+  "(1) State-Owned\u2021" = NULL,
+  "(2) Ind.\u2021" = NULL,
   "(3)\u2020" = create_bootstrap_vcov(results_h2$model2a_opt_z, boot_results_t2[[1]], "treatment:state_owned"),
   "(4)\u2020" = create_bootstrap_vcov(results_h2$model2b_z, boot_results_t2[[2]], "treatment:state_owned"),
   "(5)\u2020" = create_bootstrap_vcov(results_h2$model2d_z, boot_results_t2[[3]], "treatment:state_owned"),
-  "(6)\u2020" = create_bootstrap_vcov(results_h2$model3a_z, boot_results_t2[[4]], "treatment:state_owned"),
-  "(7)\u2020" = create_bootstrap_vcov(results_h2$matched_model_z, boot_results_t2[[5]], "treatment:state_owned")
+#  "(6)\u2020" = create_bootstrap_vcov(results_h2$model3a_z, boot_results_t2[[4]], "treatment:state_owned"),
+  "(6)\u2020" = create_bootstrap_vcov(results_h2$matched_model_z, boot_results_t2[[4]], "treatment:state_owned")
 )
 
 n_cl_t2 <- map_chr(h2_z_models, get_n_clusters)
 
 rows_t2 <- tibble::tribble(
-  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
-  "Source Z-Score", "X",    "X",    "X",    "X",    "X",    "X",    "X",
-  "Clusters",       n_cl_t2[1], n_cl_t2[2], n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6], n_cl_t2[7]
+  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6,# ~row7,
+  "Source Z-Score", "X",    "X",    "X",    "X",    "X",    "X",#    "X",
+  "Clusters",       "17", "44", n_cl_t2[3], n_cl_t2[4], n_cl_t2[5], n_cl_t2[6],# n_cl_t2[7]
 )
 attr(rows_t2, "position") <- c(5, 6)
 
 note_t2 <- str_wrap(paste(
   "All models use a source-level Z-Score normalization.",
   "Models 1-2 show separate RDD estimates for state-owned and independent media, filtered to omit military topics.",
-  "Models 3-7 estimate the state-owned x treatment interaction.",
+  "Models 3-6 estimate the state-owned x treatment interaction.",
   "Model 3 uses the optimal bandwidth.",
   "Model 4 omits military topics. Model 5 omits NATO allies.",
-  "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
-  "Model 7 uses matched data.", SE_NOTE
+#  "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
+  "Model 6 uses exact matching for topic and publication date on the Non-Nato data.", SE_NOTE
 ), 80)
 
 table_2 <- modelsummary(
@@ -243,15 +252,15 @@ table_2 <- modelsummary(
   vcov = vcov_t2,
   coef_map = c(
     "treatment" = "Invasion",
-    "treatment:state_owned" = "State Owned x Treatment"
+    "treatment:state_owned" = "State-Owned x Treat"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
-  title = "Table 2: H2 Diff-in-Disc — State Ownership Interaction, Z-Score (Day Running Variable)",
+  title = "H2 Diff-in-Disc — State Ownership Interaction, Z-Score (Probabilistic Time)",
   add_rows = rows_t2,
   notes = note_t2
 )
 
-boot_col_names_t2 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020", "(6)\u2020", "(7)\u2020")
+boot_col_names_t2 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020", "(6)\u2020")#, "(7)\u2020")
 table_2 <- override_interaction_stars(table_2, boot_results_t2, boot_col_names_t2)
 
 table_2
@@ -269,90 +278,88 @@ h2_topic_z_models <- list(
   "Other"     = results_h2$model2a_opt_oth
 )
 
-if (any(sapply(h2_topic_z_models, is.null))) {
-  cat("WARNING: Some H2 by-topic Z-score models not found. Skipping Table 3.\n")
-} else {
-  boot_keys_t3 <- c("model2a_opt_pol", "model2a_opt_mil", "model2a_opt_econ",
-                     "model2a_opt_cult", "model2a_opt_oth")
-  boot_results_t3 <- lapply(boot_keys_t3, function(k) results_h2$bootstrap_se[[k]])
+boot_keys_t3 <- c("model2a_opt_pol", "model2a_opt_mil", "model2a_opt_econ",
+                   "model2a_opt_cult", "model2a_opt_oth")
+boot_results_t3 <- lapply(boot_keys_t3, function(k) results_h2$bootstrap_se[[k]])
 
-  vcov_t3 <- list(
-    "Political" = create_bootstrap_vcov(h2_topic_z_models[["Political"]], boot_results_t3[[1]], "treatment:state_owned"),
-    "Military"  = create_bootstrap_vcov(h2_topic_z_models[["Military"]],  boot_results_t3[[2]], "treatment:state_owned"),
-    "Economic"  = create_bootstrap_vcov(h2_topic_z_models[["Economic"]],  boot_results_t3[[3]], "treatment:state_owned"),
-    "Cultural"  = create_bootstrap_vcov(h2_topic_z_models[["Cultural"]],  boot_results_t3[[4]], "treatment:state_owned"),
-    "Other"     = create_bootstrap_vcov(h2_topic_z_models[["Other"]],     boot_results_t3[[5]], "treatment:state_owned")
-  )
+vcov_t3 <- list(
+  "Political" = create_bootstrap_vcov(h2_topic_z_models[["Political"]], boot_results_t3[[1]], "treatment:state_owned"),
+  "Military"  = create_bootstrap_vcov(h2_topic_z_models[["Military"]],  boot_results_t3[[2]], "treatment:state_owned"),
+  "Economic"  = create_bootstrap_vcov(h2_topic_z_models[["Economic"]],  boot_results_t3[[3]], "treatment:state_owned"),
+  "Cultural"  = create_bootstrap_vcov(h2_topic_z_models[["Cultural"]],  boot_results_t3[[4]], "treatment:state_owned"),
+  "Other"     = create_bootstrap_vcov(h2_topic_z_models[["Other"]],     boot_results_t3[[5]], "treatment:state_owned")
+)
 
-  n_cl_t3 <- sapply(h2_topic_z_models, get_n_clusters)
+n_cl_t3 <- sapply(h2_topic_z_models, get_n_clusters)
 
-  rows_t3 <- tibble::tribble(
-    ~term,            ~Political, ~Military, ~Economic, ~Cultural, ~Other,
-    "Source Z-Score", "X",        "X",       "X",       "X",       "X",
-    "Clusters",       n_cl_t3[1], n_cl_t3[2], n_cl_t3[3], n_cl_t3[4], n_cl_t3[5]
-  )
-  attr(rows_t3, "position") <- c(5, 6)
+rows_t3 <- tibble::tribble(
+  ~term,            ~Political, ~Military, ~Economic, ~Cultural, ~Other,
+  "Source Z-Score", "X",        "X",       "X",       "X",       "X",
+  "Clusters",       n_cl_t3[1], n_cl_t3[2], n_cl_t3[3], n_cl_t3[4], n_cl_t3[5]
+)
+attr(rows_t3, "position") <- c(5, 6)
 
-  note_t3 <- str_wrap(paste(
-    "All models use a source-level Z-Score normalization with the optimal bandwidth.",
-    "Each column restricts to the indicated topic category.", SE_NOTE
-  ), 80)
+note_t3 <- str_wrap(paste(
+  "All models use a source-level Z-Score normalization with the optimal bandwidth.",
+  "Each column restricts to the indicated topic category.", SE_NOTE
+), 80)
 
-  table_3 <- modelsummary(
-    h2_topic_z_models,
-    output = "gt",
-    fmt = fmt_significant(2),
-    stars = TRUE,
-    vcov = vcov_t3,
-    coef_map = c(
-      "treatment" = "Invasion",
-      "treatment:state_owned" = "State Owned x Treatment"
-    ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
-    title = "Table 3: H2 Diff-in-Disc by Topic — Z-Score (Day Running Variable)",
-    add_rows = rows_t3,
-    notes = note_t3
-  )
+table_3 <- modelsummary(
+  h2_topic_z_models,
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  vcov = vcov_t3,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:state_owned" = "State Owned x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
+  title = "H2 Diff-in-Disc by Topic — Z-Score (Probabilistic Time)",
+  add_rows = rows_t3,
+  notes = note_t3
+)
 
-  topic_col_names <- c("Political", "Military", "Economic", "Cultural", "Other")
-  table_3 <- override_interaction_stars(table_3, boot_results_t3, topic_col_names)
+topic_col_names <- c("Political", "Military", "Economic", "Cultural", "Other")
+table_3 <- override_interaction_stars(table_3, boot_results_t3, topic_col_names)
 
-  table_3
-  save_table(table_3, "table_03_main", TABLE_SUBDIR)
-}
+table_3
+save_table(table_3, "table_03_main", TABLE_SUBDIR)
+
 ```
 
 ## Table 4: H3a Interaction Z-Score — CSTO Alignment (Pattern B)
 
 ```{r table-04}
 h3a_z_models <- list(
-  "(1)\u2021" = results_align$model5a_csto_z,
-  "(2)\u2021" = results_align$model5a_neutral_z,
+  "(1) CSTO\u2021" = results_align$model5a_csto_z,
+  "(2) Neutral\u2021" = results_align$model5a_neutral_z,
   "(3)\u2020" = results_align$model5a_opt_z,
   "(4)\u2020" = results_align$model5a_opt_non_mil_z,
-  "(5)\u2020" = results_align$model5a_opt_russian_z,
-  "(6)\u2020" = results_align$matched_model
+#  "(5)\u2020" = results_align$model5a_opt_russian_z,
+  "(5)\u2020" = results_align$matched_model
 )
 
 boot_keys_t4 <- c("model5a_opt_z", "model5a_opt_non_mil_z",
-                   "model5a_opt_russian_z", "matched_model")
+                  # "model5a_opt_russian_z", 
+                  "matched_model")
 boot_results_t4 <- lapply(boot_keys_t4, function(k) results_align$bootstrap_se[[k]])
 
 vcov_t4 <- list(
-  "(1)\u2021" = NULL,
-  "(2)\u2021" = NULL,
+  "(1) CSTO\u2021" = NULL,
+  "(2) Neutral\u2021" = NULL,
   "(3)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_z, boot_results_t4[[1]], "treatment:csto"),
   "(4)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_non_mil_z, boot_results_t4[[2]], "treatment:csto"),
-  "(5)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_russian_z, boot_results_t4[[3]], "treatment:csto"),
-  "(6)\u2020" = create_bootstrap_vcov(results_align$matched_model, boot_results_t4[[4]], "treatment:csto")
+#  "(5)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_russian_z, boot_results_t4[[3]], "treatment:csto"),
+  "(5)\u2020" = create_bootstrap_vcov(results_align$matched_model, boot_results_t4[[3]], "treatment:csto")
 )
 
 n_cl_t4 <- sapply(h3a_z_models, get_n_clusters)
 
 rows_t4 <- tibble::tribble(
-  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6,
-  "Source Z-Score", "X",    "X",    "X",    "X",    "X",    "X",
-  "Clusters",       n_cl_t4[1], n_cl_t4[2], n_cl_t4[3], n_cl_t4[4], n_cl_t4[5], n_cl_t4[6]
+  ~term,~row1, ~row2, ~row3, ~row4, ~row5,# ~row6,
+  "Source Z-Score", "X",    "X",    "X",    "X",    "X",#    "X",
+  "Clusters",       "9", "4", n_cl_t4[3], n_cl_t4[4], n_cl_t4[5],# n_cl_t4[6]
 )
 attr(rows_t4, "position") <- c(5, 6)
 
@@ -360,10 +367,11 @@ note_t4 <- str_wrap(paste(
   "All models use a source-level Z-Score normalization.",
   "Sample restricted to state-owned media in non-NATO countries.",
   "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries, filtered to omit military topics.",
-  "Models 3-6 estimate the CSTO x treatment interaction.",
+  "Models 3-5 estimate the CSTO x treatment interaction.",
   "Model 3 uses the optimal bandwidth.",
-  "Model 4 omits military topics. Model 5 restricts to Russian-related articles.",
-  "Model 6 uses matched data.", SE_NOTE
+  "Model 4 omits military topics.", 
+  #"Model 5 restricts to Russian-related articles.",
+  "Model 5 uses exact matching on topic and date of publication for the non-military data.", SE_NOTE
 ), 80)
 
 table_4 <- modelsummary(
@@ -377,12 +385,12 @@ table_4 <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
-  title = "Table 4: H3a Alignment Interaction — Z-Score (Day Running Variable)",
+  title = "H3a Alignment Interaction — Z-Score (Probabilistic Time)",
   add_rows = rows_t4,
   notes = note_t4
 )
 
-boot_col_names_t4 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020", "(6)\u2020")
+boot_col_names_t4 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020")#, "(6)\u2020")
 table_4 <- override_interaction_stars(table_4, boot_results_t4, boot_col_names_t4)
 
 table_4
@@ -392,72 +400,69 @@ save_table(table_4, "table_04_main", TABLE_SUBDIR)
 ## Table 5: H3b Null Result Z-Score — Ethnic Russian Population (Pattern B)
 
 ```{r table-05b}
-# NOTE: These H3b models likely do not exist yet
 h3b_z_models_exist <- !is.null(results_ethnic$model6a_high_z) &&
                       !is.null(results_ethnic$model6a_low_z) &&
                       !is.null(results_ethnic$model6a_opt_z)
 
-if (!h3b_z_models_exist) {
-  cat("WARNING: H3b Z-score models not found. Skipping Table 5.\n")
-} else {
-  h3b_z_models <- list(
-    "(1)\u2021" = results_ethnic$model6a_high_z,
-    "(2)\u2021" = results_ethnic$model6a_low_z,
-    "(3)\u2020" = results_ethnic$model6a_opt_z,
-    "(4)\u2020" = results_ethnic$model6a_opt_non_mil_z,
-    "(5)\u2020" = results_ethnic$matched_model_z
-  )
 
-  boot_keys_t6 <- c("model6a_opt_z", "model6a_opt_non_mil_z", "matched_model_z")
-  boot_results_t6 <- lapply(boot_keys_t6, function(k) results_ethnic$bootstrap_se[[k]])
+h3b_z_models <- list(
+  "(1) High\u2021" = results_ethnic$model6a_high_z,
+  "(2) Low\u2021" = results_ethnic$model6a_low_z,
+  "(3)\u2020" = results_ethnic$model6a_opt_z,
+  "(4)\u2020" = results_ethnic$model6a_opt_non_mil_z,
+  "(5)\u2020" = results_ethnic$matched_model_z
+)
 
-  vcov_t6 <- list(
-    "(1)\u2021" = NULL,
-    "(2)\u2021" = NULL,
-    "(3)\u2020" = create_bootstrap_vcov(results_ethnic$model6a_opt_z, boot_results_t6[[1]], "treatment:high_russia"),
-    "(4)\u2020" = create_bootstrap_vcov(results_ethnic$model6a_opt_non_mil_z, boot_results_t6[[2]], "treatment:high_russia"),
-    "(5)\u2020" = create_bootstrap_vcov(results_ethnic$matched_model_z, boot_results_t6[[3]], "treatment:high_russia")
-  )
+boot_keys_t6 <- c("model6a_opt_z", "model6a_opt_non_mil_z", "matched_model_z")
+boot_results_t6 <- lapply(boot_keys_t6, function(k) results_ethnic$bootstrap_se[[k]])
 
-  n_cl_t6 <- sapply(h3b_z_models, get_n_clusters)
+vcov_t6 <- list(
+  "(1)\u2021" = NULL,
+  "(2)\u2021" = NULL,
+  "(3)\u2020" = create_bootstrap_vcov(results_ethnic$model6a_opt_z, boot_results_t6[[1]], "treatment:high_russia"),
+  "(4)\u2020" = create_bootstrap_vcov(results_ethnic$model6a_opt_non_mil_z, boot_results_t6[[2]], "treatment:high_russia"),
+  "(5)\u2020" = create_bootstrap_vcov(results_ethnic$matched_model_z, boot_results_t6[[3]], "treatment:high_russia")
+)
 
-  rows_t6 <- tibble::tribble(
-    ~term,~row1, ~row2, ~row3, ~row4, ~row5,
-    "Source Z-Score", "X",    "X",    "X",    "X",    "X",
-    "Clusters",       n_cl_t6[1], n_cl_t6[2], n_cl_t6[3], n_cl_t6[4], n_cl_t6[5]
-  )
-  attr(rows_t6, "position") <- c(5, 6)
+n_cl_t6 <- sapply(h3b_z_models, get_n_clusters)
 
-  note_t6 <- str_wrap(paste(
-    "All models use a source-level Z-Score normalization.",
-    "Models 1-2 show separate RDD estimates for high and low ethnic Russian population countries.",
-    "Models 3-5 estimate the high Russian population x treatment interaction.",
-    "Model 3 uses the optimal bandwidth. Model 4 omits military topics.",
-    "Model 5 uses matched data.", SE_NOTE
-  ), 80)
+rows_t6 <- tibble::tribble(
+  ~term,~row1, ~row2, ~row3, ~row4, ~row5,
+  "Source Z-Score", "X",    "X",    "X",    "X",    "X",
+  "Clusters",       "9", "4", n_cl_t6[3], n_cl_t6[4], n_cl_t6[5]
+)
+attr(rows_t6, "position") <- c(5, 6)
 
-  table_6 <- modelsummary(
-    h3b_z_models,
-    output = "gt",
-    fmt = fmt_significant(2),
-    stars = TRUE,
-    vcov = vcov_t6,
-    coef_map = c(
-      "treatment" = "Invasion",
-      "treatment:high_russia" = "High Russian Pop x Treatment"
-    ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-    title = "Table 5: H3b Ethnic Russian Population — Null Result, Z-Score (Day Running Variable)",
-    add_rows = rows_t6,
-    notes = note_t6
-  )
+note_t6 <- str_wrap(paste(
+  "All models use a source-level Z-Score normalization.",
+  "Models 1-2 show separate RDD estimates for high and low ethnic Russian population countries.",
+  "Models 3-5 estimate the high Russian population x treatment interaction.",
+  "Model 3 uses the optimal bandwidth. Model 4 omits military topics.",
+  "Model 5 uses matched data.", SE_NOTE
+), 80)
 
-  boot_col_names_t6 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020")
-  table_6 <- override_interaction_stars(table_6, boot_results_t6, boot_col_names_t6)
+table_6 <- modelsummary(
+  h3b_z_models,
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  vcov = vcov_t6,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:high_russia" = "High Russian Pop x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
+  title = "H3b Ethnic Russian Population — Null Result, Z-Score (Probabilistic Time)",
+  add_rows = rows_t6,
+  notes = note_t6
+)
 
-  table_6
-  save_table(table_6, "table_05_main", TABLE_SUBDIR)
-}
+boot_col_names_t6 <- c("(3)\u2020", "(4)\u2020", "(5)\u2020")
+table_6 <- override_interaction_stars(table_6, boot_results_t6, boot_col_names_t6)
+
+table_6
+save_table(table_6, "table_05_main", TABLE_SUBDIR)
+
 ```
 
 ## Table 7: Country Classification (Pattern E)
@@ -482,7 +487,7 @@ table_data_7 <- data.frame(
 table_7 <- table_data_7 %>%
   gt() %>%
   tab_header(
-    title = "Table 7: Ethnic Russian Population x Russia Security Alignment",
+    title = "Ethnic Russian Population x Russia Security Alignment",
     subtitle = "Country Classification"
   ) %>%
   cols_label(
@@ -539,8 +544,8 @@ table_s1 <- modelsummary(
   fmt = fmt_significant(2),
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S1: H1 RDD — Fixed Effects Robustness (Day Running Variable)",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
+  title = "H1 RDD — Fixed Effects Robustness (Probabilistic Time)",
   add_rows = rows_s1,
   notes = note_s1
 )
@@ -581,8 +586,8 @@ table_s2 <- modelsummary(
   fmt = fmt_significant(2),
   stars = TRUE,
   coef_map = c("treatment" = "Invasion"),
-  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S2: H1 RDD by Topic — Z-Score (Day Running Variable)",
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|nobs.left|nobs.right|bandwidth.left|bandwidth.right",
+  title = "H1 RDD by Topic — Z-Score (Probabilistic Time)",
   add_rows = rows_s2,
   notes = note_s2
 )
@@ -651,7 +656,7 @@ table_s3 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S3: H2 Diff-in-Disc — FE Interaction Core (Day Running Variable)",
+  title = "H2 Diff-in-Disc — FE Interaction Core (Probabilistic Time)",
   add_rows = rows_s3,
   notes = note_s3
 )
@@ -712,7 +717,7 @@ table_s4 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S4: H2 Diff-in-Disc — Full FE + DID Robustness (Day Running Variable)",
+  title = "H2 Diff-in-Disc — Full FE + DID Robustness (Probabilistic Time)",
   add_rows = rows_s4,
   notes = note_s4
 )
@@ -775,7 +780,7 @@ table_s5 <- modelsummary(
     "treatment:state_owned" = "State Owned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S5: H2 Diff-in-Disc by Topic — Full Data (Day Running Variable)",
+  title = "H2 Diff-in-Disc by Topic — Full Data (Probabilistic Time)",
   add_rows = rows_s5,
   notes = note_s5
 )
@@ -817,53 +822,43 @@ build_loo_table <- function(loo_data, title, subtitle, note) {
     tab_footnote(footnote = str_wrap(note, 80))
 }
 
-if (!is.null(results_h2$loo_summary)) {
-  note_loo_h2 <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:state_owned interaction term. Standard errors clustered at source domain level."
 
-  if (!is.null(results_h2$matched_loo_summary)) {
-    # Combine standard and matched LOO summaries
-    loo_standard <- results_h2$loo_summary %>% mutate(section = "Standard Model")
-    loo_matched <- results_h2$matched_loo_summary %>% mutate(section = "Matched Model")
-    loo_combined <- bind_rows(loo_standard, loo_matched)
+note_loo_h2 <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:state_owned interaction term. Standard errors clustered at source domain level."
 
-    table_s6 <- loo_combined %>%
-      mutate(
-        estimate_fmt = sprintf("%.3f%s", estimate,
-                         case_when(p_value < 0.001 ~ "***",
-                                   p_value < 0.01 ~ "**",
-                                   p_value < 0.05 ~ "*",
-                                   TRUE ~ "")),
-        std_error_fmt = sprintf("(%.3f)", std_error),
-        p_value_fmt = sprintf("%.3f", p_value),
-        n_obs_fmt = format(n_obs, big.mark = ","),
-        bandwidth_fmt = sprintf("%.1f", bandwidth)
-      ) %>%
-      select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
-      gt(groupname_col = "section") %>%
-      cols_label(
-        country_dropped = "Country Dropped",
-        estimate_fmt = "Coefficient",
-        std_error_fmt = "Std. Error",
-        p_value_fmt = "p-value",
-        n_obs_fmt = "N",
-        bandwidth_fmt = "Bandwidth"
-      ) %>%
-      tab_header(title = "Table S6: H2 Leave-One-Out Country Robustness (Day Running Variable)") %>%
-      tab_footnote(footnote = str_wrap(note_loo_h2, 80))
-  } else {
-    table_s6 <- build_loo_table(
-      results_h2$loo_summary,
-      "Table S6: H2 Leave-One-Out Country Robustness (Day Running Variable)",
-      "Standard Model",
-      note_loo_h2
-    )
-  }
 
-  table_s6
-  save_table(table_s6, "table_s06_h2_loo", TABLE_SUBDIR)
-} else {
-  cat("WARNING: results_h2$loo_summary not found. Skipping Table S6.\n")
-}
+# Combine standard and matched LOO summaries
+loo_standard <- results_h2$loo_summary %>% mutate(section = "Standard Model")
+loo_matched <- results_h2$matched_loo_summary %>% mutate(section = "Matched Model")
+loo_combined <- bind_rows(loo_standard, loo_matched)
+
+table_s6 <- loo_combined %>%
+  mutate(
+    estimate_fmt = sprintf("%.3f%s", estimate,
+                     case_when(p_value < 0.001 ~ "***",
+                               p_value < 0.01 ~ "**",
+                               p_value < 0.05 ~ "*",
+                               TRUE ~ "")),
+    std_error_fmt = sprintf("(%.3f)", std_error),
+    p_value_fmt = sprintf("%.3f", p_value),
+    n_obs_fmt = format(n_obs, big.mark = ","),
+    bandwidth_fmt = sprintf("%.1f", bandwidth)
+  ) %>%
+  select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
+  gt(groupname_col = "section") %>%
+  cols_label(
+    country_dropped = "Country Dropped",
+    estimate_fmt = "Coefficient",
+    std_error_fmt = "Std. Error",
+    p_value_fmt = "p-value",
+    n_obs_fmt = "N",
+    bandwidth_fmt = "Bandwidth"
+  ) %>%
+  tab_header(title = "H2 Leave-One-Out Country Robustness (Probabilistic Time)") %>%
+  tab_footnote(footnote = str_wrap(note_loo_h2, 80))
+
+table_s6
+save_table(table_s6, "table_s06_h2_loo", TABLE_SUBDIR)
+
 ```
 
 ## Table S7: H3a FE Interaction + Full FE Robustness (Pattern B-fe)
@@ -878,14 +873,12 @@ s7_models <- list(
   "(6)\u2020" = results_align$model5a_opt_full_fe,
   "(7)\u2020" = results_align$matched_model,
   "(8)\u2020" = results_align$model5a_opt_non_mil_full_fe,
-  "(9)\u2020" = results_align$model5a_opt_rus_full_fe,
-  "(10)\u2020" = results_align$model5a_fully_saturated
+  "(9)\u2020" = results_align$model5a_opt_rus_full_fe
 )
 
 boot_keys_s7 <- c("model5a_z", "model5a_full", "model5a_opt", "model5a_opt_non_mil",
                    "model5a_opt_russian", "model5a_opt_full_fe", "matched_model",
-                   "model5a_opt_non_mil_full_fe", "model5a_opt_rus_full_fe",
-                   "model5a_fully_saturated")
+                   "model5a_opt_non_mil_full_fe", "model5a_opt_rus_full_fe")
 boot_results_s7 <- lapply(boot_keys_s7, function(k) results_align$bootstrap_se[[k]])
 
 vcov_s7 <- setNames(
@@ -898,13 +891,13 @@ vcov_s7 <- setNames(
 n_cl_s7 <- sapply(s7_models, get_n_clusters)
 
 rows_s7 <- tibble::tribble(
-  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8, ~row9, ~row10,
-  "Source Z-Score", "X",    "-",    "-",    "-",    "-",    "-",    "-",    "-",    "-",    "-",
-  "State FEs",  "-",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X",
-  "Source FEs", "-",    "-",    "-",    "-",    "-",    "X",    "-",    "X",    "X",    "X",
-  "Topic FEs",  "-",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X",
-  "Matched",    "-",    "-",    "-",    "-",    "-",    "-",    "X",    "-",    "-",    "-",
-  "Clusters",   n_cl_s7[1], n_cl_s7[2], n_cl_s7[3], n_cl_s7[4], n_cl_s7[5], n_cl_s7[6], n_cl_s7[7], n_cl_s7[8], n_cl_s7[9], n_cl_s7[10]
+  ~term,~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7, ~row8, ~row9,
+  "Source Z-Score", "X",    "-",    "-",    "-",    "-",    "-",    "-",    "-",    "-",
+  "State FEs",  "-",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X", 
+  "Source FEs", "-",    "-",    "-",    "-",    "-",    "X",    "-",    "X",    "X", 
+  "Topic FEs",  "-",    "X",    "X",    "X",    "X",    "X",    "X",    "X",    "X", 
+  "Matched",    "-",    "-",    "-",    "-",    "-",    "-",    "X",    "-",    "-",
+  "Clusters",   n_cl_s7[1], n_cl_s7[2], n_cl_s7[3], n_cl_s7[4], n_cl_s7[5], n_cl_s7[6], n_cl_s7[7], n_cl_s7[8], n_cl_s7[9]
 )
 attr(rows_s7, "position") <- c(5, 6, 7, 8, 9, 10)
 
@@ -916,7 +909,6 @@ note_s7 <- str_wrap(paste(
   "Model 4 omits military topics. Model 5 restricts to Russian-related articles.",
   "Model 6 uses optimal bandwidth with full FEs. Model 7 uses matched data.",
   "Models 8-9 add full FEs to non-military and Russian subsets.",
-  "Model 10 uses full saturation.",
   SE_NOTE_BOOT
 ), 80)
 
@@ -931,7 +923,7 @@ table_s7 <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S7: H3a Alignment — FE Interaction + Robustness (Day Running Variable)",
+  title = "H3a Alignment — FE Interaction + Robustness (Probabilistic Time)",
   add_rows = rows_s7,
   notes = note_s7
 )
@@ -955,58 +947,55 @@ h3a_topic_z_models <- list(
   "Other"     = results_align$model5a_opt_oth
 )
 
-if (any(sapply(h3a_topic_z_models, is.null))) {
-  cat("WARNING: Some H3a by-topic Z-score models not found. Skipping Table S8.\n")
-} else {
-  boot_keys_s8z <- c("model5a_opt_z_pol", "model5a_opt_z_mil", "model5a_opt_z_econ",
-                     "model5a_opt_z_cult", "model5a_opt_z_oth")
-  boot_results_s8z <- lapply(boot_keys_s8z, function(k) results_align$bootstrap_se[[k]])
+boot_keys_s8z <- c("model5a_opt_z_pol", "model5a_opt_z_mil", "model5a_opt_z_econ",
+                   "model5a_opt_z_cult", "model5a_opt_z_oth")
+boot_results_s8z <- lapply(boot_keys_s8z, function(k) results_align$bootstrap_se[[k]])
 
-  vcov_s8z <- list(
-    "Political" = create_bootstrap_vcov(h3a_topic_z_models[["Political"]], boot_results_s8z[[1]], "treatment:csto"),
-    "Military"  = create_bootstrap_vcov(h3a_topic_z_models[["Military"]],  boot_results_s8z[[2]], "treatment:csto"),
-    "Economic"  = create_bootstrap_vcov(h3a_topic_z_models[["Economic"]],  boot_results_s8z[[3]], "treatment:csto"),
-    "Cultural"  = create_bootstrap_vcov(h3a_topic_z_models[["Cultural"]],  boot_results_s8z[[4]], "treatment:csto"),
-    "Other"     = create_bootstrap_vcov(h3a_topic_z_models[["Other"]],     boot_results_s8z[[5]], "treatment:csto")
-  )
+vcov_s8z <- list(
+  "Political" = create_bootstrap_vcov(h3a_topic_z_models[["Political"]], boot_results_s8z[[1]], "treatment:csto"),
+  "Military"  = create_bootstrap_vcov(h3a_topic_z_models[["Military"]],  boot_results_s8z[[2]], "treatment:csto"),
+  "Economic"  = create_bootstrap_vcov(h3a_topic_z_models[["Economic"]],  boot_results_s8z[[3]], "treatment:csto"),
+  "Cultural"  = create_bootstrap_vcov(h3a_topic_z_models[["Cultural"]],  boot_results_s8z[[4]], "treatment:csto"),
+  "Other"     = create_bootstrap_vcov(h3a_topic_z_models[["Other"]],     boot_results_s8z[[5]], "treatment:csto")
+)
 
-  n_cl_s8z <- sapply(h3a_topic_z_models, get_n_clusters)
+n_cl_s8z <- sapply(h3a_topic_z_models, get_n_clusters)
 
-  rows_s8z <- tibble::tribble(
-    ~term,            ~Political, ~Military, ~Economic, ~Cultural, ~Other,
-    "Source Z-Score", "X",        "X",       "X",       "X",       "X",
-    "Clusters",       n_cl_s8z[1], n_cl_s8z[2], n_cl_s8z[3], n_cl_s8z[4], n_cl_s8z[5]
-  )
-  attr(rows_s8z, "position") <- c(5, 6)
+rows_s8z <- tibble::tribble(
+  ~term,            ~Political, ~Military, ~Economic, ~Cultural, ~Other,
+  "Source Z-Score", "X",        "X",       "X",       "X",       "X",
+  "Clusters",       n_cl_s8z[1], n_cl_s8z[2], n_cl_s8z[3], n_cl_s8z[4], n_cl_s8z[5]
+)
+attr(rows_s8z, "position") <- c(5, 6)
 
-  note_s8z <- str_wrap(paste(
-    "All models use a source-level Z-Score normalization with the optimal bandwidth.",
-    "Sample restricted to state-owned media in non-NATO countries.",
-    "Each column restricts to the indicated topic category.", SE_NOTE
-  ), 80)
+note_s8z <- str_wrap(paste(
+  "All models use a source-level Z-Score normalization with the optimal bandwidth.",
+  "Sample restricted to state-owned media in non-NATO countries.",
+  "Each column restricts to the indicated topic category.", SE_NOTE
+), 80)
 
-  table_s8z <- modelsummary(
-    h3a_topic_z_models,
-    output = "gt",
-    fmt = fmt_significant(2),
-    stars = TRUE,
-    vcov = vcov_s8z,
-    coef_map = c(
-      "treatment" = "Invasion",
-      "treatment:csto" = "CSTO x Treatment"
-    ),
-    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-    title = "Table S8: H3a Alignment by Topic — Z-Score (Day Running Variable)",
-    add_rows = rows_s8z,
-    notes = note_s8z
-  )
+table_s8z <- modelsummary(
+  h3a_topic_z_models,
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  vcov = vcov_s8z,
+  coef_map = c(
+    "treatment" = "Invasion",
+    "treatment:csto" = "CSTO x Treatment"
+  ),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
+  title = "H3a Alignment by Topic — Z-Score (Probabilistic Time)",
+  add_rows = rows_s8z,
+  notes = note_s8z
+)
 
-  s8z_col_names <- c("Political", "Military", "Economic", "Cultural", "Other")
-  table_s8z <- override_interaction_stars(table_s8z, boot_results_s8z, s8z_col_names)
+s8z_col_names <- c("Political", "Military", "Economic", "Cultural", "Other")
+table_s8z <- override_interaction_stars(table_s8z, boot_results_s8z, s8z_col_names)
 
-  table_s8z
-  save_table(table_s8z, "table_s08_h3a_z_topic", TABLE_SUBDIR)
-}
+table_s8z
+save_table(table_s8z, "table_s08_h3a_z_topic", TABLE_SUBDIR)
+
 ```
 
 ## Table S9: H3a By-Topic Full Data (Pattern C-fe)
@@ -1061,7 +1050,7 @@ table_s9 <- modelsummary(
     "treatment:csto" = "CSTO x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
-  title = "Table S9: H3a Alignment by Topic — Full Data (Day Running Variable)",
+  title = "H3a Alignment by Topic — Full Data (Probabilistic Time)",
   add_rows = rows_s9,
   notes = note_s9
 )
@@ -1076,52 +1065,41 @@ save_table(table_s9, "table_s09_h3a_fe_topic", TABLE_SUBDIR)
 ## Table S10: H3a LOO Robustness (Pattern E)
 
 ```{r table-s10-loo}
-if (!is.null(results_align$loo_summary)) {
-  note_loo_h3a <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:csto interaction term. Standard errors clustered at source domain level."
 
-  if (!is.null(results_align$matched_loo_summary)) {
-    loo_standard_h3a <- results_align$loo_summary %>% mutate(section = "Standard Model")
-    loo_matched_h3a <- results_align$matched_loo_summary %>% mutate(section = "Matched Model")
-    loo_combined_h3a <- bind_rows(loo_standard_h3a, loo_matched_h3a)
+note_loo_h3a <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:csto interaction term. Standard errors clustered at source domain level."
 
-    table_s10 <- loo_combined_h3a %>%
-      mutate(
-        estimate_fmt = sprintf("%.3f%s", estimate,
-                         case_when(p_value < 0.001 ~ "***",
-                                   p_value < 0.01 ~ "**",
-                                   p_value < 0.05 ~ "*",
-                                   TRUE ~ "")),
-        std_error_fmt = sprintf("(%.3f)", std_error),
-        p_value_fmt = sprintf("%.3f", p_value),
-        n_obs_fmt = format(n_obs, big.mark = ","),
-        bandwidth_fmt = sprintf("%.1f", bandwidth)
-      ) %>%
-      select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
-      gt(groupname_col = "section") %>%
-      cols_label(
-        country_dropped = "Country Dropped",
-        estimate_fmt = "Coefficient",
-        std_error_fmt = "Std. Error",
-        p_value_fmt = "p-value",
-        n_obs_fmt = "N",
-        bandwidth_fmt = "Bandwidth"
-      ) %>%
-      tab_header(title = "Table S10: H3a Leave-One-Out Country Robustness (Day Running Variable)") %>%
-      tab_footnote(footnote = str_wrap(note_loo_h3a, 80))
-  } else {
-    table_s10 <- build_loo_table(
-      results_align$loo_summary,
-      "Table S10: H3a Leave-One-Out Country Robustness (Day Running Variable)",
-      "Non-Military Topics Model",
-      note_loo_h3a
-    )
-  }
 
-  table_s10
-  save_table(table_s10, "table_s10_h3a_loo", TABLE_SUBDIR)
-} else {
-  cat("WARNING: results_align$loo_summary not found. Skipping Table S10.\n")
-}
+loo_standard_h3a <- results_align$loo_summary %>% mutate(section = "Standard Model")
+loo_matched_h3a <- results_align$matched_loo_summary %>% mutate(section = "Matched Model")
+loo_combined_h3a <- bind_rows(loo_standard_h3a, loo_matched_h3a)
+
+table_s10 <- loo_combined_h3a %>%
+  mutate(
+    estimate_fmt = sprintf("%.3f%s", estimate,
+                     case_when(p_value < 0.001 ~ "***",
+                               p_value < 0.01 ~ "**",
+                               p_value < 0.05 ~ "*",
+                               TRUE ~ "")),
+    std_error_fmt = sprintf("(%.3f)", std_error),
+    p_value_fmt = sprintf("%.3f", p_value),
+    n_obs_fmt = format(n_obs, big.mark = ","),
+    bandwidth_fmt = sprintf("%.1f", bandwidth)
+  ) %>%
+  select(section, country_dropped, estimate_fmt, std_error_fmt, p_value_fmt, n_obs_fmt, bandwidth_fmt) %>%
+  gt(groupname_col = "section") %>%
+  cols_label(
+    country_dropped = "Country Dropped",
+    estimate_fmt = "Coefficient",
+    std_error_fmt = "Std. Error",
+    p_value_fmt = "p-value",
+    n_obs_fmt = "N",
+    bandwidth_fmt = "Bandwidth"
+  ) %>%
+  tab_header(title = "H3a Leave-One-Out Country Robustness (Probabilistic Time)") %>%
+  tab_footnote(footnote = str_wrap(note_loo_h3a, 80))
+
+table_s10
+save_table(table_s10, "table_s10_h3a_loo", TABLE_SUBDIR)
 ```
 
 ## Table S11: H3a Heterogenous Treatment Effects
@@ -1133,7 +1111,7 @@ bayes  <- decomp$group_effects_bayes
 
 # --- Panel A: Group-level effects with both bootstrap methods side-by-side ---
 panel_a <- pairs %>%
-  rename(se_pairs = se_boot, p_pairs = p_boot,
+  rename(se_pairs = se_boot, p_pairs = p_boot, 
          ci_lower_pairs = ci_lower, ci_upper_pairs = ci_upper) %>%
   mutate(
     se_bayes = bayes$se_boot,
@@ -1154,7 +1132,7 @@ panel_a <- pairs %>%
                                p_bayes < 0.05 ~ "*",
                                p_bayes < 0.1 ~ "+",
                                TRUE ~ "")),
-    n_col = c(decomp$n_sources_csto,
+    n_col = c(decomp$n_sources_csto, 
               decomp$n_sources_non_csto,
               decomp$n_sources_csto + decomp$n_sources_non_csto)
   ) %>%
@@ -1209,13 +1187,12 @@ table_s11 <- decomp_combined %>%
     title = "Treatment Effect Decomposition by Source"
   ) %>%
   tab_footnote(footnote = note_decomp) %>%
-  sub_values(values = "", replacement = "—")
+  sub_values(values = "", replacement = "\u2014")
 
 table_s11
 save_table(table_s11, "table_s11_decomposition", TABLE_SUBDIR)
 
 ```
-
 
 ## Table S12: Placebo Test Summary (Pattern E)
 
@@ -1276,7 +1253,7 @@ if (has_h1_z_placebo) {
 }
 
 note_placebo <- str_wrap(paste(
-  "Placebo tests using December 7, 2021 (Putin's announcement) as a false treatment date.",
+  "Placebo tests using December 7, 2021 (Biden's announcement) as a false treatment date.",
   "Data restricted to pre-invasion period (before Feb 19, 2022).",
   "Model 1 uses rdrobust; remaining models use felm with optimal bandwidth.",
   "Non-significant treatment effects suggest parallel trends assumption holds."
@@ -1304,7 +1281,7 @@ table_s12 <- placebo_summary %>%
     Bandwidth_fmt = "Bandwidth",
     N_fmt = "N"
   ) %>%
-  tab_header(title = "Table S12: Placebo Test Summary (Day Running Variable)",
+  tab_header(title = "Placebo Test Summary (Probabilistic Time)",
              subtitle = "December 7, 2021 False Treatment Date") %>%
   tab_footnote(footnote = note_placebo)
 
@@ -1361,7 +1338,7 @@ note_placebo_aligned <- str_wrap(paste(
 table_s13 <- placebo_aligned_summary %>%
   gt() %>%
   cols_label(Statistic = "") %>%
-  tab_header(title = "Placebo Test: Aligned State Media by Country (Day Running Variable)",
+  tab_header(title = "Placebo Test: Aligned State Media by Country (Probabilistic Time)",
              subtitle = "December 7, 2021 False Treatment Date") %>%
   tab_footnote(footnote = note_placebo_aligned)
 
@@ -1376,14 +1353,14 @@ save_table(table_s13, "table_s13_placebo_aligned", TABLE_SUBDIR)
 fix_gt_caption <- function(filepath) {
   tex <- readLines(filepath)
   text <- paste(tex, collapse = "\n")
-
+  
   # Match the full gt caption block and extract the title
   text <- gsub(
     "\\\\caption\\*\\{\\s*\n\\{\\\\fontsize\\{[^}]+\\}\\{[^}]+\\}\\\\selectfont\\s+(.+?)\\\\fontsize\\{[^}]+\\}\\{[^}]+\\}\\\\selectfont\\s*\\}\\s*\n\\}",
     "\\\\caption{\\1}",
     text
   )
-
+  
   writeLines(text, filepath)
 }
 
@@ -1400,7 +1377,7 @@ for (t in gt_tables) {
 
 ```{r summary}
 cat("=============================================================\n")
-cat("08b Publication Outputs Complete (Day Running Variable)\n")
+cat("08a Publication Outputs Complete (Probabilistic Time)\n")
 cat("=============================================================\n")
 cat("Tables saved to:", file.path(FIGURES_TABLES, TABLE_SUBDIR), "\n\n")
 cat("Main Paper Tables:\n")
@@ -1421,7 +1398,7 @@ cat("  S7  table_s07_h3a_fe_core            H3a FE interaction + robustness\n")
 cat("  S8  table_s08_h3a_z_topic            H3a by-topic Z-score\n")
 cat("  S9  table_s09_h3a_fe_topic           H3a by-topic Full Data\n")
 cat("  S10 table_s10_h3a_loo               H3a LOO robustness\n")
-cat("  S11 table_s11_decomposition          H3a heterogeneous treatment effects\n")
+cat("  S11 table_s11_h3a_hetero               H3a Hetero robustness\n")
 cat("  S12 table_s12_placebo                Placebo test summary\n")
 cat("  S13 table_s13_placebo_aligned        Placebo test, aligned state media by country (Dec 7)\n")
 cat("=============================================================\n")
