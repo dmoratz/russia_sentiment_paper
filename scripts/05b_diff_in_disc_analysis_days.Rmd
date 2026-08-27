@@ -243,6 +243,139 @@ ggsave(plot = invasion_discs_graph_present_neutral,
 These analyses mirror the CSTO-only / Neutral-only separate RDDs in the
 heterogeneity analysis (file 06), but applied to state vs independent media.
 
+### Neutral Media Floor Check
+
+The H2 results show state-owned outlets in neutral countries barely moving after
+the invasion. One reading of that null is mechanical rather than substantive: if
+neutral state media were already at the bottom of the sentiment scale before the
+invasion, they could not have fallen further, and the null would be a floor or
+measurement artifact rather than evidence about behaviour.
+
+This figure rules that out by making the starting level and the drop legible at the
+same time. Panel A places both media types on the full coding scale, which runs
+{-1, 0, 1}, with the floor drawn in: neutral state media sit near -0.26, nowhere
+close to -1, so there was ample room to fall. Panel B zooms to the period means with
+95%% confidence intervals so the magnitudes are readable: independent outlets drop by
+about -0.13 while state-owned outlets move by about -0.005. Same countries, same
+window, same scale -- the state-owned series simply does not move.
+
+Note that this figure uses only `date_publish` and `treatment`, never a running
+variable, so it is identical to the version produced by 05a. It is reproduced here so
+each variant's outputs stand alone.
+
+```{r neutral-floor-side-by-side-days, fig.width=13, fig.height=6.5}
+INVASION_DATE   <- as.Date("2022-02-24")
+SENTIMENT_FLOOR <- -1     # the coding scale runs {-1, 0, 1}
+
+# Neutral countries only: not Russia-aligned, not NATO
+data_neutral_floor <- data_non_ukraine %>%
+  filter(csto == 0, nato == 0) %>%
+  mutate(media_type = factor(ifelse(state_owned == 1, "State-owned", "Independent"),
+                             levels = c("State-owned", "Independent")),
+         period = factor(ifelse(treatment == 1, "Post-invasion", "Pre-invasion"),
+                         levels = c("Pre-invasion", "Post-invasion")))
+
+COLORS_FLOOR <- c("State-owned" = "forestgreen", "Independent" = "dodgerblue")
+
+# Daily means for the time-series panel (date granularity, paper convention)
+agg_neutral_daily <- data_neutral_floor %>%
+  group_by(media_type, date_publish) %>%
+  summarize(sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+            num_obs = n(), .groups = "drop")
+
+# Pre/post means with normal-approximation 95% CIs
+agg_neutral_period <- data_neutral_floor %>%
+  group_by(media_type, period) %>%
+  summarize(mean_sentiment = mean(sentiment_clean, na.rm = TRUE),
+            se = sd(sentiment_clean, na.rm = TRUE) / sqrt(n()),
+            n_articles = n(), .groups = "drop") %>%
+  mutate(ci_lower = mean_sentiment - 1.96 * se,
+         ci_upper = mean_sentiment + 1.96 * se)
+
+print(as.data.frame(agg_neutral_period), row.names = FALSE, digits = 4)
+
+# Pre-to-post change, used to annotate the detail panel
+agg_neutral_change <- agg_neutral_period %>%
+  select(media_type, period, mean_sentiment) %>%
+  pivot_wider(names_from = period, values_from = mean_sentiment) %>%
+  mutate(change = `Post-invasion` - `Pre-invasion`)
+
+print(as.data.frame(agg_neutral_change), row.names = FALSE, digits = 4)
+
+# Panel A: the full coding scale, so the distance to the floor is visible.
+# Carries the shared colour legend for both panels.
+panel_scale <- ggplot(agg_neutral_daily,
+                      aes(x = date_publish, y = sentiment_clean, color = media_type)) +
+  geom_point(aes(size = num_obs), alpha = 0.25) +
+  geom_hline(yintercept = SENTIMENT_FLOOR, linetype = "solid", color = "grey40") +
+  annotate("text", x = min(agg_neutral_daily$date_publish), y = SENTIMENT_FLOOR + 0.06,
+           label = "Scale floor (-1)", hjust = 0, size = 3.2, color = "grey30") +
+  geom_hline(yintercept = 0, linetype = "dotted", alpha = 0.5) +
+  geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
+  geom_segment(data = agg_neutral_period,
+               aes(x = if_else(period == "Pre-invasion",
+                               min(agg_neutral_daily$date_publish), INVASION_DATE),
+                   xend = if_else(period == "Pre-invasion",
+                                  INVASION_DATE, max(agg_neutral_daily$date_publish)),
+                   y = mean_sentiment, yend = mean_sentiment, color = media_type),
+               linewidth = 1.1, inherit.aes = FALSE) +
+  scale_color_manual(values = COLORS_FLOOR, name = "Media type") +
+  scale_size(name = "Articles/day") +
+  coord_cartesian(ylim = c(-1, 1)) +
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 3))) +
+  theme_classic() +
+  labs(
+    title = "A. Position on the full coding scale",
+    subtitle = "Daily means with period means overlaid; dashed line = Feb 24, 2022",
+    x = "Publication date",
+    y = "Mean sentiment toward Russia"
+  )
+
+# Panel B: the same period means, zoomed, so the drops are readable. The colour
+# legend is suppressed here so patchwork collects a single one from panel A.
+panel_detail <- ggplot(agg_neutral_period,
+                       aes(x = period, y = mean_sentiment,
+                           color = media_type, group = media_type)) +
+  geom_line(linewidth = 1.1) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.08, linewidth = 0.7) +
+  geom_point(size = 3.2) +
+  # Value labels sit outside the centre: left of the pre point, right of the post
+  geom_text(aes(label = sprintf("%.3f", mean_sentiment),
+                hjust = if_else(period == "Pre-invasion", 1.4, -0.4)),
+            size = 3.2, show.legend = FALSE) +
+  # Change label boxed in white so it stays legible where it crosses a line
+  geom_label(data = agg_neutral_change,
+             aes(x = 1.5, y = (`Pre-invasion` + `Post-invasion`) / 2,
+                 label = sprintf("%+.3f", change), color = media_type),
+             size = 3.6, fontface = "bold", fill = "white",
+             linewidth = 0, label.padding = unit(0.15, "lines"),
+             inherit.aes = FALSE, show.legend = FALSE) +
+  scale_color_manual(values = COLORS_FLOOR, name = "Media type", guide = "none") +
+  scale_x_discrete(expand = expansion(mult = 0.25)) +
+  theme_classic() +
+  labs(
+    title = "B. Pre/post means, detail",
+    subtitle = "Error bars are 95% CIs; boxed labels give the change",
+    x = NULL,
+    y = "Mean sentiment toward Russia"
+  )
+
+neutral_floor_graph <- (panel_scale | panel_detail) +
+  plot_layout(widths = c(1.6, 1), guides = "collect") +
+  plot_annotation(
+    title = "Neutral-Country Media: Starting Level and Drop (Day)",
+    subtitle = paste("State-owned outlets in neutral countries start close to independent",
+                     "outlets and far above the scale floor,\nso the absence of a drop is",
+                     "not a floor or measurement artifact.")
+  )
+
+neutral_floor_graph
+
+ggsave(plot = neutral_floor_graph,
+       file.path(FIGURES_DIFF_DISC_DAYS, "neutral_floor_side_by_side.png"),
+       width = 13, height = 6.5, dpi = 300)
+```
+
 ## State-Owned Media Only (RDD)
 
 ```{r state-only-rdd}

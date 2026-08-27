@@ -200,7 +200,7 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 | **B** | **DONE** | `06a`, `09a` | pooled aligned Dec-7 placebo (`placebo_aligned_pooled`); `table_s13_placebo_aligned.{tex,html}`; pooled + per-country est/CI/p/bw/N CSV |
 | **D** | **DONE** | `00_setup.R`, `05a`, `06a`, `09a` | country-clustered WCR for 4 models; side-by-side txt + CSV; explicit point-estimate identity check |
 | **E** | **DONE** | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
-| **F** | TODO | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
+| **F** | **DONE** | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
 | **G** | **DONE** | new `10_preperiod_diagnostics.Rmd` | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
 | **C** | TODO (optional, last) | `04b`, `05b`, `06b` | direct series labels, new suffixed filenames only |
 
@@ -366,6 +366,36 @@ a modest amount in a consistent direction rather than driving the results.
 different quantities on one row of a table mixing both. `Num.Obs.` is omitted and an
 explicit `N (within bandwidth)` row is added instead.
 
+### Task F — neutral-media floor figure — DONE
+
+Two panels on a shared colour legend, `theme_classic()`, date granularity:
+
+- **Panel A** places both media types on the **full coding scale**. The sentiment
+  variable is a three-point code taking values in {-1, 0, 1}, so the floor is a hard
+  -1 and is drawn on the figure. Daily means are plotted with the pre- and
+  post-period means overlaid as horizontal segments, dashed line at Feb 24.
+- **Panel B** zooms to the four period means with 95% CIs, labels each level, and
+  boxes the pre-to-post change so magnitudes are readable.
+
+**The numbers that make the argument** (neutral countries: Georgia, Kosovo, Moldova,
+Serbia; all articles):
+
+| Media type | Pre-invasion | Post-invasion | Change | N pre / post |
+|---|---|---|---|---|
+| State-owned | -0.259 | -0.263 | **-0.005** | 2,308 / 4,008 |
+| Independent | -0.228 | -0.357 | **-0.129** | 10,247 / 35,259 |
+
+Neutral state media start at -0.26 — close to independent media's -0.23, and a long
+way above the -1 floor — and then do not move, while independent media in the same
+countries and window fall by 0.13. So the null is not a floor or measurement
+artifact: there was ample room to fall.
+
+> **Worth knowing.** This figure uses only `date_publish` and `treatment` and no
+> running variable at all, so the `05a` and `05b` versions are **identical in
+> content**; only the output directory and the variant label in the title differ.
+> Both were built as agreed, and both were verified to produce the same means. If
+> the b/d retirement in Phase 3 happens, the `05b` copy is the one to drop.
+
 ### Task G — pre-period adjustment diagnostics — DONE
 
 Built as `scripts/10_preperiod_diagnostics.Rmd`, assembled by copying the estimation
@@ -455,6 +485,11 @@ the patched objects reproduce exactly (see Task B above).
   `model5a_opt_z_total`, `optimal_bw_align_total` and its bootstrap (Task E).
 
 ## Output manifest
+
+**Task F**
+
+- `figures/diff_in_disc/prob/neutral_floor_side_by_side.png`
+- `figures/diff_in_disc/days/neutral_floor_side_by_side.png` (identical content)
 
 **Task E**
 
