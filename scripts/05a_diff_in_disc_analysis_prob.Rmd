@@ -106,7 +106,7 @@ cat("Unique clusters:", length(unique(data_state_only$source_domain)), "\n")
 
 ### Sentiment Z
 
-```{r state-only-rdd-prob}
+```{r state-only-rdd-prob-z}
 model2_state_rdd_z <- rdrobust(
   y = data_state_only$sentiment_z,
   x = data_state_only$running_probabilistic,
@@ -147,7 +147,7 @@ cat("Unique clusters:", length(unique(data_ind_only$source_domain)), "\n")
 
 ### Sentiment Z
 
-```{r ind-only-rdd-prob}
+```{r ind-only-rdd-prob-z}
 model2_ind_rdd_z <- rdrobust(
   y = data_ind_only$sentiment_z,
   x = data_ind_only$running_probabilistic,
