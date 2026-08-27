@@ -201,7 +201,7 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 | **D** | **DONE** | `00_setup.R`, `05a`, `06a`, `09a` | country-clustered WCR for 4 models; side-by-side txt + CSV; explicit point-estimate identity check |
 | **E** | TODO | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
 | **F** | TODO | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
-| **G** | TODO | new `10_preperiod_diagnostics.Rmd` | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
+| **G** | **DONE** | new `10_preperiod_diagnostics.Rmd` | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
 | **C** | TODO (optional, last) | `04b`, `05b`, `06b` | direct series labels, new suffixed filenames only |
 
 Serialization: F and C both touch `05b` — F first, C last. B / D / E fan out across
@@ -324,6 +324,78 @@ its z-score chunks, which made the file **unknittable** — `knitr` aborts on du
 labels, so 05a could not be rendered or purled at all. A sweep of every `.Rmd` in
 `scripts/` found no other file affected.
 
+### Task G — pre-period adjustment diagnostics — DONE
+
+Built as `scripts/10_preperiod_diagnostics.Rmd`, assembled by copying the estimation
+machinery out of 04a/05a/06a rather than writing new estimators; every copied block
+carries a `# Following <file>, chunk <name>` comment. **Deliberately not registered
+in `master.Rmd`** (verified: zero references), per the brief. Bootstrap runs at the
+repository default `B = 4999` — not reduced. Runs end-to-end in about two minutes.
+
+**Headline reproduction cross-validated.** The script recomputes each headline and
+matches the serialized objects; the H2 and H3a values it reports (0.0797099 and
+-0.1926311) are the same ones Task D independently verified against
+`05_h2_results_prob.rds` / `06_alignment_results_prob.rds`.
+
+**(i) Topic adjustment frozen at pre-invasion values.** Nothing moves by even half a
+headline standard error:
+
+| Spec | Scale | Headline | Diagnostic | Δ | Δ in headline SEs |
+|---|---|---|---|---|---|
+| H1 | z | -0.2172 | -0.2221 | -0.0049 | -0.14 |
+| H2 | z | 0.0797 | 0.1014 | +0.0217 | +0.34 |
+| H3a | z | -0.1926 | -0.2087 | -0.0161 | -0.15 |
+| H1 | raw | -0.1153 | -0.1175 | -0.0023 | -0.11 |
+| H2 | raw | 0.0323 | 0.0460 | +0.0137 | +0.41 |
+| H3a | raw | -0.1074 | -0.1207 | -0.0133 | -0.25 |
+
+The large `pct_change` figures for H2 (27%, 42%) are an artefact of a near-zero
+denominator, not a meaningful shift.
+
+*Ambiguity resolved by reporting both scales:* the brief says to demean
+`sentiment_clean`, but all three named headlines have `sentiment_z` as the outcome,
+so the literal instruction would compare a raw-unit estimate against a z-unit
+baseline. Both scales are computed, and the raw-scale headline siblings (04a
+`model2_opt`, 05a `model2a_opt`, 06a `model5a_opt`) are recomputed so every row has a
+like-for-like baseline. The raw rows are the literal reading of the brief.
+
+**(ii) Pre-period-only z-scoring.** All three estimates grow in magnitude, as the
+mechanics predict (pre-period SD < full-window SD):
+
+| Spec | Headline | Diagnostic | Δ | SE ratio | Headline p | Diagnostic p (bootstrap p) | Sources dropped |
+|---|---|---|---|---|---|---|---|
+| H1 | -0.2172 | -0.2418 | -0.0246 | 1.17 | 1.96e-09 | 1.28e-08 | 2 |
+| H2 | 0.0797 | 0.1096 | +0.0299 | 1.07 | 0.213 | 0.110 (0.159) | 1 |
+| H3a | -0.1926 | -0.2545 | -0.0619 | 0.96 | 0.108 | **0.034** (0.100) | 0 |
+
+> **Flag for Donald.** Under pre-period-only z-scoring, H3a's *analytic* p crosses
+> 0.05 (-0.2545, p = 0.034) while its *wild-bootstrap* p stays at 0.100. The paper
+> reports bootstrap p-values, so the reported inference does not cross — but the
+> sensitivity is worth knowing about.
+
+Dropped sources: `voceabasarabiei.md` (no pre-invasion articles; H1 and H2) and
+`insajder.net` (pre-invasion SD = 0 across 2 articles; H1 only — H2's existing
+`sd > 0` filter had already removed it).
+
+**(iii) Topic-mapping diagnostic.** Every topic's mean falls across the cutoff, but
+by very different amounts, and topic shares move too. In the H2 headline-bandwidth
+window: Culture -0.445, Military -0.400, Economic -0.317, Other -0.195, Political
+-0.183 (z units), while Political's share of coverage drops 48% → 34% and Military's
+rises 23% → 30%. The `fe_vs_pre_mean_gap` column spans -0.10 to +0.10 (H2) and -0.11
+to +0.13 (H3a). So the mappings genuinely do move; section (i) shows the movements
+largely cancel in the difference-in-discontinuities.
+
+**Limitation recorded honestly:** H1's headline is `rdrobust`, which drops one topic
+dummy for collinearity **without reporting which one**, so its `beta_covs` (4 values
+for 5 dummies) cannot be mapped back to topic names. The topic-FE columns are `NA`
+for H1 in the mapping table and `beta_covs` is printed unlabelled with that caveat.
+`fixef()` is used for H2/H3a as intended.
+
+Also confirmed by the build: `treatment` and `running_probabilistic < 0` agree on
+every article in all three samples (0 disagreements), and H1's running variable is in
+**seconds** (04a never divides by 86400) while H2/H3a are in days — hence H1's
+bandwidths printing as ~2.1e6. That is pre-existing 04a behaviour, preserved.
+
 ## Re-render queue (for Donald, at leisure)
 
 Re-render these so the `.rds` files are once again a clean product of their host
@@ -337,6 +409,15 @@ the patched objects reproduce exactly (see Task B above).
   `05_h2_results_prob.rds` (Task D).
 
 ## Output manifest
+
+**Task G** (author diagnostics, not paper outputs)
+
+- `output/diagnostics/preperiod_topic_demeaned_comparison.csv`
+- `output/diagnostics/preperiod_zscore_comparison.csv`
+- `output/diagnostics/preperiod_zscore_dropped_sources.csv`
+- `output/diagnostics/topic_mapping_diagnostic.csv`
+- `output/diagnostics/preperiod_diagnostics_summary.txt`
+- `output/10_preperiod_diagnostics.html` (rendered report; gitignored)
 
 **Task D**
 

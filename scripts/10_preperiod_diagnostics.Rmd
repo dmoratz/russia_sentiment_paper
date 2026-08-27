@@ -1,0 +1,1075 @@
+---
+title: "10 - Pre-Period Adjustment Diagnostics (Probabilistic Time Assignment)"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script asks whether the two normalizations the headline models rely on --
+the pooled topic fixed effects and the full-window source-level z-score -- are
+doing work that a pre-invasion-only version of the same adjustment would not do.
+Both normalizations are estimated using data from *both* sides of the cutoff. If
+the invasion changed what a given topic label means, or changed a source's
+sentiment distribution, then an adjustment fitted across the cutoff partly
+absorbs the treatment effect itself. Freezing each adjustment at its pre-invasion
+value and re-running the headline specifications is the cleanest way to see how
+much that matters.
+
+All estimation machinery here is **copied** from the three headline scripts --
+`04a_main_rdd_analysis_prob.Rmd`, `05a_diff_in_disc_analysis_prob.Rmd`, and
+`06a_russian_alignment_analysis_prob.Rmd`. Nothing is re-derived. Every copied
+block names its source file and chunk in a comment. Only the outcome variable and
+the fixed-effect structure change, and only where a diagnostic requires it.
+
+**These are author diagnostics, not paper outputs.** Nothing here is intended for
+the manuscript or the appendix; the files written to `output/diagnostics/` exist
+so the three comparisons can be inspected side by side. This script is
+deliberately **not registered in `master.Rmd`**.
+
+**Headline specifications under test** (read from code, not assumed):
+
+- **H1** -- `04a`, chunk `model5-optimal-prob`, heading "Model 5: Z-Score Model
+  (Topic FE)". `rdrobust` of `sentiment_z` on `running_probabilistic`, topic
+  dummies passed as `covs`, clustered on `source_domain`, fitted on
+  `optimal_bandwidth_data`, which `04a` sets equal to `data_non_ukraine` (all
+  topics, military included) because `rdrobust` selects its own bandwidth.
+- **H2** -- `05a`, chunk `model2a-opt-prob-z`. Residualize `sentiment_z` on
+  `topic_clean + state_owned`, select a bandwidth with `rdbwselect`
+  (triangular, `p = 1`, `mserd`, clustered on `source_domain`), filter to that
+  bandwidth, then `feols(sentiment_z ~ running_probabilistic * treatment *
+  state_owned | topic_clean)`. Coefficient of interest: `treatment:state_owned`.
+- **H3a** -- `06a`, chunk `align-optimal-prob-z`. Same procedure on
+  `data_align_state` (non-NATO, state-owned), residualizing on
+  `topic_clean + csto` and interacting with `csto`. Coefficient of interest:
+  `treatment:csto`.
+
+**Sections:**
+
+1. Topic adjustment fixed at pre-invasion values.
+2. Pre-period-only z-scoring.
+3. Topic-mapping diagnostic (pre-period topic means vs. pooled topic FE).
+
+**Inputs:**
+
+- `data/intermediate/02_data_non_ukraine.rds`
+- `data/intermediate/02_cleaned_data.rds`
+
+**Outputs** (all under `output/diagnostics/`):
+
+- `preperiod_topic_demeaned_comparison.csv`
+- `preperiod_zscore_comparison.csv`
+- `preperiod_zscore_dropped_sources.csv`
+- `topic_mapping_diagnostic.csv`
+- `preperiod_diagnostics_summary.txt`
+
+The wild cluster bootstrap runs at the repository default of `B = 4999`; it was
+**not** reduced for these diagnostics.
+
+```{r setup-diag, include=FALSE}
+source("00_setup.R")
+options(digits = 10)
+
+set.seed(3184)
+```
+
+# Setup
+
+## Output Directory
+
+These are author diagnostics rather than paper outputs, so they land in
+`output/diagnostics/` rather than under `figures/`. The directory is created the
+same way `08_bandwidth_sensitivity.Rmd` creates its output subdirectories.
+
+```{r diag-outdir}
+# Following 08_bandwidth_sensitivity.Rmd, chunk `load-data`
+OUTPUT_DIAGNOSTICS <- file.path(PROJECT_ROOT, "output", "diagnostics")
+dir.create(OUTPUT_DIAGNOSTICS, showWarnings = FALSE, recursive = TRUE)
+
+# Wild cluster bootstrap replications. This is the repository default from
+# 00_setup.R (`run_wild_bootstrap`); it is NOT reduced for these diagnostics.
+BOOT_B <- 4999
+
+cat("Diagnostics directory:", OUTPUT_DIAGNOSTICS, "\n")
+cat("Wild cluster bootstrap B:", BOOT_B, "\n")
+```
+
+# Load Data and Rebuild the Three Headline Samples
+
+Each hypothesis is fitted on a differently constructed sample, and the
+constructions are not interchangeable: `04a` leaves the running variable in
+seconds and does not drop incomplete rows, `05a` drops them and rescales to days,
+and `06a` starts from the full cleaned data rather than the non-Ukraine file. The
+three chunks below reproduce each pipeline exactly as its host script builds it,
+so that every diagnostic is compared against a headline estimate computed on the
+identical sample.
+
+## H1 Sample (from 04a)
+
+`04a` loads `02_data_non_ukraine.rds` and adds a source-level z-score over the
+full window. It leaves `running_probabilistic` in its raw units (seconds) and
+does not convert columns to factors or drop incomplete rows, so bandwidths
+reported for H1 below are in seconds.
+
+```{r diag-sample-h1}
+# Following 04a_main_rdd_analysis_prob.Rmd, chunks `load-prob`, `model1-Z-prob`
+# and `optimal-bandwidth-prob` (which sets optimal_bandwidth_data <- data_non_ukraine)
+h1_data <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds")) %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+           sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+cat("H1 sample:", nrow(h1_data), "articles,",
+    length(unique(h1_data$source_domain)), "sources\n")
+cat("Running variable units: seconds (04a does not rescale)\n")
+```
+
+## H2 Sample (from 05a)
+
+`05a` converts the grouping columns to factors, drops incomplete rows, keeps only
+sources with non-degenerate sentiment variance, z-scores within source over the
+full window, and rescales the running variable from seconds to days.
+
+```{r diag-sample-h2}
+# Following 05a_diff_in_disc_analysis_prob.Rmd, chunk `load-prob`
+h2_data <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds")) %>%
+  mutate(across(c("country", "source_domain", "topic_clean"), as.factor)) %>%
+  drop_na() %>%
+  droplevels() %>%
+  group_by(source_domain) %>%
+  filter(sd(sentiment_clean, na.rm = TRUE) > 0) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+           sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup() %>%
+  droplevels() %>%
+  mutate(running_probabilistic = running_probabilistic / 86400)
+
+cat("H2 sample:", nrow(h2_data), "articles,",
+    nlevels(h2_data$source_domain), "sources\n")
+cat("State-owned:", sum(h2_data$state_owned),
+    "| Independent:", sum(h2_data$state_owned == 0), "\n")
+```
+
+## H3a Sample (from 06a)
+
+`06a` starts from the full cleaned data, restricts to non-NATO countries, drops
+incomplete rows, keeps state-owned outlets only, rescales the running variable to
+days, and z-scores within source over the full window. Ukraine is excluded
+implicitly because it is a NATO country.
+
+```{r diag-sample-h3}
+# Following 06a_russian_alignment_analysis_prob.Rmd, chunks `load-prob`,
+# `alignment-data-prob`, `align-diff-prob` and `align-diff-prob-z`
+h3_data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds")) %>%
+  mutate(across(c(topic_clean, country, source_domain), as.factor)) %>%
+  filter(nato == 0) %>%
+  drop_na() %>%
+  filter(state_owned == 1) %>%
+  mutate(source_domain = droplevels(source_domain)) %>%
+  mutate(running_probabilistic = running_probabilistic / 86400) %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+           sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+cat("H3a sample:", nrow(h3_data), "articles,",
+    nlevels(h3_data$source_domain), "sources\n")
+cat("Russia-aligned:", sum(h3_data$csto),
+    "| Neutral:", sum(h3_data$csto == 0), "\n")
+```
+
+## Definition of the Pre-Invasion Period
+
+Every diagnostic below is built on a pre-invasion subsample, so it matters which
+side of the cutoff each article is assigned to. The running variable
+`running_probabilistic` is what the RD models actually use, so the pre-invasion
+period here is defined as `running_probabilistic < 0` rather than by the
+`treatment` dummy. The two can disagree for articles published near midnight on
+24 February 2022, because `treatment` is keyed to the publication *date* while
+the probabilistic running variable is keyed to an imputed publication *time*.
+This chunk reports how many articles disagree so the choice is auditable.
+
+```{r diag-preperiod-def}
+check_pre_definition <- function(d, label) {
+  pre_by_running <- d$running_probabilistic < 0
+  mismatch <- sum(pre_by_running != (d$treatment == 0), na.rm = TRUE)
+  cat(sprintf("%-4s  pre-invasion articles: %6d | post: %6d | disagreements with `treatment`: %d\n",
+              label, sum(pre_by_running), sum(!pre_by_running), mismatch))
+  invisible(mismatch)
+}
+
+mismatch_h1 <- check_pre_definition(h1_data, "H1")
+mismatch_h2 <- check_pre_definition(h2_data, "H2")
+mismatch_h3 <- check_pre_definition(h3_data, "H3a")
+```
+
+# Estimation Machinery Copied from the Headline Scripts
+
+The three functions below are the headline estimation routines, lifted verbatim
+in structure from their source chunks and parameterised only over the outcome
+variable and the fixed-effect terms. Parameterising rather than copy-pasting six
+near-identical blocks is what keeps every diagnostic provably identical to its
+headline counterpart apart from the one thing the diagnostic changes.
+
+## H1: rdrobust with Topic Dummies as Covariates
+
+`04a` fits H1 with `rdrobust`, which performs its own MSE-optimal bandwidth
+selection internally, so there is no separate `rdbwselect` step. Topic adjustment
+enters through `covs`; setting `use_topic_covs = FALSE` removes it, which is what
+Section 1 requires.
+
+```{r diag-fit-h1}
+# Following 04a_main_rdd_analysis_prob.Rmd, chunk `model5-optimal-prob`
+fit_h1 <- function(d, yvar, use_topic_covs = TRUE) {
+  covs_matrix <- if (use_topic_covs) {
+    model.matrix(~ topic_clean - 1, data = d)
+  } else {
+    NULL
+  }
+
+  rdrobust(
+    y = d[[yvar]],
+    x = d$running_probabilistic,
+    covs = covs_matrix,
+    cluster = d$source_domain
+  )
+}
+```
+
+## H2: Residualize, Select Bandwidth, Filter, Estimate
+
+`05a` residualizes the outcome on the model's fixed effects, hands those
+residuals to `rdbwselect`, filters the sample to the selected bandwidth, and then
+fits the triple-interaction `feols` model with a wild cluster bootstrap on the
+interaction of interest. `resid_fe` and `model_fe` are separated so that Section 1
+can drop `topic_clean` from *both* -- dropping it from the model but leaving it in
+the bandwidth selection would produce a bandwidth chosen for a specification that
+is no longer being fitted.
+
+```{r diag-fit-h2}
+# Following 05a_diff_in_disc_analysis_prob.Rmd, chunk `model2a-opt-prob-z`
+fit_h2 <- function(d, yvar,
+                   resid_fe = c("topic_clean", "state_owned"),
+                   model_fe = "topic_clean") {
+
+  # Residualize the dependent variable for fixed effects to do bandwidth selection
+  resid_formula <- as.formula(paste0(yvar, " ~ 1 | ", paste(resid_fe, collapse = " + ")))
+  resid_y <- feols(resid_formula, data = d)$residuals
+
+  bw_select <- rdbwselect(y = resid_y,
+                          x = d$running_probabilistic,
+                          kernel = "triangular",
+                          cluster = d$source_domain,
+                          p = 1,
+                          bwselect = "mserd")
+
+  optimal_bw <- bw_select$bws[1, 1]
+
+  optimal_bandwidth_data <- d %>%
+    filter(running_probabilistic < optimal_bw, running_probabilistic > -optimal_bw) %>%
+    droplevels()
+
+  model_formula <- as.formula(paste0(
+    yvar, " ~ running_probabilistic * treatment * state_owned",
+    if (length(model_fe) > 0) paste0(" | ", paste(model_fe, collapse = " + ")) else ""
+  ))
+
+  model <- feols(model_formula,
+                 cluster = ~source_domain,
+                 data = optimal_bandwidth_data)
+
+  boot <- safe_wild_bootstrap(model, "treatment:state_owned")
+
+  list(model = model, boot = boot, bw = optimal_bw,
+       data = optimal_bandwidth_data, coef_name = "treatment:state_owned")
+}
+```
+
+## H3a: Same Procedure on the Russia-Aligned State-Media Sample
+
+Structurally identical to H2, but residualizing on `csto` rather than
+`state_owned` and interacting with `csto`. Note that `06a` does **not** call
+`droplevels()` after the bandwidth filter; that is preserved here so the fixed
+effect sets match the headline exactly.
+
+```{r diag-fit-h3}
+# Following 06a_russian_alignment_analysis_prob.Rmd, chunk `align-optimal-prob-z`
+fit_h3 <- function(d, yvar,
+                   resid_fe = c("topic_clean", "csto"),
+                   model_fe = "topic_clean") {
+
+  # Residualize the dependent variable for fixed effects to do bandwidth selection
+  resid_formula <- as.formula(paste0(yvar, " ~ 1 | ", paste(resid_fe, collapse = " + ")))
+  resid_y <- feols(resid_formula, data = d)$residuals
+
+  bw_align <- rdbwselect(y = resid_y,
+                         x = d$running_probabilistic,
+                         kernel = "triangular",
+                         cluster = d$source_domain,
+                         p = 1,
+                         bwselect = "mserd")
+
+  optimal_bw_align <- bw_align$bws[1, 1]
+
+  optimal_bandwidth_data_state <- d %>%
+    filter(running_probabilistic < optimal_bw_align,
+           running_probabilistic > -optimal_bw_align)
+
+  model_formula <- as.formula(paste0(
+    yvar, " ~ running_probabilistic * treatment * csto",
+    if (length(model_fe) > 0) paste0(" | ", paste(model_fe, collapse = " + ")) else ""
+  ))
+
+  model <- feols(model_formula,
+                 cluster = ~source_domain,
+                 data = optimal_bandwidth_data_state)
+
+  boot <- safe_wild_bootstrap(model, "treatment:csto")
+
+  list(model = model, boot = boot, bw = optimal_bw_align,
+       data = optimal_bandwidth_data_state, coef_name = "treatment:csto")
+}
+```
+
+## Bootstrap Wrapper and Result Tabulation
+
+`run_wild_bootstrap()` comes from `00_setup.R` and is the same routine the
+headline chunks call. It is wrapped here only so that a bootstrap failure on one
+diagnostic returns `NA` and is reported, rather than aborting the whole script and
+losing the strands that did work. The two `row_*()` helpers put `rdrobust` and
+`feols` results into one common shape so the comparison tables can be stacked.
+
+```{r diag-tabulate}
+# `run_wild_bootstrap` is defined in 00_setup.R and is called unchanged by the
+# headline chunks in 05a (`model2a-opt-prob-z`) and 06a (`align-optimal-prob-z`).
+safe_wild_bootstrap <- function(model, param) {
+  tryCatch(
+    run_wild_bootstrap(model, param, B = BOOT_B),
+    error = function(e) {
+      message("  WILD BOOTSTRAP FAILED for '", param, "': ", conditionMessage(e))
+      list(se = NA_real_, p_val = NA_real_,
+           ci_lower = NA_real_, ci_upper = NA_real_)
+    }
+  )
+}
+
+# One tidy row from an rdrobust fit (H1 family)
+row_rd <- function(m, d, section, spec, scale, outcome, fe_note) {
+  bw <- m$bws[1, 1]
+  in_bw <- abs(d$running_probabilistic) < bw
+  tibble(
+    section     = section,
+    spec        = spec,
+    scale       = scale,
+    outcome     = outcome,
+    estimator   = "rdrobust",
+    term        = "RD treatment effect",
+    fixed_effects = fe_note,
+    estimate    = m$coef[1],
+    std_error   = m$se[1],
+    p_value     = m$pv[1],
+    ci_lower    = m$ci[1, 1],
+    ci_upper    = m$ci[1, 2],
+    n_obs       = sum(m$N_h),
+    bandwidth   = bw,
+    n_clusters  = length(unique(as.character(d$source_domain[in_bw]))),
+    boot_se     = NA_real_,
+    boot_p      = NA_real_,
+    boot_ci_lower = NA_real_,
+    boot_ci_upper = NA_real_
+  )
+}
+
+# One tidy row from a feols fit (H2 / H3a families)
+row_fe <- function(fit, section, spec, scale, outcome, fe_note) {
+  ct <- coeftable(fit$model)[fit$coef_name, ]
+  tibble(
+    section     = section,
+    spec        = spec,
+    scale       = scale,
+    outcome     = outcome,
+    estimator   = "feols",
+    term        = fit$coef_name,
+    fixed_effects = fe_note,
+    estimate    = ct[["Estimate"]],
+    std_error   = ct[["Std. Error"]],
+    p_value     = ct[["Pr(>|t|)"]],
+    ci_lower    = ct[["Estimate"]] - 1.96 * ct[["Std. Error"]],
+    ci_upper    = ct[["Estimate"]] + 1.96 * ct[["Std. Error"]],
+    n_obs       = fit$model$nobs,
+    bandwidth   = fit$bw,
+    n_clusters  = length(unique(as.character(fit$data$source_domain))),
+    boot_se     = fit$boot$se,
+    boot_p      = fit$boot$p_val,
+    boot_ci_lower = fit$boot$ci_lower,
+    boot_ci_upper = fit$boot$ci_upper
+  )
+}
+
+# Compact printer used for every comparison table below
+print_comparison <- function(tbl) {
+  tbl %>%
+    transmute(section, spec, scale, outcome,
+              estimate = round(estimate, 4),
+              se       = round(std_error, 4),
+              p        = signif(p_value, 3),
+              boot_p   = signif(boot_p, 3),
+              n_obs,
+              bandwidth = round(bandwidth, 2),
+              n_clusters) %>%
+    as.data.frame() %>%
+    print(row.names = FALSE)
+}
+```
+
+# Headline Estimates (Baselines)
+
+Nothing below can be interpreted without the headline numbers recomputed on the
+same samples, so they are estimated first. Two families are computed for each
+hypothesis:
+
+- the **z-score headline**, which is the specification the brief names (H1
+  `model5_opt`, H2 `model2a_opt_z`, H3a `model5a_opt_z`); and
+- the **raw-scale sibling** (H1 `model2_opt`, H2 `model2a_opt`, H3a
+  `model5a_opt`), which is the same specification on `sentiment_clean`.
+
+The raw-scale siblings exist here for one reason. Section 1 demeans
+`sentiment_clean` by pre-invasion topic means, which produces an outcome in raw
+sentiment units, while the named headline outcomes are z-scores. Reporting the
+raw-scale headline alongside makes that comparison like-for-like instead of
+comparing a raw-unit estimate to a z-unit one.
+
+## Z-Score Headlines
+
+```{r diag-headline-z}
+# H1: 04a chunk `model5-optimal-prob`
+h1_headline_z <- fit_h1(h1_data, "sentiment_z", use_topic_covs = TRUE)
+summary(h1_headline_z)
+
+# H2: 05a chunk `model2a-opt-prob-z`
+h2_headline_z <- fit_h2(h2_data, "sentiment_z")
+summary(h2_headline_z$model)
+cat("H2 bootstrap p-value for treatment:state_owned:", h2_headline_z$boot$p_val, "\n")
+
+# H3a: 06a chunk `align-optimal-prob-z`
+h3_headline_z <- fit_h3(h3_data, "sentiment_z")
+summary(h3_headline_z$model)
+cat("H3a bootstrap p-value for treatment:csto:", h3_headline_z$boot$p_val, "\n")
+
+headline_z <- bind_rows(
+  row_rd(h1_headline_z, h1_data, "headline", "H1",  "z-score", "sentiment_z",
+         "topic dummies as rdrobust covs"),
+  row_fe(h2_headline_z, "headline", "H2",  "z-score", "sentiment_z", "topic_clean FE"),
+  row_fe(h3_headline_z, "headline", "H3a", "z-score", "sentiment_z", "topic_clean FE")
+)
+
+print_comparison(headline_z)
+```
+
+## Raw-Scale Headline Siblings
+
+The raw-scale siblings use each host script's own raw-scale bandwidth
+residualization, which includes `source_domain` where the z-score version does
+not -- this is a genuine difference between the two headline families in `05a`
+and `06a`, not an edit.
+
+```{r diag-headline-raw}
+# H1 raw sibling: 04a chunk `model2-optimal-prob`
+h1_headline_raw <- fit_h1(h1_data, "sentiment_clean", use_topic_covs = TRUE)
+summary(h1_headline_raw)
+
+# H2 raw sibling: 05a chunks `optimal-bw-prob` + `model2a-opt-prob`
+h2_headline_raw <- fit_h2(h2_data, "sentiment_clean",
+                          resid_fe = c("topic_clean", "source_domain", "state_owned"))
+cat("H2 raw-scale bandwidth:", round(h2_headline_raw$bw, 2), "days\n")
+
+# H3a raw sibling: 06a chunk `align-optimal-prob`
+h3_headline_raw <- fit_h3(h3_data, "sentiment_clean",
+                          resid_fe = c("topic_clean", "source_domain", "csto"))
+cat("H3a raw-scale bandwidth:", round(h3_headline_raw$bw, 2), "days\n")
+
+headline_raw <- bind_rows(
+  row_rd(h1_headline_raw, h1_data, "headline", "H1", "raw", "sentiment_clean",
+         "topic dummies as rdrobust covs"),
+  row_fe(h2_headline_raw, "headline", "H2",  "raw", "sentiment_clean", "topic_clean FE"),
+  row_fe(h3_headline_raw, "headline", "H3a", "raw", "sentiment_clean", "topic_clean FE")
+)
+
+print_comparison(headline_raw)
+```
+
+# Section 1: Topic Adjustment Fixed at Pre-Invasion Values
+
+The headline models adjust for topic with a pooled fixed effect (or, for H1, a
+pooled dummy coefficient) estimated on articles from both sides of the cutoff. If
+the invasion changed what a topic label *means* -- if, say, "Economic" coverage
+after 24 February is a different kind of story than "Economic" coverage before --
+then that pooled adjustment is partly absorbing the treatment effect rather than
+netting out a fixed compositional difference.
+
+The test freezes the adjustment. Each topic's mean is computed over the
+pre-invasion period only and subtracted from every article carrying that topic,
+post-invasion articles included. The topic fixed effect is then **removed** from
+the specification, because the outcome already carries the adjustment. If the
+pooled fixed effects were only netting out a stable compositional difference, the
+estimate should barely move. If it moves, the topic adjustment is shifting across
+the cutoff.
+
+## Constructing the Pre-Invasion-Demeaned Outcomes
+
+Both scales are constructed. `sentiment_tdm` is the literal instruction --
+`sentiment_clean` minus its pre-invasion topic mean. `sentiment_z_tdm` applies the
+same pre-invasion topic demeaning on the z-score scale, so that it can be compared
+directly against the named z-score headline without a unit change confounding the
+comparison. Topic means are computed within each hypothesis's own estimation
+sample, over the full window's pre-invasion articles.
+
+```{r diag-s1-construct}
+add_pre_topic_demean <- function(d, label) {
+  pre_topic_means <- d %>%
+    filter(running_probabilistic < 0) %>%
+    group_by(topic_clean) %>%
+    summarise(pre_topic_mean_raw = mean(sentiment_clean, na.rm = TRUE),
+              pre_topic_mean_z   = mean(sentiment_z, na.rm = TRUE),
+              n_pre              = n(),
+              .groups = "drop")
+
+  cat("\nPre-invasion topic means -", label, "\n")
+  print(as.data.frame(pre_topic_means), row.names = FALSE)
+
+  d %>%
+    left_join(pre_topic_means, by = "topic_clean") %>%
+    mutate(sentiment_tdm   = sentiment_clean - pre_topic_mean_raw,
+           sentiment_z_tdm = sentiment_z - pre_topic_mean_z)
+}
+
+h1_s1 <- add_pre_topic_demean(h1_data,  "H1")
+h2_s1 <- add_pre_topic_demean(h2_data,  "H2")
+h3_s1 <- add_pre_topic_demean(h3_data,  "H3a")
+```
+
+## Re-Estimating H1/H2/H3a Without Topic Fixed Effects
+
+Topic is dropped from the model and, for H2 and H3a, from the bandwidth-selection
+residualization as well, so the bandwidth is chosen for the specification actually
+being fitted. Everything else -- kernel, polynomial order, bandwidth selector,
+clustering, bootstrap -- is unchanged from the headline.
+
+```{r diag-s1-estimate}
+# H1: same rdrobust call as `model5-optimal-prob`, with `covs` dropped
+h1_s1_z   <- fit_h1(h1_s1, "sentiment_z_tdm", use_topic_covs = FALSE)
+h1_s1_raw <- fit_h1(h1_s1, "sentiment_tdm",   use_topic_covs = FALSE)
+
+# H2: same procedure as `model2a-opt-prob-z`, with topic_clean removed throughout
+h2_s1_z   <- fit_h2(h2_s1, "sentiment_z_tdm",
+                    resid_fe = "state_owned", model_fe = character(0))
+h2_s1_raw <- fit_h2(h2_s1, "sentiment_tdm",
+                    resid_fe = c("source_domain", "state_owned"), model_fe = character(0))
+
+# H3a: same procedure as `align-optimal-prob-z`, with topic_clean removed throughout
+h3_s1_z   <- fit_h3(h3_s1, "sentiment_z_tdm",
+                    resid_fe = "csto", model_fe = character(0))
+h3_s1_raw <- fit_h3(h3_s1, "sentiment_tdm",
+                    resid_fe = c("source_domain", "csto"), model_fe = character(0))
+
+section1_estimates <- bind_rows(
+  row_rd(h1_s1_z,  h1_s1, "s1_pre_topic_demeaned", "H1",  "z-score",
+         "sentiment_z_tdm", "none (topic covs removed)"),
+  row_fe(h2_s1_z,  "s1_pre_topic_demeaned", "H2",  "z-score",
+         "sentiment_z_tdm", "none (topic FE removed)"),
+  row_fe(h3_s1_z,  "s1_pre_topic_demeaned", "H3a", "z-score",
+         "sentiment_z_tdm", "none (topic FE removed)"),
+  row_rd(h1_s1_raw, h1_s1, "s1_pre_topic_demeaned", "H1",  "raw",
+         "sentiment_tdm", "none (topic covs removed)"),
+  row_fe(h2_s1_raw, "s1_pre_topic_demeaned", "H2",  "raw",
+         "sentiment_tdm", "none (topic FE removed)"),
+  row_fe(h3_s1_raw, "s1_pre_topic_demeaned", "H3a", "raw",
+         "sentiment_tdm", "none (topic FE removed)")
+)
+
+print_comparison(section1_estimates)
+```
+
+## Comparison Against the Headline, and Write to Disk
+
+Each diagnostic row is paired with the headline row on the same scale, and the
+absolute and relative shifts in the point estimate are reported. `pct_change` is
+the shift expressed as a share of the headline estimate; for H2, whose headline
+estimate is small and statistically indistinguishable from zero, that percentage
+is volatile and the absolute shift is the more informative column.
+
+```{r diag-s1-compare}
+build_comparison <- function(diagnostic, baseline) {
+  baseline_keys <- baseline %>%
+    select(spec, scale,
+           headline_estimate = estimate,
+           headline_se       = std_error,
+           headline_p        = p_value,
+           headline_boot_p   = boot_p,
+           headline_n_obs    = n_obs,
+           headline_bandwidth = bandwidth)
+
+  diagnostic %>%
+    left_join(baseline_keys, by = c("spec", "scale")) %>%
+    mutate(
+      abs_change = estimate - headline_estimate,
+      pct_change = 100 * (estimate - headline_estimate) / headline_estimate,
+      se_ratio   = std_error / headline_se,
+      # how far the diagnostic estimate sits from the headline in headline SEs
+      shift_in_headline_ses = (estimate - headline_estimate) / headline_se
+    )
+}
+
+section1_comparison <- build_comparison(
+  section1_estimates,
+  bind_rows(headline_z, headline_raw)
+)
+
+section1_comparison %>%
+  transmute(spec, scale,
+            headline = round(headline_estimate, 4),
+            diagnostic = round(estimate, 4),
+            abs_change = round(abs_change, 4),
+            pct_change = round(pct_change, 1),
+            shift_in_headline_ses = round(shift_in_headline_ses, 3),
+            headline_p = signif(headline_p, 3),
+            diagnostic_p = signif(p_value, 3)) %>%
+  as.data.frame() %>%
+  print(row.names = FALSE)
+
+write_csv(section1_comparison,
+          file.path(OUTPUT_DIAGNOSTICS, "preperiod_topic_demeaned_comparison.csv"))
+cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_topic_demeaned_comparison.csv"), "\n")
+```
+
+# Section 2: Pre-Period-Only Z-Scoring
+
+The headline outcome is a source-level z-score computed over the full window. Its
+mean and standard deviation are therefore themselves functions of the invasion:
+a source whose sentiment collapsed after 24 February has a lower full-window mean
+and a larger full-window standard deviation than it had before, so the z-score
+shrinks the very movement being measured.
+
+This section re-standardizes using **pre-invasion** source means and standard
+deviations only, applied to the whole window, and re-runs the headline
+specifications with the topic fixed effects kept exactly as in the headline. The
+mechanical expectation is that the pre-period standard deviation is smaller than
+the full-window one, so estimates should grow in magnitude somewhat; what matters
+is whether they grow modestly or dramatically.
+
+## Re-Standardizing on Pre-Invasion Moments
+
+Sources with no pre-invasion articles, or with zero or undefined pre-invasion
+sentiment variance, cannot be standardized this way and are dropped. The dropped
+sources are counted, listed, and written to their own CSV so the sample change is
+visible rather than silent.
+
+```{r diag-s2-construct}
+add_pre_period_z <- function(d, label) {
+  all_sources <- unique(as.character(d$source_domain))
+
+  pre_moments <- d %>%
+    filter(running_probabilistic < 0) %>%
+    group_by(source_domain) %>%
+    summarise(pre_mean = mean(sentiment_clean, na.rm = TRUE),
+              pre_sd   = sd(sentiment_clean, na.rm = TRUE),
+              n_pre    = n(),
+              .groups  = "drop")
+
+  keep <- pre_moments %>% filter(!is.na(pre_sd), pre_sd > 0)
+
+  dropped <- tibble(
+    spec          = label,
+    source_domain = setdiff(all_sources, as.character(keep$source_domain))
+  ) %>%
+    left_join(pre_moments %>% mutate(source_domain = as.character(source_domain)),
+              by = "source_domain") %>%
+    mutate(reason = case_when(
+      is.na(n_pre)            ~ "no pre-invasion articles",
+      is.na(pre_sd)           ~ "pre-invasion SD undefined (single article)",
+      pre_sd <= 0             ~ "pre-invasion SD is zero",
+      TRUE                    ~ "unknown"
+    ))
+
+  cat(sprintf("%-4s  sources: %d total | %d with pre-invasion articles | %d retained | %d dropped\n",
+              label, length(all_sources), nrow(pre_moments), nrow(keep), nrow(dropped)))
+  if (nrow(dropped) > 0) {
+    print(as.data.frame(dropped %>% select(source_domain, n_pre, pre_sd, reason)),
+          row.names = FALSE)
+  }
+
+  out <- d %>%
+    inner_join(keep, by = "source_domain") %>%
+    mutate(sentiment_z_pre = (sentiment_clean - pre_mean) / pre_sd) %>%
+    droplevels()
+
+  list(data = out, dropped = dropped)
+}
+
+h1_s2 <- add_pre_period_z(h1_data, "H1")
+h2_s2 <- add_pre_period_z(h2_data, "H2")
+h3_s2 <- add_pre_period_z(h3_data, "H3a")
+
+dropped_sources <- bind_rows(h1_s2$dropped, h2_s2$dropped, h3_s2$dropped)
+
+write_csv(dropped_sources,
+          file.path(OUTPUT_DIAGNOSTICS, "preperiod_zscore_dropped_sources.csv"))
+cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_zscore_dropped_sources.csv"), "\n")
+```
+
+## Re-Estimating H1/H2/H3a on the Pre-Period Z-Score
+
+The specification is otherwise untouched: topic dummies stay in the H1 `covs`
+matrix and topic fixed effects stay in the H2 and H3a models, exactly as in the
+headline.
+
+```{r diag-s2-estimate}
+# H1: 04a chunk `model5-optimal-prob`, outcome swapped for the pre-period z-score
+h1_s2_fit <- fit_h1(h1_s2$data, "sentiment_z_pre", use_topic_covs = TRUE)
+summary(h1_s2_fit)
+
+# H2: 05a chunk `model2a-opt-prob-z`, outcome swapped
+h2_s2_fit <- fit_h2(h2_s2$data, "sentiment_z_pre")
+summary(h2_s2_fit$model)
+cat("H2 bootstrap p-value for treatment:state_owned:", h2_s2_fit$boot$p_val, "\n")
+
+# H3a: 06a chunk `align-optimal-prob-z`, outcome swapped
+h3_s2_fit <- fit_h3(h3_s2$data, "sentiment_z_pre")
+summary(h3_s2_fit$model)
+cat("H3a bootstrap p-value for treatment:csto:", h3_s2_fit$boot$p_val, "\n")
+
+section2_estimates <- bind_rows(
+  row_rd(h1_s2_fit, h1_s2$data, "s2_pre_period_zscore", "H1",  "z-score",
+         "sentiment_z_pre", "topic dummies as rdrobust covs"),
+  row_fe(h2_s2_fit, "s2_pre_period_zscore", "H2",  "z-score",
+         "sentiment_z_pre", "topic_clean FE"),
+  row_fe(h3_s2_fit, "s2_pre_period_zscore", "H3a", "z-score",
+         "sentiment_z_pre", "topic_clean FE")
+)
+
+print_comparison(section2_estimates)
+```
+
+## Comparison Against the Headline, and Write to Disk
+
+```{r diag-s2-compare}
+section2_comparison <- build_comparison(section2_estimates, headline_z) %>%
+  left_join(
+    dropped_sources %>% count(spec, name = "n_sources_dropped"),
+    by = "spec"
+  ) %>%
+  mutate(n_sources_dropped = coalesce(n_sources_dropped, 0L))
+
+section2_comparison %>%
+  transmute(spec,
+            headline = round(headline_estimate, 4),
+            diagnostic = round(estimate, 4),
+            abs_change = round(abs_change, 4),
+            pct_change = round(pct_change, 1),
+            se_ratio = round(se_ratio, 3),
+            headline_p = signif(headline_p, 3),
+            diagnostic_p = signif(p_value, 3),
+            n_sources_dropped) %>%
+  as.data.frame() %>%
+  print(row.names = FALSE)
+
+write_csv(section2_comparison,
+          file.path(OUTPUT_DIAGNOSTICS, "preperiod_zscore_comparison.csv"))
+cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_zscore_comparison.csv"), "\n")
+```
+
+# Section 3: Topic-Mapping Diagnostic
+
+Sections 1 and 2 report what happens to the estimates. This section reports
+*why*: it puts each topic's pre-invasion mean next to the pooled topic fixed
+effect the headline model actually estimates, and next to that topic's
+post-invasion mean, so it is visible which topics' mappings move across the
+cutoff. A topic whose mean is stable across the cutoff is well described by a
+single pooled fixed effect; a topic whose mean shifts is not, and it is those
+topics that drive whatever movement Section 1 found.
+
+## Extracting the Pooled Topic Fixed Effects
+
+`fixest::fixef()` recovers the topic fixed effects from the H2 and H3a headline
+models. They are reported both raw and centred on their own mean, because the
+level of a fixed effect is only identified up to the model intercept and only the
+spread across topics is interpretable.
+
+H1's headline is an `rdrobust` fit, whose topic adjustment enters as `covs`
+coefficients rather than fixed effects. `rdrobust` drops one dummy for
+collinearity **without reporting which one**, so its `beta_covs` vector cannot be
+reliably mapped back to topic names; it is printed below as an unlabelled
+diagnostic only, and the topic-FE column of the output table is left `NA` for H1.
+
+```{r diag-s3-fixef}
+fe_h2 <- fixef(h2_headline_z$model)$topic_clean
+fe_h3 <- fixef(h3_headline_z$model)$topic_clean
+
+cat("H2 headline topic fixed effects (model2a_opt_z):\n")
+print(fe_h2)
+cat("\nH3a headline topic fixed effects (model5a_opt_z):\n")
+print(fe_h3)
+
+cat("\nH1 headline rdrobust covariate coefficients (model5_opt), UNLABELLED:\n")
+cat("rdrobust dropped", ncol(model.matrix(~ topic_clean - 1, data = h1_data)) -
+      length(h1_headline_z$beta_covs),
+    "redundant topic dummy/dummies and does not report which, so these\n",
+    "coefficients cannot be mapped to topic names. Reported for reference only.\n")
+print(as.vector(h1_headline_z$beta_covs))
+
+topic_fe_table <- bind_rows(
+  tibble(spec = "H2",  topic_clean = names(fe_h2), topic_fe = as.numeric(fe_h2)),
+  tibble(spec = "H3a", topic_clean = names(fe_h3), topic_fe = as.numeric(fe_h3))
+) %>%
+  group_by(spec) %>%
+  mutate(topic_fe_centered = topic_fe - mean(topic_fe)) %>%
+  ungroup()
+```
+
+## Pre- Versus Post-Invasion Topic Means
+
+Topic means are computed twice for each hypothesis: over the full estimation
+window, which is the window Section 1's demeaning uses, and over the headline
+bandwidth window, which is the window the pooled fixed effects are actually
+estimated on. Article counts and topic shares on each side of the cutoff are
+included, because a topic whose share of coverage jumps at the cutoff shifts the
+composition of the sample even when its own mean is stable.
+
+```{r diag-s3-means}
+topic_period_means <- function(d, label, window, bw = NULL) {
+  if (!is.null(bw)) {
+    d <- d %>% filter(abs(running_probabilistic) < bw)
+  }
+
+  d %>%
+    mutate(topic_clean = as.character(topic_clean),
+           period = if_else(running_probabilistic < 0, "pre", "post")) %>%
+    group_by(topic_clean, period) %>%
+    summarise(mean_z   = mean(sentiment_z, na.rm = TRUE),
+              mean_raw = mean(sentiment_clean, na.rm = TRUE),
+              n        = n(),
+              .groups  = "drop") %>%
+    pivot_wider(names_from = period,
+                values_from = c(mean_z, mean_raw, n)) %>%
+    mutate(spec   = label,
+           window = window,
+           share_pre  = n_pre  / sum(n_pre,  na.rm = TRUE),
+           share_post = n_post / sum(n_post, na.rm = TRUE),
+           change_z   = mean_z_post   - mean_z_pre,
+           change_raw = mean_raw_post - mean_raw_pre,
+           share_change = share_post - share_pre) %>%
+    select(spec, window, topic_clean,
+           mean_z_pre, mean_z_post, change_z,
+           mean_raw_pre, mean_raw_post, change_raw,
+           n_pre, n_post, share_pre, share_post, share_change)
+}
+
+topic_means_full <- bind_rows(
+  topic_period_means(h1_data, "H1",  "full window"),
+  topic_period_means(h2_data, "H2",  "full window"),
+  topic_period_means(h3_data, "H3a", "full window")
+)
+
+topic_means_bw <- bind_rows(
+  topic_period_means(h1_data, "H1",  "headline bandwidth", h1_headline_z$bws[1, 1]),
+  topic_period_means(h2_data, "H2",  "headline bandwidth", h2_headline_z$bw),
+  topic_period_means(h3_data, "H3a", "headline bandwidth", h3_headline_z$bw)
+)
+
+cat("Pre- vs post-invasion topic means, full estimation window:\n")
+topic_means_full %>%
+  transmute(spec, topic_clean,
+            mean_z_pre = round(mean_z_pre, 4),
+            mean_z_post = round(mean_z_post, 4),
+            change_z = round(change_z, 4),
+            change_raw = round(change_raw, 4),
+            share_pre = round(share_pre, 3),
+            share_post = round(share_post, 3),
+            share_change = round(share_change, 3)) %>%
+  as.data.frame() %>%
+  print(row.names = FALSE)
+```
+
+## Assembling and Writing the Mapping Table
+
+The `fe_vs_pre_mean_gap` column is the diagnostic of interest: the distance
+between the pooled fixed effect a topic receives in the headline model and the
+pre-invasion mean that topic would receive under a frozen adjustment, both
+centred so the comparison is scale-free. A topic with a large gap is one whose
+mapping the pooled fixed effect is relocating relative to the pre-invasion
+baseline, and those topics are what Section 1 responds to.
+
+```{r diag-s3-assemble}
+topic_mapping_diagnostic <- bind_rows(topic_means_bw, topic_means_full) %>%
+  left_join(topic_fe_table, by = c("spec", "topic_clean")) %>%
+  group_by(spec, window) %>%
+  mutate(
+    mean_z_pre_centered = mean_z_pre - mean(mean_z_pre, na.rm = TRUE),
+    fe_vs_pre_mean_gap  = topic_fe_centered - mean_z_pre_centered
+  ) %>%
+  ungroup() %>%
+  arrange(spec, window, desc(abs(change_z))) %>%
+  select(spec, window, topic_clean,
+         mean_z_pre, mean_z_post, change_z,
+         mean_raw_pre, mean_raw_post, change_raw,
+         topic_fe, topic_fe_centered, mean_z_pre_centered, fe_vs_pre_mean_gap,
+         n_pre, n_post, share_pre, share_post, share_change)
+
+cat("Topic-FE vs pre-invasion mapping, headline bandwidth window:\n")
+topic_mapping_diagnostic %>%
+  filter(window == "headline bandwidth") %>%
+  transmute(spec, topic_clean,
+            mean_z_pre = round(mean_z_pre, 4),
+            mean_z_post = round(mean_z_post, 4),
+            change_z = round(change_z, 4),
+            topic_fe_centered = round(topic_fe_centered, 4),
+            mean_z_pre_centered = round(mean_z_pre_centered, 4),
+            fe_vs_pre_mean_gap = round(fe_vs_pre_mean_gap, 4)) %>%
+  as.data.frame() %>%
+  print(row.names = FALSE)
+
+write_csv(topic_mapping_diagnostic,
+          file.path(OUTPUT_DIAGNOSTICS, "topic_mapping_diagnostic.csv"))
+cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "topic_mapping_diagnostic.csv"), "\n")
+```
+
+# Combined Summary File
+
+Everything printed above is also written to a single plain-text file, so the three
+diagnostics can be read in one place without opening three CSVs. The file records
+the bootstrap setting, the sample sizes, and any bootstrap failures alongside the
+numbers, so a later reader can tell what was and was not computed.
+
+```{r diag-summary-txt}
+summary_path <- file.path(OUTPUT_DIAGNOSTICS, "preperiod_diagnostics_summary.txt")
+
+summary_lines <- capture.output({
+  cat("=============================================================\n")
+  cat("PRE-PERIOD ADJUSTMENT DIAGNOSTICS (PROBABILISTIC VARIANT)\n")
+  cat("Produced by scripts/10_preperiod_diagnostics.Rmd\n")
+  cat("Generated:", as.character(Sys.time()), "\n")
+  cat("=============================================================\n\n")
+
+  cat("AUTHOR DIAGNOSTICS ONLY. Not paper outputs; not registered in master.Rmd.\n\n")
+
+  cat("Wild cluster bootstrap: B =", BOOT_B,
+      "(repository default from 00_setup.R; not reduced)\n")
+  cat("Pre-invasion period defined as running_probabilistic < 0.\n")
+  cat("Running variable units: H1 seconds (04a convention); H2/H3a days.\n\n")
+
+  cat("SAMPLES\n")
+  cat("-------------------------------------------------------------\n")
+  cat(sprintf("H1  (04a data_non_ukraine)   : %6d articles, %3d sources\n",
+              nrow(h1_data), length(unique(h1_data$source_domain))))
+  cat(sprintf("H2  (05a data_non_ukraine)   : %6d articles, %3d sources\n",
+              nrow(h2_data), nlevels(h2_data$source_domain)))
+  cat(sprintf("H3a (06a data_align_state)   : %6d articles, %3d sources\n",
+              nrow(h3_data), nlevels(h3_data$source_domain)))
+  cat(sprintf("Articles where `treatment` disagrees with running < 0: H1 %d, H2 %d, H3a %d\n\n",
+              mismatch_h1, mismatch_h2, mismatch_h3))
+
+  cat("HEADLINE ESTIMATES (recomputed on the samples above)\n")
+  cat("-------------------------------------------------------------\n")
+  print_comparison(bind_rows(headline_z, headline_raw))
+
+  cat("\n\nSECTION 1: TOPIC ADJUSTMENT FIXED AT PRE-INVASION VALUES\n")
+  cat("-------------------------------------------------------------\n")
+  cat("Outcome demeaned by pre-invasion topic means; topic FE / covs removed.\n")
+  cat("'z-score' rows are comparable to the named z-score headlines;\n")
+  cat("'raw' rows are the literal sentiment_clean demeaning, compared against\n")
+  cat("the raw-scale headline siblings.\n\n")
+  print_comparison(section1_estimates)
+  cat("\nShift relative to headline:\n")
+  print(as.data.frame(section1_comparison %>%
+    transmute(spec, scale,
+              headline = round(headline_estimate, 4),
+              diagnostic = round(estimate, 4),
+              abs_change = round(abs_change, 4),
+              pct_change = round(pct_change, 1),
+              shift_in_headline_ses = round(shift_in_headline_ses, 3),
+              headline_p = signif(headline_p, 3),
+              diagnostic_p = signif(p_value, 3))), row.names = FALSE)
+
+  cat("\n\nSECTION 2: PRE-PERIOD-ONLY Z-SCORING\n")
+  cat("-------------------------------------------------------------\n")
+  cat("Outcome re-standardized on pre-invasion source means/SDs; topic FE kept.\n")
+  cat("Sources dropped for zero/undefined pre-invasion SD:\n")
+  if (nrow(dropped_sources) > 0) {
+    print(as.data.frame(dropped_sources %>%
+      select(spec, source_domain, n_pre, pre_sd, reason)), row.names = FALSE)
+  } else {
+    cat("  none\n")
+  }
+  cat("\n")
+  print_comparison(section2_estimates)
+  cat("\nShift relative to headline:\n")
+  print(as.data.frame(section2_comparison %>%
+    transmute(spec,
+              headline = round(headline_estimate, 4),
+              diagnostic = round(estimate, 4),
+              abs_change = round(abs_change, 4),
+              pct_change = round(pct_change, 1),
+              se_ratio = round(se_ratio, 3),
+              headline_p = signif(headline_p, 3),
+              diagnostic_p = signif(p_value, 3),
+              n_sources_dropped)), row.names = FALSE)
+
+  cat("\n\nSECTION 3: TOPIC-MAPPING DIAGNOSTIC\n")
+  cat("-------------------------------------------------------------\n")
+  cat("Pre- vs post-invasion topic means against the pooled topic FE from the\n")
+  cat("headline models. H1 topic FE are NA: its headline is rdrobust, whose\n")
+  cat("covariate coefficients cannot be mapped to topic names (one dummy is\n")
+  cat("dropped for collinearity without being identified).\n\n")
+  cat("Headline bandwidth window:\n")
+  print(as.data.frame(topic_mapping_diagnostic %>%
+    filter(window == "headline bandwidth") %>%
+    transmute(spec, topic_clean,
+              mean_z_pre = round(mean_z_pre, 4),
+              mean_z_post = round(mean_z_post, 4),
+              change_z = round(change_z, 4),
+              topic_fe_centered = round(topic_fe_centered, 4),
+              fe_vs_pre_mean_gap = round(fe_vs_pre_mean_gap, 4),
+              share_pre = round(share_pre, 3),
+              share_post = round(share_post, 3))), row.names = FALSE)
+  cat("\nFull estimation window:\n")
+  print(as.data.frame(topic_mapping_diagnostic %>%
+    filter(window == "full window") %>%
+    transmute(spec, topic_clean,
+              mean_z_pre = round(mean_z_pre, 4),
+              mean_z_post = round(mean_z_post, 4),
+              change_z = round(change_z, 4),
+              mean_raw_pre = round(mean_raw_pre, 4),
+              mean_raw_post = round(mean_raw_post, 4),
+              change_raw = round(change_raw, 4),
+              share_pre = round(share_pre, 3),
+              share_post = round(share_post, 3))), row.names = FALSE)
+
+  cat("\n\nBOOTSTRAP STATUS\n")
+  cat("-------------------------------------------------------------\n")
+  boot_status <- bind_rows(headline_z, headline_raw,
+                           section1_estimates, section2_estimates) %>%
+    filter(estimator == "feols") %>%
+    transmute(section, spec, scale,
+              boot_p = signif(boot_p, 3),
+              status = if_else(is.na(boot_p), "FAILED", "ok"))
+  print(as.data.frame(boot_status), row.names = FALSE)
+
+  cat("\n=============================================================\n")
+})
+
+writeLines(summary_lines, summary_path)
+cat("Wrote:", summary_path, "\n\n")
+cat(paste(summary_lines, collapse = "\n"), "\n")
+```
+
+# Session Info
+
+```{r diag-session-info}
+print_session_info()
+```

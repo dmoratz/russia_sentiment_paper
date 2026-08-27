@@ -1,0 +1,196 @@
+=============================================================
+PRE-PERIOD ADJUSTMENT DIAGNOSTICS (PROBABILISTIC VARIANT)
+Produced by scripts/10_preperiod_diagnostics.Rmd
+Generated: 2026-08-27 15:59:32.960962 
+=============================================================
+
+AUTHOR DIAGNOSTICS ONLY. Not paper outputs; not registered in master.Rmd.
+
+Wild cluster bootstrap: B = 4999 (repository default from 00_setup.R; not reduced)
+Pre-invasion period defined as running_probabilistic < 0.
+Running variable units: H1 seconds (04a convention); H2/H3a days.
+
+SAMPLES
+-------------------------------------------------------------
+H1  (04a data_non_ukraine)   : 174094 articles,  62 sources
+H2  (05a data_non_ukraine)   : 174056 articles,  61 sources
+H3a (06a data_align_state)   :  26911 articles,  13 sources
+Articles where `treatment` disagrees with running < 0: H1 0, H2 0, H3a 0
+
+HEADLINE ESTIMATES (recomputed on the samples above)
+-------------------------------------------------------------
+  section spec   scale         outcome estimate     se        p boot_p n_obs
+ headline   H1 z-score     sentiment_z  -0.2172 0.0362 1.96e-09     NA 45366
+ headline   H2 z-score     sentiment_z   0.0797 0.0633 2.13e-01  0.252 40710
+ headline  H3a z-score     sentiment_z  -0.1926 0.1110 1.08e-01  0.262  7164
+ headline   H1     raw sentiment_clean  -0.1153 0.0209 3.35e-08     NA 40674
+ headline   H2     raw sentiment_clean   0.0323 0.0332 3.34e-01  0.347 37622
+ headline  H3a     raw sentiment_clean  -0.1074 0.0524 6.29e-02  0.194  7008
+  bandwidth n_clusters
+ 2129700.73         61
+      20.93         60
+      38.42         13
+ 1804849.60         61
+      19.12         60
+      37.18         13
+
+
+SECTION 1: TOPIC ADJUSTMENT FIXED AT PRE-INVASION VALUES
+-------------------------------------------------------------
+Outcome demeaned by pre-invasion topic means; topic FE / covs removed.
+'z-score' rows are comparable to the named z-score headlines;
+'raw' rows are the literal sentiment_clean demeaning, compared against
+the raw-scale headline siblings.
+
+               section spec   scale         outcome estimate     se        p
+ s1_pre_topic_demeaned   H1 z-score sentiment_z_tdm  -0.2221 0.0368 1.58e-09
+ s1_pre_topic_demeaned   H2 z-score sentiment_z_tdm   0.1014 0.0610 1.01e-01
+ s1_pre_topic_demeaned  H3a z-score sentiment_z_tdm  -0.2087 0.1176 1.01e-01
+ s1_pre_topic_demeaned   H1     raw   sentiment_tdm  -0.1175 0.0222 1.12e-07
+ s1_pre_topic_demeaned   H2     raw   sentiment_tdm   0.0460 0.0309 1.41e-01
+ s1_pre_topic_demeaned  H3a     raw   sentiment_tdm  -0.1207 0.0583 6.06e-02
+ boot_p n_obs  bandwidth n_clusters
+     NA 43396 1959000.75         61
+  0.153 42599      22.32         60
+  0.229  7111      37.70         13
+     NA 37444 1633640.65         61
+  0.169 39156      19.99         60
+  0.181  7063      37.51         13
+
+Shift relative to headline:
+ spec   scale headline diagnostic abs_change pct_change shift_in_headline_ses
+   H1 z-score  -0.2172    -0.2221    -0.0049        2.2                -0.135
+   H2 z-score   0.0797     0.1014     0.0217       27.3                 0.343
+  H3a z-score  -0.1926    -0.2087    -0.0161        8.4                -0.145
+   H1     raw  -0.1153    -0.1175    -0.0023        2.0                -0.108
+   H2     raw   0.0323     0.0460     0.0137       42.4                 0.413
+  H3a     raw  -0.1074    -0.1207    -0.0133       12.4                -0.253
+ headline_p diagnostic_p
+   1.96e-09     1.58e-09
+   2.13e-01     1.01e-01
+   1.08e-01     1.01e-01
+   3.35e-08     1.12e-07
+   3.34e-01     1.41e-01
+   6.29e-02     6.06e-02
+
+
+SECTION 2: PRE-PERIOD-ONLY Z-SCORING
+-------------------------------------------------------------
+Outcome re-standardized on pre-invasion source means/SDs; topic FE kept.
+Sources dropped for zero/undefined pre-invasion SD:
+ spec      source_domain n_pre pre_sd                   reason
+   H1 voceabasarabiei.md    NA     NA no pre-invasion articles
+   H1       insajder.net     2      0  pre-invasion SD is zero
+   H2 voceabasarabiei.md    NA     NA no pre-invasion articles
+
+              section spec   scale         outcome estimate     se        p
+ s2_pre_period_zscore   H1 z-score sentiment_z_pre  -0.2418 0.0425 1.28e-08
+ s2_pre_period_zscore   H2 z-score sentiment_z_pre   0.1096 0.0675 1.10e-01
+ s2_pre_period_zscore  H3a z-score sentiment_z_pre  -0.2545 0.1061 3.36e-02
+ boot_p n_obs  bandwidth n_clusters
+     NA 46365 2213439.22         60
+  0.159 43639      22.80         60
+  0.100  7326      39.91         13
+
+Shift relative to headline:
+ spec headline diagnostic abs_change pct_change se_ratio headline_p
+   H1  -0.2172    -0.2418    -0.0246       11.3    1.174   1.96e-09
+   H2   0.0797     0.1096     0.0299       37.5    1.067   2.13e-01
+  H3a  -0.1926    -0.2545    -0.0619       32.1    0.956   1.08e-01
+ diagnostic_p n_sources_dropped
+     1.28e-08                 2
+     1.10e-01                 1
+     3.36e-02                 0
+
+
+SECTION 3: TOPIC-MAPPING DIAGNOSTIC
+-------------------------------------------------------------
+Pre- vs post-invasion topic means against the pooled topic FE from the
+headline models. H1 topic FE are NA: its headline is rdrobust, whose
+covariate coefficients cannot be mapped to topic names (one dummy is
+dropped for collinearity without being identified).
+
+Headline bandwidth window:
+ spec topic_clean mean_z_pre mean_z_post change_z topic_fe_centered
+   H1    Military    -0.0177     -0.4163  -0.3986                NA
+   H1     Culture     0.4186      0.0215  -0.3971                NA
+   H1    Economic     0.0953     -0.2202  -0.3155                NA
+   H1       Other     0.2770      0.0793  -0.1977                NA
+   H1   Political     0.0898     -0.0899  -0.1796                NA
+   H2     Culture     0.4175     -0.0279  -0.4454            0.1494
+   H2    Military    -0.0137     -0.4138  -0.4001           -0.2453
+   H2    Economic     0.0764     -0.2401  -0.3166           -0.1008
+   H2       Other     0.2660      0.0713  -0.1947            0.1825
+   H2   Political     0.0843     -0.0991  -0.1834            0.0142
+  H3a    Military    -0.0289     -0.3217  -0.2928           -0.2371
+  H3a     Culture     0.3802      0.1812  -0.1990            0.2282
+  H3a       Other     0.0445      0.1284   0.0839            0.0795
+  H3a    Economic     0.0923      0.0164  -0.0759           -0.0039
+  H3a   Political    -0.0122     -0.0553  -0.0430           -0.0667
+ fe_vs_pre_mean_gap share_pre share_post
+                 NA     0.225      0.299
+                 NA     0.051      0.049
+                 NA     0.098      0.145
+                 NA     0.143      0.164
+                 NA     0.482      0.343
+            -0.1020     0.049      0.048
+            -0.0654     0.228      0.299
+            -0.0112     0.096      0.146
+             0.0825     0.144      0.163
+             0.0961     0.483      0.344
+            -0.1130     0.192      0.178
+            -0.0569     0.086      0.058
+             0.1301     0.189      0.197
+            -0.0010     0.122      0.190
+             0.0407     0.412      0.377
+
+Full estimation window:
+ spec topic_clean mean_z_pre mean_z_post change_z mean_raw_pre mean_raw_post
+   H1    Military     0.0013     -0.3064  -0.3078      -0.2503       -0.4626
+   H1    Economic     0.3109      0.0109  -0.3000      -0.0350       -0.2360
+   H1     Culture     0.4632      0.2372  -0.2260       0.0707       -0.1074
+   H1   Political     0.1052     -0.0372  -0.1424      -0.1802       -0.2813
+   H1       Other     0.1602      0.1352  -0.0251      -0.1042       -0.1693
+   H2    Military     0.0013     -0.3064  -0.3078      -0.2503       -0.4626
+   H2    Economic     0.3109      0.0109  -0.3000      -0.0350       -0.2361
+   H2     Culture     0.4632      0.2372  -0.2260       0.0707       -0.1074
+   H2   Political     0.1052     -0.0372  -0.1424      -0.1802       -0.2814
+   H2       Other     0.1602      0.1352  -0.0251      -0.1042       -0.1694
+  H3a    Military    -0.0220     -0.2852  -0.2632      -0.1318       -0.2927
+  H3a    Economic     0.2708      0.0404  -0.2304       0.0935       -0.0315
+  H3a   Political     0.0473     -0.1207  -0.1680      -0.0868       -0.1722
+  H3a       Other    -0.0376      0.0814   0.1190      -0.0656       -0.0261
+  H3a     Culture     0.3045      0.3407   0.0362       0.1215        0.1301
+ change_raw share_pre share_post
+    -0.2123     0.171      0.283
+    -0.2010     0.108      0.169
+    -0.1781     0.078      0.053
+    -0.1011     0.400      0.335
+    -0.0651     0.243      0.160
+    -0.2123     0.171      0.284
+    -0.2011     0.108      0.169
+    -0.1781     0.078      0.053
+    -0.1012     0.400      0.335
+    -0.0651     0.243      0.160
+    -0.1609     0.128      0.185
+    -0.1250     0.128      0.215
+    -0.0855     0.331      0.340
+     0.0395     0.298      0.188
+     0.0087     0.116      0.072
+
+
+BOOTSTRAP STATUS
+-------------------------------------------------------------
+               section spec   scale boot_p status
+              headline   H2 z-score  0.252     ok
+              headline  H3a z-score  0.262     ok
+              headline   H2     raw  0.347     ok
+              headline  H3a     raw  0.194     ok
+ s1_pre_topic_demeaned   H2 z-score  0.153     ok
+ s1_pre_topic_demeaned  H3a z-score  0.229     ok
+ s1_pre_topic_demeaned   H2     raw  0.169     ok
+ s1_pre_topic_demeaned  H3a     raw  0.181     ok
+  s2_pre_period_zscore   H2 z-score  0.159     ok
+  s2_pre_period_zscore  H3a z-score  0.100     ok
+
+=============================================================
