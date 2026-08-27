@@ -1,0 +1,31 @@
+\begin{table}[t]
+\caption{Placebo Test: Russia-Aligned State Media by Country and Pooled (Probabilistic Time)\fontsize{12}{15}\selectfont } \\ 
+{\fontsize{14}{17}\selectfont  December 7, 2021 False Treatment Date} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}llllll}
+\toprule
+ & Armenia & Azerbaijan & Belarus & Kazakhstan & All Aligned \\ 
+\midrule\addlinespace[2.5pt]
+Estimate & 0.095 & -0.163 & 0.320* & -0.172 & 0.108 \\ 
+Std. Error & (0.223) & (0.143) & (0.143) & (0.265) & (0.089) \\ 
+95\% CI & [-0.343, 0.533] & [-0.444, 0.117] & [0.040, 0.599] & [-0.692, 0.349] & [-0.066, 0.282] \\ 
+p-value & 0.669 & 0.254 & 0.025 & 0.518 & 0.225 \\ 
+Bandwidth & 21.8 & 18.7 & 20.9 & 19.5 & 27.9 \\ 
+N & 325 & 325 & 825 & 128 & 2,061 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+Placebo tests using December 7, 2021 (US public warning of the buildup) as a
+false treatment date, restricted to state-owned media in the Russia-aligned
+countries, non-military topics, pre-invasion period (before Feb 19, 2022). Each
+column is a separate rdrobust fit on the source-level z-scored outcome with the
+MSE-optimal bandwidth. Columns 1-4 are estimated country by country; the final
+column pools all four aligned countries. Standard errors are rdrobust default
+(nearest-neighbor heteroskedasticity-robust); source clustering is not used,
+because each country has only 2-3 state-owned sources and the pooled column is
+reported on the same basis for comparability. Non-significant discontinuities
+indicate no pre-invasion jump at the warning date.\\
+\end{minipage}
+\end{table}
+

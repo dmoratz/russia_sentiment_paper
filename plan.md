@@ -21,6 +21,12 @@ Updated at every commit. Status legend: `TODO` / `WIP` / `DONE` / `BLOCKED` / `S
   fresh estimation code. The custom bandwidth/bootstrap/sample-construction code
   in those files is the point of the exercise.
 - One commit per task. Donald pushes. Tasks are never bundled.
+- **Text/CSV output locations.** The repo had no pre-existing CSV/TXT output
+  convention (no `.csv` or `.txt` anywhere under `figures/`), so the minimal rule
+  adopted here is: a summary file lives beside the object it describes.
+  Figure-tied summaries → `figures/heterogeneity/prob/`; table-tied summaries →
+  `figures/tables/prob/`; author-only diagnostics that are not paper outputs
+  (Task G) → `output/diagnostics/`.
 
 ## Execution strategy
 
@@ -190,8 +196,8 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 
 | Task | Status | Host files | Deliverables |
 |---|---|---|---|
-| A1 fix | TODO | `06a` | slopes → `figures/heterogeneity/prob/pretrend_slopes_aligned.csv` (ships with B) |
-| **B** | TODO | `06a`, `09a` | pooled aligned Dec-7 placebo (`placebo_aligned_pooled`); `table_s13_placebo_aligned.{tex,html}`; pooled + per-country est/CI/p/bw/N CSV |
+| A1 fix | **DONE** | `06a` | slopes → `figures/heterogeneity/prob/pretrend_slopes_aligned.csv` (shipped with B) |
+| **B** | **DONE** | `06a`, `09a` | pooled aligned Dec-7 placebo (`placebo_aligned_pooled`); `table_s13_placebo_aligned.{tex,html}`; pooled + per-country est/CI/p/bw/N CSV |
 | **D** | TODO | `05a`, `06a` | country-clustered WCR for 4 models; side-by-side txt + CSV; explicit point-estimate identity check |
 | **E** | TODO | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
 | **F** | TODO | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
@@ -211,10 +217,72 @@ Observations bearing on a future retirement of the `b`/`d` clones:
   (A5). A thin typology-robustness replacement must either keep those figure chunks
   or move them into the `a` files first, or the paper loses its figures.
 
+## Task results
+
+### Task B — aligned placebo table — DONE
+
+**Reproduction check passed exactly.** The runner recomputed the four per-country
+placebos from `02_cleaned_data.rds` and compared them to the objects already
+serialized in `06_alignment_results_prob.rds`: `|diff| = 0.00e+00` for all four
+(Armenia, Azerbaijan, Belarus, Kazakhstan). The sample construction in the runner is
+therefore identical to what 06a produces, which is what licenses patching the pooled
+objects into the existing `.rds` rather than re-rendering 06a.
+
+**Estimates** (Dec 7, 2021 false cutoff; state-owned, non-military, pre-invasion;
+source-level z-scored outcome; rdrobust MSE-optimal bandwidth):
+
+| Group | Sources | Estimate | SE | 95% CI | p | BW (days) | N |
+|---|---|---|---|---|---|---|---|
+| Armenia | 2 | 0.095 | 0.223 | [-0.343, 0.533] | 0.669 | 21.8 | 325 |
+| Azerbaijan | 2 | -0.163 | 0.143 | [-0.444, 0.117] | 0.254 | 18.7 | 325 |
+| Belarus | 3 | 0.320 | 0.143 | [0.040, 0.599] | **0.025** | 20.9 | 825 |
+| Kazakhstan | 2 | -0.172 | 0.265 | [-0.692, 0.349] | 0.518 | 19.5 | 128 |
+| **Pooled (HC)** | 9 | 0.108 | 0.089 | [-0.066, 0.282] | 0.225 | 27.9 | 2,061 |
+| Pooled (source-clustered) | 9 | 0.153 | 0.087 | [-0.018, 0.324] | 0.080 | 23.7 | 1,835 |
+
+**Two things for Donald to note.**
+
+1. The pooled placebo is null (p = 0.225 HC; p = 0.080 clustered), which is the
+   result the reviewer response wants: no pre-invasion jump at the warning date for
+   the Russia-aligned group as a whole.
+2. **Belarus is individually significant at p = 0.025, and the sign is positive**
+   (+0.32). The reviewer concern was that sentiment may have turned *negative*
+   during the buildup; a positive discontinuity is the opposite direction, so this
+   does not support the concern — but it is a significant pre-period discontinuity
+   and should be addressed in the text rather than left for a reader to find. Note
+   also that the pooled point estimate (+0.11) is pulled upward by Belarus, which
+   contributes 825 of the 2,061 pooled observations.
+
+**Pre-invasion slopes** (A1 fix, now written to
+`figures/heterogeneity/prob/pretrend_slopes_aligned.csv`): Armenia
+-0.017/30d (p = 0.017), Azerbaijan +0.024/30d (p = 0.001), Belarus +0.001/30d
+(p = 0.815), Kazakhstan -0.0002/30d (p = 0.978). Two of four are individually
+significant and they point in **opposite directions**, which is consistent with no
+common pre-invasion drift.
+
+Incidental: `rdrobust` emits "Multicollinearity issue detected in covs. Redundant
+covariates dropped." on both the per-country and pooled fits. This is pre-existing
+behaviour of the per-country chunk (collinear topic dummies after `droplevels`), not
+something introduced here.
+
 ## Re-render queue (for Donald, at leisure)
 
-Populated as tasks land.
+Re-render these so the `.rds` files are once again a clean product of their host
+script, rather than a patched version. Nothing depends on this being done soon —
+the patched objects reproduce exactly (see Task B above).
+
+- `06a_russian_alignment_analysis_prob.Rmd` — adds `placebo_aligned_pooled`,
+  `placebo_aligned_pooled_cl`, `placebo_aligned_estimates` to
+  `06_alignment_results_prob.rds` by a clean run (Task B).
 
 ## Output manifest
 
-Populated as tasks land.
+**Task B / A1**
+
+- `figures/tables/prob/table_s13_placebo_aligned.tex` — appendix table, five columns
+  (four countries + pooled)
+- `figures/tables/prob/table_s13_placebo_aligned.html`
+- `figures/tables/prob/placebo_aligned_estimates.csv` — tidy per-country + pooled
+  estimates, both pooled variances
+- `figures/heterogeneity/prob/pretrend_slopes_aligned.csv` — per-country pre-invasion
+  slopes (A1)

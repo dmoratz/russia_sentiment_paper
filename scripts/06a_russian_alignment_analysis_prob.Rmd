@@ -205,9 +205,16 @@ pretrend_slopes <- agg_pretrend_pre %>%
   }) %>%
   ungroup()
 
-cat("=== Task A: Pre-invasion sentiment slope in state media, by aligned country ===\n")
+cat("=== Pre-invasion sentiment slope in state media, by Russia-aligned country ===\n")
 cat("(slope in sentiment units per day; slope_30day = per 30 days)\n\n")
 print(as.data.frame(pretrend_slopes), row.names = FALSE, digits = 4)
+
+# Persist alongside the figure the slopes describe, so the numbers are available
+# without re-rendering this script.
+write_csv(pretrend_slopes,
+          file.path(FIGURES_HETEROGENEITY_PROB, "pretrend_slopes_aligned.csv"))
+cat("\nSlopes saved to:",
+    file.path(FIGURES_HETEROGENEITY_PROB, "pretrend_slopes_aligned.csv"), "\n")
 ```
 
 Replica of the figure above with a later start date (Dec 1, 2021) to confirm the
@@ -1044,6 +1051,123 @@ for (cntry in CSTO_COUNTRIES) {
 }
 
 cat("\nNote: Non-significant discontinuities suggest no pre-invasion jump at the warning date.\n")
+```
+
+## Placebo Test: December 7th Announcement (Aligned State Media, Pooled)
+
+The per-country placebos above are estimated on 2-3 sources each, so any single
+column is imprecise. This chunk pools all four Russia-aligned countries into one
+Dec 7, 2021 placebo RDD, mirroring the per-country estimation exactly (state-owned,
+non-military, pre-invasion, source-level z-scored outcome, topic dummies as
+covariates, rdrobust's MSE-optimal bandwidth). Pooling gives enough sources to
+report a source-clustered variance alongside rdrobust's default nearest-neighbour
+HC variance; both are reported so the per-country columns and the pooled column
+remain directly comparable.
+
+```{r placebo-dec-aligned-pooled-prob}
+# Same sample construction as the per-country loop above, but without the
+# country split. DEC7_CUTOFF is defined in the chunk above.
+dat_pooled <- data_align %>%
+  filter(state_owned == 1, country %in% CSTO_COUNTRIES,
+         !topic_clean %in% "Military",
+         date_publish < "2022-02-19") %>%
+  mutate(
+    topic_clean = droplevels(topic_clean),
+    country     = droplevels(country),
+    running_probabilistic = as.numeric(difftime(
+      date_publish_probabilistic, DEC7_CUTOFF, units = "secs")) / 86400,
+    treatment = ifelse(date_publish_probabilistic < DEC7_CUTOFF, 0, 1)
+  ) %>%
+  # Source-level z-score adjustment (as in the per-country placebos)
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                        sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(is.finite(sentiment_z))              # drop degenerate single-article sources
+
+covs_pooled <- model.matrix(~ topic_clean - 1, data = dat_pooled)
+
+# Primary pooled estimate: rdrobust default HC (nn) SEs, matching the per-country columns
+placebo_aligned_pooled <- rdrobust(
+  y    = dat_pooled$sentiment_z,
+  x    = dat_pooled$running_probabilistic,
+  covs = covs_pooled
+)
+
+# Secondary pooled estimate: source-clustered, viable here because pooling the four
+# countries yields enough sources for cluster-robust inference
+placebo_aligned_pooled_cl <- rdrobust(
+  y       = dat_pooled$sentiment_z,
+  x       = dat_pooled$running_probabilistic,
+  covs    = covs_pooled,
+  cluster = dat_pooled$source_domain
+)
+
+cat("\n--- Pooled (all Russia-aligned countries) ---\n")
+cat("Countries:", paste(sort(unique(as.character(dat_pooled$country))), collapse = ", "), "\n")
+cat("Sources:  ", n_distinct(dat_pooled$source_domain), "\n\n")
+
+for (lab in c("HC (nn), matching per-country columns", "Source-clustered")) {
+  m <- if (lab == "Source-clustered") placebo_aligned_pooled_cl else placebo_aligned_pooled
+  cat(lab, "\n")
+  cat("  Estimate:  ", round(m$coef[1], 3), "\n")
+  cat("  Std. Error:", round(m$se[1], 3), "\n")
+  cat("  95% CI:    [", round(m$ci[1, 1], 3), ",", round(m$ci[1, 2], 3), "]\n")
+  cat("  p-value:   ", round(m$pv[1], 3), "\n")
+  cat("  Bandwidth: ", round(m$bws[1, 1], 3), "days\n")
+  cat("  N (within bw):", m$N_h[1] + m$N_h[2], "\n")
+}
+```
+
+### Placebo Estimate Summary (Per-Country and Pooled)
+
+Collects the per-country and pooled placebo estimates into a single tidy table and
+writes it beside the appendix table it backs, so the numbers are available without
+re-rendering this script.
+
+```{r placebo-dec-aligned-summary-prob}
+# One tidy row per rdrobust fit
+tidy_placebo_rd <- function(m, label, n_sources) {
+  tibble(
+    group       = label,
+    n_sources   = n_sources,
+    estimate    = m$coef[1],
+    std_error   = m$se[1],
+    ci_lower    = m$ci[1, 1],
+    ci_upper    = m$ci[1, 2],
+    p_value     = m$pv[1],
+    bandwidth   = m$bws[1, 1],
+    n_within_bw = m$N_h[1] + m$N_h[2]
+  )
+}
+
+# Per-country source counts, recomputed on the same filters used in the loop above
+placebo_country_sources <- data_align %>%
+  filter(state_owned == 1, country %in% CSTO_COUNTRIES,
+         !topic_clean %in% "Military",
+         date_publish < "2022-02-19") %>%
+  group_by(country) %>%
+  summarize(n_sources = n_distinct(source_domain), .groups = "drop")
+
+placebo_aligned_estimates <- bind_rows(
+  map_df(names(placebo_aligned_models), function(cntry) {
+    n_src <- placebo_country_sources$n_sources[placebo_country_sources$country == cntry]
+    tidy_placebo_rd(placebo_aligned_models[[cntry]], cntry,
+                    if (length(n_src)) n_src else NA_integer_)
+  }),
+  tidy_placebo_rd(placebo_aligned_pooled, "Pooled (HC)",
+                  n_distinct(dat_pooled$source_domain)),
+  tidy_placebo_rd(placebo_aligned_pooled_cl, "Pooled (source-clustered)",
+                  n_distinct(dat_pooled$source_domain))
+)
+
+print(as.data.frame(placebo_aligned_estimates), row.names = FALSE, digits = 4)
+
+dir.create(file.path(FIGURES_TABLES, "prob"), showWarnings = FALSE, recursive = TRUE)
+write_csv(placebo_aligned_estimates,
+          file.path(FIGURES_TABLES, "prob", "placebo_aligned_estimates.csv"))
+cat("\nEstimates saved to:",
+    file.path(FIGURES_TABLES, "prob", "placebo_aligned_estimates.csv"), "\n")
 ```
 
 ## Matching
@@ -2156,6 +2280,12 @@ results_het_prob <- list(
 
   # Dec-7 placebo restricted to aligned (CSTO) state media, one rdrobust per country
   placebo_aligned_models = placebo_aligned_models,
+
+  # Same placebo pooled across the four aligned countries (HC and source-clustered),
+  # plus the tidy per-country + pooled estimate table
+  placebo_aligned_pooled = placebo_aligned_pooled,
+  placebo_aligned_pooled_cl = placebo_aligned_pooled_cl,
+  placebo_aligned_estimates = placebo_aligned_estimates,
 
   # Mini-Regressions: Heterogeneous treatment effect decomposition
   decomposition = decomposition_results

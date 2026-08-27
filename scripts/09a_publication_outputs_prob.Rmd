@@ -1290,13 +1290,15 @@ save_table(table_s12, "table_s12_placebo", TABLE_SUBDIR)
 ```
 
 
-## Table S13: Placebo Test, Aligned State Media (Dec 7, 2021)
+## Table S13: Placebo Test, Russia-Aligned State Media (Dec 7, 2021)
 
 ```{r table-s13}
-# Dec-7 placebo restricted to state-owned media in the Russia-aligned (CSTO) group,
+# Dec-7 placebo restricted to state-owned media in the Russia-aligned group,
 # estimated separately per country (rdrobust on the source-level z-scored outcome;
-# MSE-optimal bandwidth; default HC SEs). Countries are shown side-by-side as columns.
+# MSE-optimal bandwidth; default HC SEs). Countries are shown side-by-side as columns,
+# with the pooled all-aligned estimate in a final column.
 placebo_models <- results_align$placebo_aligned_models
+placebo_pooled <- results_align$placebo_aligned_pooled
 
 # Keep the aligned-country ordering; guard against any country that failed to estimate
 placebo_country_order <- CSTO_COUNTRIES[CSTO_COUNTRIES %in% names(placebo_models)]
@@ -1325,20 +1327,35 @@ for (cntry in placebo_country_order) {
   placebo_aligned_summary[[cntry]] <- format_placebo_col(placebo_models[[cntry]])
 }
 
+# Pooled column: the same specification estimated across all four aligned countries
+# at once. Reported with the same HC variance as the per-country columns so the
+# columns are directly comparable; the source-clustered pooled variant is in
+# figures/tables/prob/placebo_aligned_estimates.csv.
+if (!is.null(placebo_pooled)) {
+  placebo_aligned_summary[["All Aligned"]] <- format_placebo_col(placebo_pooled)
+} else {
+  warning("placebo_aligned_pooled not found in 06_alignment_results_prob.rds; ",
+          "table S13 built without the pooled column.")
+}
+
 note_placebo_aligned <- str_wrap(paste(
   "Placebo tests using December 7, 2021 (US public warning of the buildup) as a false",
-  "treatment date, restricted to state-owned media in each Russia-aligned country,",
+  "treatment date, restricted to state-owned media in the Russia-aligned countries,",
   "non-military topics, pre-invasion period (before Feb 19, 2022). Each column is a",
   "separate rdrobust fit on the source-level z-scored outcome with the MSE-optimal",
-  "bandwidth. Standard errors are rdrobust default (nearest-neighbor heteroskedasticity-",
-  "robust); source clustering is not used because each country has only 2-3 state-owned",
-  "sources. Non-significant discontinuities indicate no pre-invasion jump at the warning date."
+  "bandwidth. Columns 1-4 are estimated country by country; the final column pools all",
+  "four aligned countries. Standard errors are rdrobust default (nearest-neighbor",
+  "heteroskedasticity-robust); source clustering is not used, because each country has",
+  "only 2-3 state-owned sources and the pooled column is reported on the same basis for",
+  "comparability. Non-significant discontinuities indicate no pre-invasion jump at the",
+  "warning date."
 ), 80)
 
 table_s13 <- placebo_aligned_summary %>%
   gt() %>%
   cols_label(Statistic = "") %>%
-  tab_header(title = "Placebo Test: Aligned State Media by Country (Probabilistic Time)",
+  tab_header(title = paste("Placebo Test: Russia-Aligned State Media by Country and Pooled",
+                           "(Probabilistic Time)"),
              subtitle = "December 7, 2021 False Treatment Date") %>%
   tab_footnote(footnote = note_placebo_aligned)
 
