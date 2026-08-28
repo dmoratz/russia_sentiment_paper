@@ -1,10 +1,12 @@
 =============================================================
 PRE-PERIOD ADJUSTMENT DIAGNOSTICS (PROBABILISTIC VARIANT)
-Produced by scripts/10_preperiod_diagnostics.Rmd
-Generated: 2026-08-27 17:06:28.823758 
+Produced by scripts/09_preperiod_diagnostics.Rmd
+Generated: 2026-08-28 10:18:27.130912 
 =============================================================
 
-AUTHOR DIAGNOSTICS ONLY. Not paper outputs; not registered in master.Rmd.
+Sections 1-3 are author diagnostics, not paper outputs.
+Section 4 produces the models behind appendix table S15, serialized to
+  data/intermediate/09_preperiod_results_prob.rds and read by 10a.
 
 Wild cluster bootstrap: B = 4999 (repository default from 00_setup.R; not reduced)
 Pre-invasion period defined as running_probabilistic < 0.
@@ -78,7 +80,7 @@ SECTION 4: PRE-PERIOD VARIANTS ON THE MATCHED PREFERRED MODELS
 -------------------------------------------------------------
 Table 2 Model 6 (matched_model_z) and Table 4 Model 5 (matched_model).
 Matched samples rebuilt and each headline reproduced at |diff| = 0 before
-either variant was estimated:
+any variant was estimated. Four specifications per model; see table S15.
 
                           spec          object                  term
   H2 matched (Table 2 Model 6) matched_model_z treatment:state_owned
@@ -87,37 +89,47 @@ either variant was estimated:
   0.2222964347  0.2222964347        0  TRUE
  -0.3803738052 -0.3803738052        0  TRUE
 
-    section        spec   scale         outcome estimate     se        p boot_p
- s4_matched  H2 matched z-score     sentiment_z   0.2223 0.0690 0.002470 0.0334
- s4_matched  H2 matched z-score sentiment_z_tdm   0.2368 0.0688 0.001320 0.0232
- s4_matched  H2 matched z-score sentiment_z_pre   0.2650 0.0644 0.000176 0.0084
- s4_matched H3a matched z-score     sentiment_z  -0.3804 0.1120 0.005300 0.0262
- s4_matched H3a matched z-score sentiment_z_tdm  -0.3821 0.1118 0.005100 0.0242
- s4_matched H3a matched z-score sentiment_z_pre  -0.3521 0.0860 0.001480 0.0100
- n_obs bandwidth n_clusters
- 31379     42.28         43
- 31379     42.28         43
- 31379     42.28         43
-  5721     40.52         13
-  5721     40.52         13
-  5721     40.52         13
+    section        spec   scale             outcome estimate     se         p
+ s4_matched  H2 matched z-score         sentiment_z   0.2223 0.0690 0.0024700
+ s4_matched  H2 matched z-score     sentiment_z_tdm   0.2368 0.0688 0.0013200
+ s4_matched  H2 matched z-score     sentiment_z_pre   0.2650 0.0644 0.0001760
+ s4_matched  H2 matched z-score sentiment_z_pre_tdm   0.2809 0.0644 0.0000827
+ s4_matched H3a matched z-score         sentiment_z  -0.3804 0.1120 0.0053000
+ s4_matched H3a matched z-score     sentiment_z_tdm  -0.3821 0.1118 0.0051000
+ s4_matched H3a matched z-score     sentiment_z_pre  -0.3521 0.0860 0.0014800
+ s4_matched H3a matched z-score sentiment_z_pre_tdm  -0.3527 0.0839 0.0012300
+ boot_p n_obs bandwidth n_clusters
+ 0.0334 31379     42.28         43
+ 0.0232 31379     42.28         43
+ 0.0084 31379     42.28         43
+ 0.0046 31379     42.28         43
+ 0.0290  5721     40.52         13
+ 0.0242  5721     40.52         13
+ 0.0110  5721     40.52         13
+ 0.0054  5721     40.52         13
 
 Shift relative to the matched headline:
-        spec                       variant headline diagnostic abs_change
-  H2 matched (i) pre-period topic demeaned   0.2223     0.2368     0.0145
-  H2 matched       (ii) pre-period z-score   0.2223     0.2650     0.0427
- H3a matched (i) pre-period topic demeaned  -0.3804    -0.3821    -0.0017
- H3a matched       (ii) pre-period z-score  -0.3804    -0.3521     0.0283
+        spec                   variant headline diagnostic abs_change
+  H2 matched (2) pre-period topic adj.   0.2223     0.2368     0.0145
+  H2 matched    (3) pre-period z-score   0.2223     0.2650     0.0427
+  H2 matched                  (4) both   0.2223     0.2809     0.0586
+ H3a matched (2) pre-period topic adj.  -0.3804    -0.3821    -0.0017
+ H3a matched    (3) pre-period z-score  -0.3804    -0.3521     0.0283
+ H3a matched                  (4) both  -0.3804    -0.3527     0.0277
  pct_change shift_in_headline_ses headline_p diagnostic_p headline_boot_p
-        6.5                 0.210    0.00247     0.001320          0.0334
-       19.2                 0.618    0.00247     0.000176          0.0334
-       -0.5                -0.015    0.00530     0.005100          0.0262
-        7.4                 0.253    0.00530     0.001480          0.0262
+        6.5                 0.210    0.00247    0.0013200          0.0334
+       19.2                 0.618    0.00247    0.0001760          0.0334
+       26.3                 0.849    0.00247    0.0000827          0.0334
+       -0.5                -0.015    0.00530    0.0051000          0.0290
+        7.4                 0.253    0.00530    0.0014800          0.0290
+        7.3                 0.247    0.00530    0.0012300          0.0290
  diagnostic_boot_p
             0.0232
             0.0084
+            0.0046
             0.0242
-            0.0100
+            0.0110
+            0.0054
 
 
 SECTION 2: PRE-PERIOD-ONLY Z-SCORING

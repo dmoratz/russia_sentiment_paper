@@ -1089,59 +1089,108 @@ stopifnot(all(matched_reproduction$exact))
 cat("\nBoth matched headlines reproduce at |diff| = 0.\n")
 ```
 
-## Variant (i): Topic Adjustment Fixed at Pre-Invasion Values
+## The Four Specifications
 
-The model's outcome is `sentiment_z`, so it is `sentiment_z` that gets demeaned by
-its pre-invasion topic mean, computed within each matched sample. Topic fixed
-effects are then removed, since the adjustment they would apply is now baked into
-the outcome at pre-invasion values. The matched rows, the clustering and the
-running-variable interaction are untouched.
+Table S15 reports four specifications per matched model. Each isolates one of the
+two normalizations, or both together, against the same matched rows:
 
-```{r diag-s4-variant1}
-h2_m_s1 <- add_pre_topic_demean(h2_matched, "H2 matched")
-h3_m_s1 <- add_pre_topic_demean(h3_matched, "H3a matched")
+1. **Headline** -- the model as published: `sentiment_z` (source z-scored over the
+   full window), topic fixed effects, source clustering.
+2. **Pre-period topic adjustment only** -- topic fixed effects removed and the
+   outcome demeaned by its pre-invasion topic means, so the topic adjustment is
+   frozen at its pre-invasion values instead of being fitted across the cutoff.
+3. **Pre-period z-scoring only** -- the outcome re-standardized using each source's
+   pre-invasion mean and standard deviation; topic fixed effects retained, so this
+   is the headline with only the source normalization changed.
+4. **Both** -- the outcome first re-standardized on pre-invasion source moments,
+   then demeaned by pre-invasion topic means computed *on that same pre-period
+   z-scale*, with topic fixed effects removed.
 
-h2_m_v1 <- feols(sentiment_z_tdm ~ running_probabilistic * treatment * state_owned,
-                 cluster = ~source_domain, data = h2_m_s1)
-h3_m_v1 <- feols(sentiment_z_tdm ~ running_probabilistic * treatment * csto,
-                 cluster = ~source_domain, data = h3_m_s1)
+Everything else is held constant across the four: the same matched rows, the same
+bandwidth machinery inherited from the matched-sample construction, source
+clustering, and the wild cluster bootstrap at `B = 4999` under the fixed seed from
+`00_setup.R`.
 
-summary(h2_m_v1)
-summary(h3_m_v1)
-```
+```{r diag-s4-construct}
+# Spec 2 inputs: pre-invasion topic means on the headline outcome
+h2_m_s2in <- add_pre_topic_demean(h2_matched, "H2 matched")
+h3_m_s2in <- add_pre_topic_demean(h3_matched, "H3a matched")
 
-## Variant (ii): Pre-Period-Only Z-Scoring
+# Spec 3 inputs: source z-score rebuilt from pre-invasion moments
+h2_m_s3in <- add_pre_period_z(h2_matched, "H2 matched")
+h3_m_s3in <- add_pre_period_z(h3_matched, "H3a matched")
 
-The outcome is re-standardized using each source's pre-invasion mean and standard
-deviation only, computed within the matched sample. Everything else -- matched
-rows, topic fixed effects, clustering -- is exactly as in the headline. Sources
-with no usable pre-invasion variance are dropped and reported.
+# Spec 4 inputs: topic demeaning applied ON the pre-period z-scale, so the two
+# adjustments compose rather than being computed on different scales. Column
+# names are kept distinct from add_pre_topic_demean()'s so the joins cannot clash.
+add_pre_topic_demean_on <- function(d, source_col, target_col, label) {
+  pre_means <- d %>%
+    filter(running_probabilistic < 0) %>%
+    group_by(topic_clean) %>%
+    summarise(pre_topic_mean_on = mean(.data[[source_col]], na.rm = TRUE),
+              n_pre_topic_on    = n(),
+              .groups = "drop")
 
-```{r diag-s4-variant2}
-h2_m_s2 <- add_pre_period_z(h2_matched, "H2 matched")
-h3_m_s2 <- add_pre_period_z(h3_matched, "H3a matched")
+  cat("\nPre-invasion topic means on", source_col, "-", label, "\n")
+  print(as.data.frame(pre_means), row.names = FALSE)
 
-h2_m_v2 <- feols(sentiment_z_pre ~ running_probabilistic * treatment * state_owned |
-                   topic_clean,
-                 cluster = ~source_domain, data = h2_m_s2$data)
-h3_m_v2 <- feols(sentiment_z_pre ~ running_probabilistic * treatment * csto |
-                   topic_clean,
-                 cluster = ~source_domain, data = h3_m_s2$data)
+  out <- d %>% left_join(pre_means, by = "topic_clean")
+  out[[target_col]] <- out[[source_col]] - out$pre_topic_mean_on
+  out
+}
 
-summary(h2_m_v2)
-summary(h3_m_v2)
+h2_m_s4in <- add_pre_topic_demean_on(h2_m_s3in$data, "sentiment_z_pre",
+                                     "sentiment_z_pre_tdm", "H2 matched")
+h3_m_s4in <- add_pre_topic_demean_on(h3_m_s3in$data, "sentiment_z_pre",
+                                     "sentiment_z_pre_tdm", "H3a matched")
 
-dropped_sources_matched <- bind_rows(h2_m_s2$dropped, h3_m_s2$dropped)
+dropped_sources_matched <- bind_rows(h2_m_s3in$dropped, h3_m_s3in$dropped)
 write_csv(dropped_sources_matched,
           file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_dropped_sources.csv"))
 cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_dropped_sources.csv"), "\n")
 ```
 
-## Side-by-Side Comparison
+## Estimating the Four Specifications
+
+Specs 2 and 4 drop the topic fixed effects, because the topic adjustment they
+apply is already carried in the outcome. Specs 1 and 3 keep them. The interaction
+of interest is unchanged throughout.
+
+```{r diag-s4-fits}
+# H2 matched -- Table 2 Model 6
+h2_s15 <- list(
+  spec1 = h2_matched_headline,
+  spec2 = feols(sentiment_z_tdm ~ running_probabilistic * treatment * state_owned,
+                cluster = ~source_domain, data = h2_m_s2in),
+  spec3 = feols(sentiment_z_pre ~ running_probabilistic * treatment * state_owned |
+                  topic_clean,
+                cluster = ~source_domain, data = h2_m_s3in$data),
+  spec4 = feols(sentiment_z_pre_tdm ~ running_probabilistic * treatment * state_owned,
+                cluster = ~source_domain, data = h2_m_s4in)
+)
+
+# H3a matched -- Table 4 Model 5
+h3_s15 <- list(
+  spec1 = h3_matched_headline,
+  spec2 = feols(sentiment_z_tdm ~ running_probabilistic * treatment * csto,
+                cluster = ~source_domain, data = h3_m_s2in),
+  spec3 = feols(sentiment_z_pre ~ running_probabilistic * treatment * csto |
+                  topic_clean,
+                cluster = ~source_domain, data = h3_m_s3in$data),
+  spec4 = feols(sentiment_z_pre_tdm ~ running_probabilistic * treatment * csto,
+                cluster = ~source_domain, data = h3_m_s4in)
+)
+
+for (nm in names(h2_s15)) { cat("\n--- H2 matched,", nm, "---\n"); print(summary(h2_s15[[nm]])) }
+for (nm in names(h3_s15)) { cat("\n--- H3a matched,", nm, "---\n"); print(summary(h3_s15[[nm]])) }
+```
+
+## Side-by-Side Comparison and Serialization
 
 Each row carries the analytic cluster-robust p-value and the wild cluster bootstrap
-p-value, since the paper reports the bootstrap one for these models. The bootstrap
-runs at the same `B` as everywhere else in this file.
+p-value, since the paper reports the bootstrap one for these models. The fitted
+models and their bootstraps are serialized so `10a_publication_outputs_prob.Rmd` can
+build table S15 without refitting.
 
 ```{r diag-s4-comparison}
 # Assemble in the shape row_fe() expects, so these rows stack with sections 1-3
@@ -1150,34 +1199,49 @@ as_fit <- function(model, coef_name, data, bw) {
        boot = safe_wild_bootstrap(model, coef_name))
 }
 
+SPEC_LABELS <- c(spec1 = "(1) headline",
+                 spec2 = "(2) pre-period topic adj.",
+                 spec3 = "(3) pre-period z-score",
+                 spec4 = "(4) both")
+
+h2_fits <- list(
+  spec1 = as_fit(h2_s15$spec1, "treatment:state_owned", h2_matched,      bw_h2m),
+  spec2 = as_fit(h2_s15$spec2, "treatment:state_owned", h2_m_s2in,       bw_h2m),
+  spec3 = as_fit(h2_s15$spec3, "treatment:state_owned", h2_m_s3in$data,  bw_h2m),
+  spec4 = as_fit(h2_s15$spec4, "treatment:state_owned", h2_m_s4in,       bw_h2m)
+)
+h3_fits <- list(
+  spec1 = as_fit(h3_s15$spec1, "treatment:csto", h3_matched,     bw_h3m),
+  spec2 = as_fit(h3_s15$spec2, "treatment:csto", h3_m_s2in,      bw_h3m),
+  spec3 = as_fit(h3_s15$spec3, "treatment:csto", h3_m_s3in$data, bw_h3m),
+  spec4 = as_fit(h3_s15$spec4, "treatment:csto", h3_m_s4in,      bw_h3m)
+)
+
+OUTCOME_BY_SPEC <- c(spec1 = "sentiment_z", spec2 = "sentiment_z_tdm",
+                     spec3 = "sentiment_z_pre", spec4 = "sentiment_z_pre_tdm")
+FE_BY_SPEC      <- c(spec1 = "topic", spec2 = "none", spec3 = "topic", spec4 = "none")
+
 section4_estimates <- bind_rows(
-  row_fe(as_fit(h2_matched_headline, "treatment:state_owned", h2_matched, bw_h2m),
-         "s4_matched", "H2 matched", "z-score", "sentiment_z", "topic"),
-  row_fe(as_fit(h2_m_v1, "treatment:state_owned", h2_m_s1, bw_h2m),
-         "s4_matched", "H2 matched", "z-score", "sentiment_z_tdm", "none"),
-  row_fe(as_fit(h2_m_v2, "treatment:state_owned", h2_m_s2$data, bw_h2m),
-         "s4_matched", "H2 matched", "z-score", "sentiment_z_pre", "topic"),
-  row_fe(as_fit(h3_matched_headline, "treatment:csto", h3_matched, bw_h3m),
-         "s4_matched", "H3a matched", "z-score", "sentiment_z", "topic"),
-  row_fe(as_fit(h3_m_v1, "treatment:csto", h3_m_s1, bw_h3m),
-         "s4_matched", "H3a matched", "z-score", "sentiment_z_tdm", "none"),
-  row_fe(as_fit(h3_m_v2, "treatment:csto", h3_m_s2$data, bw_h3m),
-         "s4_matched", "H3a matched", "z-score", "sentiment_z_pre", "topic")
+  map_df(names(h2_fits), function(k)
+    row_fe(h2_fits[[k]], "s4_matched", "H2 matched", "z-score",
+           OUTCOME_BY_SPEC[[k]], FE_BY_SPEC[[k]]) %>% mutate(spec_id = k)),
+  map_df(names(h3_fits), function(k)
+    row_fe(h3_fits[[k]], "s4_matched", "H3a matched", "z-score",
+           OUTCOME_BY_SPEC[[k]], FE_BY_SPEC[[k]]) %>% mutate(spec_id = k))
 ) %>%
-  mutate(variant = rep(c("headline", "(i) pre-period topic demeaned",
-                         "(ii) pre-period z-score"), times = 2), .after = spec)
+  mutate(variant = unname(SPEC_LABELS[spec_id]), .after = spec)
 
 print_comparison(section4_estimates)
 
 # Shift of each variant against its own matched headline
 section4_comparison <- section4_estimates %>%
   group_by(spec) %>%
-  mutate(headline_estimate = estimate[variant == "headline"],
-         headline_se       = std_error[variant == "headline"],
-         headline_p        = p_value[variant == "headline"],
-         headline_boot_p   = boot_p[variant == "headline"]) %>%
+  mutate(headline_estimate = estimate[spec_id == "spec1"],
+         headline_se       = std_error[spec_id == "spec1"],
+         headline_p        = p_value[spec_id == "spec1"],
+         headline_boot_p   = boot_p[spec_id == "spec1"]) %>%
   ungroup() %>%
-  filter(variant != "headline") %>%
+  filter(spec_id != "spec1") %>%
   transmute(spec, variant,
             headline_estimate, estimate,
             abs_change = estimate - headline_estimate,
@@ -1207,6 +1271,36 @@ write_csv(section4_comparison,
           file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_shifts.csv"))
 cat("\nWrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_comparison.csv"), "\n")
 cat("Wrote:", file.path(OUTPUT_DIAGNOSTICS, "preperiod_matched_shifts.csv"), "\n")
+```
+
+## Serialized Results
+
+Written to `data/intermediate/` following the same convention as the 04-07 result
+files, and read by `10a_publication_outputs_prob.Rmd` to build table S15.
+
+```{r diag-serialize}
+results_preperiod_prob <- list(
+  # Table 2 Model 6 and Table 4 Model 5, each under the four S15 specifications
+  h2_matched_models  = h2_s15,
+  h3a_matched_models = h3_s15,
+
+  # WCR bootstrap results, keyed to match the model lists above
+  bootstrap_se = list(
+    h2_matched  = map(h2_fits, "boot"),
+    h3a_matched = map(h3_fits, "boot")
+  ),
+
+  spec_labels          = SPEC_LABELS,
+  matched_bandwidths   = list(h2 = bw_h2m, h3a = bw_h3m),
+  matched_reproduction = matched_reproduction,
+  section4_estimates   = section4_estimates,
+  section4_comparison  = section4_comparison
+)
+
+saveRDS(results_preperiod_prob,
+        file.path(DATA_INTERMEDIATE, "09_preperiod_results_prob.rds"))
+cat("Results saved to:",
+    file.path(DATA_INTERMEDIATE, "09_preperiod_results_prob.rds"), "\n")
 ```
 
 # Combined Summary File
@@ -1272,7 +1366,7 @@ summary_lines <- capture.output({
   cat("-------------------------------------------------------------\n")
   cat("Table 2 Model 6 (matched_model_z) and Table 4 Model 5 (matched_model).\n")
   cat("Matched samples rebuilt and each headline reproduced at |diff| = 0 before\n")
-  cat("either variant was estimated:\n\n")
+  cat("any variant was estimated. Four specifications per model; see table S15.\n\n")
   print(as.data.frame(matched_reproduction), row.names = FALSE, digits = 10)
   cat("\n")
   print_comparison(section4_estimates)

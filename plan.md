@@ -208,6 +208,7 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 | **F** | **DONE** | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
 | **G** | **DONE** | new `09_preperiod_diagnostics.Rmd` (was `10_`) | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
 | **G2** | **DONE** | `09_preperiod_diagnostics.Rmd` (Section 4) | both pre-period variants re-run on the matched preferred models (Table 2 Model 6, Table 4 Model 5); side-by-side to text/CSV |
+| **S15** | **DONE** | `09_preperiod_diagnostics.Rmd`, `10a` | four specs per matched model; `table_s15a`/`table_s15b` + side-by-side CSV |
 | **C** | **DONE** | `04b`, `05b`, `06b` | direct series labels, new suffixed filenames only |
 
 Serialization: F and C both touch `05b` — F first, C last. B / D / E fan out across
@@ -579,6 +580,57 @@ for a frozen topic adjustment to change.
 > from the diagnostics script so setup is the single source of truth. See
 > "RNG fix" below.
 
+### Table S15 — pre-period adjustment variants on the matched models — DONE
+
+Four specifications per matched preferred model, built by extending the Task G2
+machinery in Section 4 of `09_preperiod_diagnostics.Rmd`:
+
+1. headline as published;
+2. pre-period topic adjustment only (topic FE removed, outcome demeaned by its
+   pre-invasion topic means);
+3. pre-period z-scoring only (outcome standardized on pre-invasion source
+   means/SDs, topic FE retained);
+4. both (pre-period source z-score, then demeaned by pre-invasion topic means
+   computed **on that same pre-z scale**, no topic FE).
+
+Identical matched rows, bandwidth machinery and source clustering across all four;
+WCR bootstrap at `B = 4999` under the now-fixed seed. **Both matched headlines
+reproduced at `|diff| = 0`** before any variant was estimated
+(`0.2222964347`, `-0.3803738052`).
+
+| Model | Spec | Estimate | SE | Analytic p | Bootstrap p |
+|---|---|---|---|---|---|
+| H2 matched (T2 M6) | (1) headline | 0.2223 | 0.0690 | 0.00247 | 0.0334 |
+| | (2) pre-period topic | 0.2368 | 0.0688 | 0.00132 | 0.0232 |
+| | (3) pre-period z | 0.2650 | 0.0644 | 0.000176 | 0.0084 |
+| | (4) both | **0.2809** | 0.0644 | 0.0000828 | **0.0046** |
+| H3a matched (T4 M5) | (1) headline | -0.3804 | 0.1120 | 0.00530 | 0.0290 |
+| | (2) pre-period topic | -0.3821 | 0.1118 | 0.00510 | 0.0242 |
+| | (3) pre-period z | -0.3521 | 0.0860 | 0.00148 | 0.0110 |
+| | (4) both | -0.3527 | 0.0839 | 0.00123 | **0.0054** |
+
+N is 31,379 / 43 clusters for every H2 row and 5,721 / 13 for every H3a row; no
+source is dropped by the pre-period z-scoring in either matched sample.
+
+**Reading.** Freezing either adjustment at pre-invasion values — or both at once —
+leaves both results intact and, if anything, sharpens them. Every bootstrap
+p-value falls relative to its headline, and spec 4 is the strongest column in both
+panels. The two adjustments contribute in different ways across the two models:
+for H2 the source z-scoring does most of the work (0.2223 → 0.2650) while the topic
+adjustment adds a little (→ 0.2809); for H3a the topic adjustment does essentially
+nothing (-0.3804 → -0.3821, a shift of 0.015 headline SEs) and the z-scoring
+*shrinks* the estimate slightly while tightening the standard error enough that
+significance improves. H3a's insensitivity to the topic channel is expected: exact
+matching on topic and publication day already balances topic composition across
+the comparison groups.
+
+**Presentation.** Two 4-column panels rather than one 8-column table, since the two
+models carry different interaction terms: `table_s15a` (state ownership) and
+`table_s15b` (Russia-aligned). Stars are driven by the bootstrap p-values through
+`override_interaction_stars()`, as in Tables 2 and 4. Both panels carry a footnote
+recording that their bootstrap p-values are computed under the fixed seed and may
+differ in the third decimal place from Tables 2 and 4 until those are re-rendered.
+
 ## Second renumber — diagnostics promoted into the pipeline
 
 `09_preperiod_diagnostics.Rmd` is no longer a side script: its Section 4 produces the
@@ -679,6 +731,14 @@ The three canonical PNGs are byte-for-byte unchanged.
   total columns paired for H1, H2, H3a
 - `figures/tables/prob/table_s14_total_effect.html`
 - `figures/tables/prob/total_effect_comparison.csv` — estimates, SEs, N, bandwidth
+
+**Table S15** (appendix)
+
+- `figures/tables/prob/table_s15a_preperiod_matched_h2.{tex,html}`
+- `figures/tables/prob/table_s15b_preperiod_matched_h3a.{tex,html}`
+- `figures/tables/prob/table_s15_preperiod_matched.csv` — full side-by-side
+- `data/intermediate/09_preperiod_results_prob.rds` — the eight fitted models and
+  their bootstraps, read by `10a`
 
 **Task G2** (author diagnostics, not paper outputs)
 

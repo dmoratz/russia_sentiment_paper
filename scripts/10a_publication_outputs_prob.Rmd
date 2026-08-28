@@ -28,6 +28,7 @@ TABLE_SUBDIR <- "prob"
 results_h1    <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_prob.rds"))
 results_h2    <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_prob.rds"))
 results_align <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results_prob.rds"))
+results_prepd <- readRDS(file.path(DATA_INTERMEDIATE, "09_preperiod_results_prob.rds"))
 results_ethnic <- readRDS(file.path(DATA_INTERMEDIATE, "07_ethnic_results_prob.rds"))
 data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
 ```
@@ -1508,6 +1509,137 @@ write_csv(total_effect_comparison,
           file.path(FIGURES_TABLES, TABLE_SUBDIR, "total_effect_comparison.csv"))
 cat("\nSaved to:",
     file.path(FIGURES_TABLES, TABLE_SUBDIR, "total_effect_comparison.csv"), "\n")
+```
+
+## Table S15: Pre-Period Adjustment Variants, Matched Models
+
+Both headline normalizations -- the pooled topic fixed effects and the source-level
+z-score -- are fitted using data from both sides of the cutoff. If the invasion
+changed what a topic label means, or changed a source's sentiment distribution, an
+adjustment estimated across the cutoff absorbs part of the treatment effect. Table
+S15 re-estimates each matched preferred model with each adjustment frozen at its
+pre-invasion values, separately and together.
+
+Reported as two panels, one per matched model, because the two carry different
+interaction terms: S15a is Table 2 Model 6 (state ownership) and S15b is Table 4
+Model 5 (Russia-aligned). Within each panel the matched sample, bandwidth
+machinery and source clustering are identical across all four columns; only the
+outcome and the fixed-effect structure change. The models are built in
+`09_preperiod_diagnostics.Rmd`, which reproduces both headline estimates at
+`|diff| = 0` before estimating any variant.
+
+```{r table-s15}
+# Rows shared by both panels: which adjustment each column uses
+s15_rows <- function(models) {
+  tibble::tribble(
+    ~term,                    ~c1, ~c2, ~c3, ~c4,
+    "Topic FEs",              "X", "-", "X", "-",
+    "Pre-Period Topic Adj.",  "-", "X", "-", "X",
+    "Pre-Period Z-Score",     "-", "-", "X", "X",
+    "N (matched)",            format(nobs(models[[1]]), big.mark = ","),
+                              format(nobs(models[[2]]), big.mark = ","),
+                              format(nobs(models[[3]]), big.mark = ","),
+                              format(nobs(models[[4]]), big.mark = ","),
+    "Clusters",               get_n_clusters(models[[1]]), get_n_clusters(models[[2]]),
+                              get_n_clusters(models[[3]]), get_n_clusters(models[[4]])
+  )
+}
+
+s15_note <- function(model_desc, interaction_desc) {
+  str_wrap(paste(
+    "Column 1 is the published model.",
+    "Column 2 removes the topic fixed effects and demeans the outcome by its",
+    "pre-invasion topic means. Column 3 re-standardizes the outcome using each",
+    "source's pre-invasion mean and standard deviation, retaining topic fixed",
+    "effects. Column 4 applies both: the pre-invasion source z-score, then",
+    "demeaning by pre-invasion topic means computed on that same scale, with no",
+    "topic fixed effects.",
+    model_desc,
+    interaction_desc,
+    "All four columns use the identical exact-matched sample, bandwidth and source",
+    "clustering.",
+    SE_NOTE_BOOT,
+    "Bootstrap p-values here are computed under the fixed RNG seed set in",
+    "00_setup.R and may differ in the third decimal place from those in Tables 2",
+    "and 4 until those scripts are re-rendered."
+  ), 80)
+}
+
+s15_col_names <- c("(1) Headline†", "(2) Topic†", "(3) Z-Score†", "(4) Both†")
+
+build_s15 <- function(models, boots, param, coef_label, title, model_desc,
+                      interaction_desc) {
+  mods <- setNames(models[c("spec1", "spec2", "spec3", "spec4")], s15_col_names)
+  boot_list <- boots[c("spec1", "spec2", "spec3", "spec4")]
+
+  vcov_list <- setNames(
+    lapply(seq_along(mods), function(i)
+      create_bootstrap_vcov(mods[[i]], boot_list[[i]], param)),
+    s15_col_names)
+
+  tbl <- modelsummary(
+    mods,
+    output = "gt",
+    fmt = fmt_significant(2),
+    stars = TRUE,
+    vcov = vcov_list,
+    coef_map = setNames(c("Invasion", coef_label), c("treatment", param)),
+    gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|Num.Obs.",
+    title = title,
+    add_rows = s15_rows(mods),
+    notes = s15_note(model_desc, interaction_desc)
+  )
+
+  override_interaction_stars(tbl, boot_list, s15_col_names)
+}
+
+table_s15a <- build_s15(
+  results_prepd$h2_matched_models,
+  results_prepd$bootstrap_se$h2_matched,
+  "treatment:state_owned",
+  "State-Owned x Treat",
+  "Pre-Period Adjustment Variants — State Ownership, Matched (Probabilistic Time)",
+  "Sample is the exact-matched non-NATO, non-military sample of Table 2 Model 6.",
+  "The interaction is state-owned x invasion."
+)
+
+table_s15b <- build_s15(
+  results_prepd$h3a_matched_models,
+  results_prepd$bootstrap_se$h3a_matched,
+  "treatment:csto",
+  "Russia-Aligned x Treat",
+  "Pre-Period Adjustment Variants — Russia-Aligned, Matched (Probabilistic Time)",
+  paste("Sample is the exact-matched state-owned, non-NATO, non-military sample of",
+        "Table 4 Model 5."),
+  "The interaction is Russia-aligned x invasion."
+)
+
+table_s15a
+table_s15b
+
+save_table(table_s15a, "table_s15a_preperiod_matched_h2", TABLE_SUBDIR)
+save_table(table_s15b, "table_s15b_preperiod_matched_h3a", TABLE_SUBDIR)
+```
+
+### Table S15: Printed Side-by-Side
+
+The full comparison behind the two panels, including the analytic and bootstrap
+p-values side by side. Computed in `09_preperiod_diagnostics.Rmd`; reprinted and
+re-saved here so the numbers sit alongside the tables they support.
+
+```{r table-s15-comparison}
+s15_side_by_side <- results_prepd$section4_estimates %>%
+  transmute(model = spec, variant, outcome,
+            fixed_effects, estimate, std_error,
+            analytic_p = p_value, boot_se, boot_p,
+            n_obs, n_clusters)
+
+print(as.data.frame(s15_side_by_side), row.names = FALSE, digits = 4)
+
+write_csv(s15_side_by_side,
+          file.path(FIGURES_TABLES, TABLE_SUBDIR, "table_s15_preperiod_matched.csv"))
+cat("\nSaved to:",
+    file.path(FIGURES_TABLES, TABLE_SUBDIR, "table_s15_preperiod_matched.csv"), "\n")
 ```
 
 # Country-Level Clustering Check

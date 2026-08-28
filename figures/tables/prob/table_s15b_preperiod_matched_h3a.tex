@@ -1,0 +1,39 @@
+\begin{table}[t]
+\caption{Pre-Period Adjustment Variants — Russia-Aligned, Matched (Probabilistic Time)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccc}
+\toprule
+  & (1) Headline† & (2) Topic† & (3) Z-Score† & (4) Both† \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & 0.098 & 0.107 & 0.086 & 0.093 \\ 
+ & (0.069) & (0.071) & (0.055) & (0.055) \\ 
+Russia-Aligned x Treat & -0.38* & -0.38* & -0.352* & -0.353** \\ 
+{} & {(0.11)} & {(0.11)} & {(0.086)} & {(0.084)} \\ 
+R2 & 0.014 & 0.007 & 0.013 & 0.008 \\ 
+R2 Adj. & 0.013 & 0.006 & 0.012 & 0.007 \\ 
+Topic FEs & X & - & X & - \\ 
+Pre-Period Topic Adj. & - & X & - & X \\ 
+Pre-Period Z-Score & - & - & X & X \\ 
+N (matched) & 5,721 & 5,721 & 5,721 & 5,721 \\ 
+Clusters & 13 & 13 & 13 & 13 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
++ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
+Column 1 is the published model. Column 2 removes the topic fixed effects and
+demeans the outcome by its pre-invasion topic means. Column 3 re-standardizes
+the outcome using each source's pre-invasion mean and standard deviation,
+retaining topic fixed effects. Column 4 applies both: the pre-invasion source
+z-score, then demeaning by pre-invasion topic means computed on that same scale,
+with no topic fixed effects. Sample is the exact-matched state-owned, non-NATO,
+non-military sample of Table 4 Model 5. The interaction is Russia-aligned x
+invasion. All four columns use the identical exact-matched sample, bandwidth and
+source clustering. † Standard errors computed via wild cluster restricted (WCR)
+bootstrap (Cameron, Gelbach \& Miller 2008) with Webb six-point weights (B=4999,
+null imposed), clustered by source domain. Bootstrap p-values here are computed
+under the fixed RNG seed set in 00\_setup.R and may differ in the third decimal
+place from those in Tables 2 and 4 until those scripts are re-rendered.\\
+\end{minipage}
+\end{table}
+
