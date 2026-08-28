@@ -95,13 +95,9 @@ dir.create(OUTPUT_DIAGNOSTICS, showWarnings = FALSE, recursive = TRUE)
 # 00_setup.R (`run_wild_bootstrap`); it is NOT reduced for these diagnostics.
 BOOT_B <- 4999
 
-# fwildclusterboot >= 0.13 draws its bootstrap weights through dqrng, which has
-# its own RNG stream: set.seed() alone does NOT make boottest() reproducible.
-# Without this, every bootstrap p-value in this file drifts by a few thousandths
-# between runs. Note that no other script in the repository seeds dqrng, so their
-# bootstrap p-values are reproducible only up to Monte Carlo error.
-if (requireNamespace("dqrng", quietly = TRUE)) dqrng::dqset.seed(3184)
 
+# Both RNG streams (base R and dqrng) are seeded in 00_setup.R; see the note
+# there on why fwildclusterboot needs dqrng seeded separately.
 cat("Diagnostics directory:", OUTPUT_DIAGNOSTICS, "\n")
 cat("Wild cluster bootstrap B:", BOOT_B, "\n")
 ```

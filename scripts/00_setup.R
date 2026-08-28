@@ -88,8 +88,15 @@ pacman::p_load(
 # Global Settings
 # -----------------------------------------------------------------------------
 
-# Set seed for reproducibility
+# Set seed for reproducibility.
+#
+# Two streams have to be seeded, not one. fwildclusterboot >= 0.13 draws its
+# bootstrap weights through dqrng rather than base R, so `set.seed()` alone does
+# NOT make `boottest()` reproducible: bootstrap p-values drift by a few
+# thousandths between sessions (Monte Carlo error at B = 4999). Seeding dqrng
+# here makes every wild cluster bootstrap in the pipeline exactly reproducible.
 set.seed(3184)
+if (requireNamespace("dqrng", quietly = TRUE)) dqrng::dqset.seed(3184)
 
 # Scientific notation threshold
 options(scipen = 3, digits = 3)

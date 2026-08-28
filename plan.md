@@ -570,12 +570,46 @@ for a frozen topic adjustment to change.
 > reproducible only up to Monte Carlo error**, including the starred ones in Tables
 > 2 and 4.
 >
-> A one-line `dqrng::dqset.seed(3184)` was added to `10_preperiod_diagnostics.Rmd`
-> only, which is in scope for this task and now makes that file exactly
-> reproducible — verified by two independent runs producing byte-identical CSVs.
-> The same line in `00_setup.R` would fix it repo-wide, but that would shift the
-> published bootstrap p-values in every table, so it is left as **Donald's call**
-> rather than made silently.
+> **Resolved.** Donald authorised the repo-wide fix; `dqrng::dqset.seed(3184)` now
+> sits beside `set.seed(3184)` in `00_setup.R`, and the local line has been removed
+> from the diagnostics script so setup is the single source of truth. See
+> "RNG fix" below.
+
+## RNG fix — bootstrap reproducibility (repo-wide)
+
+`dqrng::dqset.seed(3184)` is now set in `00_setup.R` immediately after
+`set.seed(3184)`, with a comment explaining why both streams need seeding.
+`fwildclusterboot` >= 0.13 draws its bootstrap weights through `dqrng`, so base R's
+seed alone never controlled `boottest()`. `B = 4999` is unchanged.
+
+Verified: the same model bootstrapped in two independent R sessions now returns
+byte-identical results (`boot_p = 0.0306061212`, `boot_se = 0.1119295183` both
+times). Before the fix the same comparison drifted by a few thousandths.
+
+> ### ⚠ All previously generated wild-bootstrap p-values are SUPERSEDED
+>
+> Every bootstrap p-value produced before this commit was drawn from an unseeded
+> `dqrng` stream and is reproducible only up to Monte Carlo error (roughly ±0.006
+> at p ≈ 0.25 with B = 4999). Point estimates, standard errors, analytic p-values,
+> sample sizes and bandwidths are **unaffected** — only the bootstrap columns move,
+> and no conclusion in the paper changes. But for final numbers, every script that
+> produces a bootstrap p-value needs re-rendering under the fixed seed:
+>
+> | Script | What it re-generates |
+> |---|---|
+> | `04a_main_rdd_analysis_prob.Rmd` | `04_h1_results_prob.rds` (no WCR, but re-run for a clean chain) |
+> | `05a_diff_in_disc_analysis_prob.Rmd` | `bootstrap_se` for all H2 models, incl. `matched_model_z` |
+> | `06a_russian_alignment_analysis_prob.Rmd` | `bootstrap_se` for all H3a models, incl. `matched_model` |
+> | `07a_ethnic_russian_analysis_prob.Rmd` | `bootstrap_se` for the H3b models |
+> | `04b/05b/06b/07b`, `04d/05d/06d/07d` | the day and drop variants' bootstraps |
+> | `08_bandwidth_sensitivity.Rmd` | bandwidth-sensitivity intervals |
+> | `09_preperiod_diagnostics.Rmd` | Sections 1–4, incl. the `table_s15` models |
+> | `10{a,b,d}_publication_outputs_*.Rmd` | every table whose stars come from a WCR p |
+>
+> Until 05a and 06a are re-rendered, the bootstrap p-values in Tables 2, 4 and S14
+> remain the old unseeded ones, while `table_s15` (built after the fix) carries
+> seeded values. `table_s15` footnotes this explicitly. The affected numbers differ
+> only in the third decimal place.
 
 ## Re-render queue (for Donald, at leisure)
 
