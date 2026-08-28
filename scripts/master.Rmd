@@ -16,7 +16,7 @@ The **probabilistic (KDE) time-assignment** variant is the primary analysis. The
 **drop-no-time** variants are supplementary robustness checks. The **continuous-time** variant
 has been retired to `scripts/archive/` and is no longer part of the pipeline. Within each
 analysis family the variants are numbered and run in the order **prob → days → drop**,
-matching the publication-output (09) ordering.
+matching the publication-output (10) ordering.
 
 ## Variant Naming
 
@@ -49,9 +49,10 @@ matching the publication-output (09) ordering.
 | `07b_ethnic_russian_analysis_days.Rmd` | H3b: ethnic (day) | `07_ethnic_results.rds` |
 | `07d_ethnic_russian_analysis_drop.Rmd` | H3b: ethnic (drop no-time) | `07_ethnic_results_drop.rds` |
 | `08_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity analysis | Figures |
-| `09a_publication_outputs_prob.Rmd` | Publication tables (probabilistic, primary) | `.tex` + `.html` |
-| `09b_publication_outputs_days.Rmd` | Publication tables (day) | `.tex` + `.html` |
-| `09d_publication_outputs_drop.Rmd` | Publication tables (drop no-time) | `.tex` + `.html` |
+| `09_preperiod_diagnostics.Rmd` | Pre-period adjustment diagnostics; models for table S15 | `09_preperiod_results_prob.rds` |
+| `10a_publication_outputs_prob.Rmd` | Publication tables (probabilistic, primary) | `.tex` + `.html` |
+| `10b_publication_outputs_days.Rmd` | Publication tables (day) | `.tex` + `.html` |
+| `10d_publication_outputs_drop.Rmd` | Publication tables (drop no-time) | `.tex` + `.html` |
 
 Archived continuous-time scripts live in `scripts/archive/` (`04c`/`05c`/`06c`/`07c` and
 `08c_publication_outputs_cont.Rmd`, retired under the old numbering in which the
@@ -66,8 +67,9 @@ pipeline_start <- Sys.time()
 
 The pipeline renders each script in order. Scripts 01–02 build the data; 03 runs the
 descriptive/coding analyses; 04–07 run the three variants (prob → days → drop) of each
-hypothesis; 08 runs bandwidth sensitivity; 09 builds the publication outputs for each
-variant.
+hypothesis; 08 runs bandwidth sensitivity; 09 runs the pre-period adjustment
+diagnostics and builds the models behind appendix table S15; 10 builds the
+publication outputs for each variant.
 
 ```{r run-pipeline}
 # Ordered list of pipeline scripts. Within each analysis family the variants run
@@ -95,10 +97,11 @@ pipeline_scripts <- c(
   "07d_ethnic_russian_analysis_drop.Rmd",
 
   "08_bandwidth_sensitivity.Rmd",
+  "09_preperiod_diagnostics.Rmd",
 
-  "09a_publication_outputs_prob.Rmd",
-  "09b_publication_outputs_days.Rmd",
-  "09d_publication_outputs_drop.Rmd"
+  "10a_publication_outputs_prob.Rmd",
+  "10b_publication_outputs_days.Rmd",
+  "10d_publication_outputs_drop.Rmd"
 )
 
 timings <- data.frame(script = character(), seconds = numeric(), stringsAsFactors = FALSE)

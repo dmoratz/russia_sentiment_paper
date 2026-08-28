@@ -42,12 +42,13 @@ rmarkdown::render("02_data_cleaning.Rmd")
 descriptive  H1 RDD     H2 DiD     H3a align.  H3b ethnic                     │
      │          └───────────┴─────┬─────┴───────────┘                          │
      │                            ▼                                            │
-     └───────────────► 09{a,b,d}_publication_outputs ◄────────────────────────┘
+     └───────────────► 10{a,b,d}_publication_outputs ◄────────────────────────┘
 ```
 
-Each of 04–07 and 09 has three variants: `a` = probabilistic (primary), `b` = day,
-`d` = drop no-time. `08_bandwidth_sensitivity.Rmd` is a single script covering all
-hypotheses. Continuous-time (`c`) scripts are archived in `scripts/archive/`.
+Each of 04–07 and 10 has three variants: `a` = probabilistic (primary), `b` = day,
+`d` = drop no-time. `08_bandwidth_sensitivity.Rmd` and `09_preperiod_diagnostics.Rmd`
+are single scripts; both run on the probabilistic data only. Continuous-time (`c`)
+scripts are archived in `scripts/archive/`.
 
 ## File Descriptions
 
@@ -63,7 +64,8 @@ hypotheses. Continuous-time (`c`) scripts are archived in `scripts/archive/`.
 | `06{a,b,d}_russian_alignment_analysis_*.Rmd` | H3a: alignment (prob/days/drop) | `02_*.rds` | `06_alignment_results{,_prob,_drop}.rds` |
 | `07{a,b,d}_ethnic_russian_analysis_*.Rmd` | H3b: ethnic (prob/days/drop) | `02_*.rds` | `07_ethnic_results{,_prob,_drop}.rds` |
 | `08_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity | `02_*.rds` | Figures |
-| `09{a,b,d}_publication_outputs_*.Rmd` | Final tables per variant | `04/05/06/07_*.rds` | `.tex` + `.html` |
+| `09_preperiod_diagnostics.Rmd` | Pre-period adjustment diagnostics; table S15 models | `02_*.rds`, `05/06_*_prob.rds` | `09_preperiod_results_prob.rds`, `output/diagnostics/` |
+| `10{a,b,d}_publication_outputs_*.Rmd` | Final tables per variant | `04/05/06/07_*.rds`, `09_*.rds` | `.tex` + `.html` |
 | `master.Rmd` | Run entire pipeline | All above | All outputs |
 | `archive/` | Retired continuous-time scripts + lifted non-parametric saturation checks | - | - |
 
@@ -123,7 +125,7 @@ may have shifted negatively during the pre-invasion buildup in aligned state med
 | `pretrend_by_country_aligned_dec.png` (same figure, later start 2021-12-01, window-robustness) | `06a` (chunk `pretrend-by-country-aligned-dec-prob`) | `figures/heterogeneity/prob/` |
 | Per-country pre-invasion slope printout | `06a` (chunk `pretrend-slopes-aligned-prob`) | console |
 | `placebo_aligned_models` (named list; one Dec 7, 2021 placebo RDD per aligned country; state-owned non-military media; `rdrobust`, MSE-optimal bandwidth, z-scored outcome, default HC SEs — no clustering, since each country has 2-3 sources) | `06a` (chunk `placebo-dec-aligned-prob`) → serialized in `06_alignment_results_prob.rds` | `data/intermediate/` |
-| `table_s13_placebo_aligned` (appendix table; four aligned countries side-by-side as columns) | `09a_publication_outputs_prob.Rmd` (chunk `table-s13`) | `figures/tables/prob/` |
+| `table_s13_placebo_aligned` (appendix table; four aligned countries side-by-side as columns) | `10a_publication_outputs_prob.Rmd` (chunk `table-s13`) | `figures/tables/prob/` |
 
 ## Key Functions (from 00_setup.R)
 

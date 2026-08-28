@@ -20,7 +20,8 @@ russia_sentiment_paper/
 │   ├── 06{a,b,d}_russian_alignment_analysis_*.Rmd # H3a (prob/days/drop)
 │   ├── 07{a,b,d}_ethnic_russian_analysis_*.Rmd  # H3b (prob/days/drop)
 │   ├── 08_bandwidth_sensitivity.Rmd
-│   ├── 09{a,b,d}_publication_outputs_*.Rmd      # Final tables per variant
+│   ├── 09_preperiod_diagnostics.Rmd             # Pre-period adjustment diagnostics
+│   ├── 10{a,b,d}_publication_outputs_*.Rmd      # Final tables per variant
 │   ├── archive/             # Retired continuous-time (c) scripts + lifted diagnostics
 │   ├── master.Rmd           # Run entire pipeline
 │   └── README.md            # Scripts documentation
@@ -84,7 +85,8 @@ Each hypothesis is run in three time-treatment **variants**, suffixed `a`/`b`/`d
 | 6 | `06{a,b,d}_russian_alignment_analysis_*.Rmd` | **H3a**: CSTO alignment (incl. pre-trend + Dec-7 placebo) |
 | 7 | `07{a,b,d}_ethnic_russian_analysis_*.Rmd` | **H3b**: Ethnic Russian population effects |
 | 8 | `08_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity analysis |
-| 9 | `09{a,b,d}_publication_outputs_*.Rmd` | Generate final tables (`.tex`/`.html`) per variant |
+| 9 | `09_preperiod_diagnostics.Rmd` | Pre-period adjustment diagnostics; models behind appendix table S15 |
+| 10 | `10{a,b,d}_publication_outputs_*.Rmd` | Generate final tables (`.tex`/`.html`) per variant |
 
 Run the whole pipeline via `scripts/master.Rmd`.
 
@@ -156,7 +158,7 @@ the pre-invasion troop buildup, especially in state-owned media of Russia-aligne
   pre-invasion window only. The two versions differ only in start date (2021-06-01 vs
   2021-12-01) to show the slope is not a long-window artifact.
 - **Per-country aligned placebos** (`table_s13_placebo_aligned`, models built in `06a`,
-  table in `09a_publication_outputs_prob.Rmd`): a Dec 7, 2021 placebo RDD (`rdrobust`, MSE-optimal
+  table in `10a_publication_outputs_prob.Rmd`): a Dec 7, 2021 placebo RDD (`rdrobust`, MSE-optimal
   bandwidth, source-level z-scored outcome, default HC SEs) run separately for each aligned
   country's state-owned, non-military media, reported side-by-side.
 

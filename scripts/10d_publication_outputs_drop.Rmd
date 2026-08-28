@@ -1,5 +1,5 @@
 ---
-title: "09d - Publication Outputs (Drop No-Time Articles)"
+title: "10d - Publication Outputs (Drop No-Time Articles)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:

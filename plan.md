@@ -175,6 +175,11 @@ reported per model rather than assumed.
 
 ## PHASE 1 — Renumber + documentation fix — **DONE**
 
+> Note: this section records the **first** renumber (08↔09). A later pass moved the
+> publication scripts again, to `10{a,b,d}`, and promoted the diagnostics script to
+> `09_`. See "Second renumber" below. File names quoted in this section are as they
+> stood after Phase 1, not as they stand now.
+
 - [x] `git mv scripts/08{a,b,d}_publication_outputs_* → scripts/09{a,b,d}_...`
 - [x] `git mv scripts/09_bandwidth_sensitivity.Rmd → scripts/08_bandwidth_sensitivity.Rmd`
 - [x] YAML `title:` fields in all four renamed files
@@ -201,8 +206,8 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 | **D** | **DONE** | `00_setup.R`, `05a`, `06a`, `09a` | country-clustered WCR for 4 models; side-by-side txt + CSV; explicit point-estimate identity check |
 | **E** | **DONE** | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
 | **F** | **DONE** | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
-| **G** | **DONE** | new `10_preperiod_diagnostics.Rmd` | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
-| **G2** | **DONE** | `10_preperiod_diagnostics.Rmd` (Section 4) | both pre-period variants re-run on the matched preferred models (Table 2 Model 6, Table 4 Model 5); side-by-side to text/CSV |
+| **G** | **DONE** | new `09_preperiod_diagnostics.Rmd` (was `10_`) | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
+| **G2** | **DONE** | `09_preperiod_diagnostics.Rmd` (Section 4) | both pre-period variants re-run on the matched preferred models (Table 2 Model 6, Table 4 Model 5); side-by-side to text/CSV |
 | **C** | **DONE** | `04b`, `05b`, `06b` | direct series labels, new suffixed filenames only |
 
 Serialization: F and C both touch `05b` — F first, C last. B / D / E fan out across
@@ -442,7 +447,7 @@ artifact: there was ample room to fall.
 
 ### Task G — pre-period adjustment diagnostics — DONE
 
-Built as `scripts/10_preperiod_diagnostics.Rmd`, assembled by copying the estimation
+Built as `scripts/09_preperiod_diagnostics.Rmd` (renumbered from `10_`), assembled by copying the estimation
 machinery out of 04a/05a/06a rather than writing new estimators; every copied block
 carries a `# Following <file>, chunk <name>` comment. **Deliberately not registered
 in `master.Rmd`** (verified: zero references), per the brief. Bootstrap runs at the
@@ -517,8 +522,7 @@ bandwidths printing as ~2.1e6. That is pre-existing 04a behaviour, preserved.
 Task G ran the variants against the *unmatched* headline specs. This section repeats
 both against the preferred matched columns — **Table 2 Model 6** (`matched_model_z`,
 05a) and **Table 4 Model 5** (`matched_model`, 06a) — as Section 4 of
-`10_preperiod_diagnostics.Rmd`. Still author diagnostics; still not registered in
-`master.Rmd`.
+`09_preperiod_diagnostics.Rmd`.
 
 **Matched headlines reproduced exactly before anything else was estimated**, as
 required: `0.2222964347` and `-0.3803738052`, `|diff| = 0` against the serialized
@@ -574,6 +578,33 @@ for a frozen topic adjustment to change.
 > sits beside `set.seed(3184)` in `00_setup.R`, and the local line has been removed
 > from the diagnostics script so setup is the single source of truth. See
 > "RNG fix" below.
+
+## Second renumber — diagnostics promoted into the pipeline
+
+`09_preperiod_diagnostics.Rmd` is no longer a side script: its Section 4 produces the
+models behind appendix table S15, so it is now a registered pipeline step.
+
+| Was | Now |
+|---|---|
+| `10_preperiod_diagnostics.Rmd` | `09_preperiod_diagnostics.Rmd` |
+| `09a_publication_outputs_prob.Rmd` | `10a_publication_outputs_prob.Rmd` |
+| `09b_publication_outputs_days.Rmd` | `10b_publication_outputs_days.Rmd` |
+| `09d_publication_outputs_drop.Rmd` | `10d_publication_outputs_drop.Rmd` |
+
+Run order in `master.Rmd` is now 04–07 (three variants each) → 08 bandwidth →
+**09 pre-period diagnostics** → 10{a,b,d} publication outputs. The dependency runs
+the right way: 09 reads `05/06_*_prob.rds` for its `|diff| = 0` headline checks and
+writes `09_preperiod_results_prob.rds`, which 10a reads for table S15.
+
+Both READMEs updated (structure tree, pipeline tables, file-description tables, ASCII
+diagram, the "each of 04–07 and 10 has three variants" sentence, and the pre-trend
+output table). YAML titles updated in all four renamed files. Repo-wide sweep for the
+old names outside `scripts/archive/` returns nothing.
+
+The script's own framing was corrected too: it previously declared itself "AUTHOR
+DIAGNOSTICS ONLY. Not paper outputs; not registered in master.Rmd", both clauses of
+which are now false. The Overview and the summary-file header now state that
+Sections 1–3 remain author diagnostics while Section 4 produces paper output.
 
 ## RNG fix — bootstrap reproducibility (repo-wide)
 
@@ -666,7 +697,7 @@ The three canonical PNGs are byte-for-byte unchanged.
 - `output/diagnostics/preperiod_zscore_dropped_sources.csv`
 - `output/diagnostics/topic_mapping_diagnostic.csv`
 - `output/diagnostics/preperiod_diagnostics_summary.txt`
-- `output/10_preperiod_diagnostics.html` (rendered report; gitignored)
+- `output/09_preperiod_diagnostics.html` (rendered report; gitignored)
 
 **Task D**
 

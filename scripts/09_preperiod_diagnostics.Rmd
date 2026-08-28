@@ -1,5 +1,5 @@
 ---
-title: "10 - Pre-Period Adjustment Diagnostics (Probabilistic Time Assignment)"
+title: "09 - Pre-Period Adjustment Diagnostics (Probabilistic Time Assignment)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
@@ -27,10 +27,17 @@ All estimation machinery here is **copied** from the three headline scripts --
 block names its source file and chunk in a comment. Only the outcome variable and
 the fixed-effect structure change, and only where a diagnostic requires it.
 
-**These are author diagnostics, not paper outputs.** Nothing here is intended for
-the manuscript or the appendix; the files written to `output/diagnostics/` exist
-so the three comparisons can be inspected side by side. This script is
-deliberately **not registered in `master.Rmd`**.
+**What in here is a paper output, and what is not.** This script is a registered
+pipeline step, running after `08_bandwidth_sensitivity.Rmd` and before the
+`10{a,b,d}` publication scripts. Its role is split:
+
+- **Sections 1-3 are author diagnostics.** They exist so the effect of each
+  normalization can be inspected; nothing in them is destined for the manuscript.
+  Their output goes to `output/diagnostics/` as CSV and text.
+- **Section 4 produces paper output.** It runs the pre-period variants against the
+  two matched preferred models (Table 2 Model 6 and Table 4 Model 5) and serializes
+  the fitted models to `09_preperiod_results_prob.rds`, which
+  `10a_publication_outputs_prob.Rmd` reads to build appendix **table S15**.
 
 **Headline specifications under test** (read from code, not assumed):
 
@@ -1215,11 +1222,13 @@ summary_path <- file.path(OUTPUT_DIAGNOSTICS, "preperiod_diagnostics_summary.txt
 summary_lines <- capture.output({
   cat("=============================================================\n")
   cat("PRE-PERIOD ADJUSTMENT DIAGNOSTICS (PROBABILISTIC VARIANT)\n")
-  cat("Produced by scripts/10_preperiod_diagnostics.Rmd\n")
+  cat("Produced by scripts/09_preperiod_diagnostics.Rmd\n")
   cat("Generated:", as.character(Sys.time()), "\n")
   cat("=============================================================\n\n")
 
-  cat("AUTHOR DIAGNOSTICS ONLY. Not paper outputs; not registered in master.Rmd.\n\n")
+  cat("Sections 1-3 are author diagnostics, not paper outputs.\n")
+  cat("Section 4 produces the models behind appendix table S15, serialized to\n")
+  cat("  data/intermediate/09_preperiod_results_prob.rds and read by 10a.\n\n")
 
   cat("Wild cluster bootstrap: B =", BOOT_B,
       "(repository default from 00_setup.R; not reduced)\n")

@@ -1,5 +1,5 @@
 ---
-title: "09b - Publication Outputs (Day Running Variable)"
+title: "10b - Publication Outputs (Day Running Variable)"
 author: "Donald Moratz"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
