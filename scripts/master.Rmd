@@ -53,6 +53,7 @@ matching the publication-output (10) ordering.
 | `10a_publication_outputs_prob.Rmd` | Publication tables (probabilistic, primary) | `.tex` + `.html` |
 | `10b_publication_outputs_days.Rmd` | Publication tables (day) | `.tex` + `.html` |
 | `10d_publication_outputs_drop.Rmd` | Publication tables (drop no-time) | `.tex` + `.html` |
+| `11_typology_robustness.Rmd` | Main results under all three time-assignment typologies | `.tex` + `.html` |
 
 Archived continuous-time scripts live in `scripts/archive/` (`04c`/`05c`/`06c`/`07c` and
 `08c_publication_outputs_cont.Rmd`, retired under the old numbering in which the
@@ -69,7 +70,8 @@ The pipeline renders each script in order. Scripts 01–02 build the data; 03 ru
 descriptive/coding analyses; 04–07 run the three variants (prob → days → drop) of each
 hypothesis; 08 runs bandwidth sensitivity; 09 runs the pre-period adjustment
 diagnostics and builds the models behind appendix table S15; 10 builds the
-publication outputs for each variant.
+publication outputs for each variant; 11 compares the main results across the
+three time-assignment typologies.
 
 ```{r run-pipeline}
 # Ordered list of pipeline scripts. Within each analysis family the variants run
@@ -101,7 +103,9 @@ pipeline_scripts <- c(
 
   "10a_publication_outputs_prob.Rmd",
   "10b_publication_outputs_days.Rmd",
-  "10d_publication_outputs_drop.Rmd"
+  "10d_publication_outputs_drop.Rmd",
+
+  "11_typology_robustness.Rmd"
 )
 
 timings <- data.frame(script = character(), seconds = numeric(), stringsAsFactors = FALSE)

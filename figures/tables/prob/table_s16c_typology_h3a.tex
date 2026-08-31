@@ -1,0 +1,41 @@
+\begin{table}[t]
+\caption*{
+{\fontsize{20}{25}\selectfont  Typology Robustness — H3a — Russia-aligned vs neutral state media\fontsize{12}{15}\selectfont } \\ 
+{\fontsize{14}{17}\selectfont  Same specification under each time-assignment variant\fontsize{12}{15}\selectfont }
+} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrr}
+\toprule
+ & Probabilistic & Day & Drop \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{4}{l}{Main (Table 4, Model 4)} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+Estimate & -0.332+ & -0.265 & -0.364* \\ 
+Std. Error & (0.111) & (0.101) & (0.109) \\ 
+Bootstrap p & 0.053 & 0.101 & 0.046 \\ 
+N & 6,094 & 6,469 & 5,812 \\ 
+Clusters & 13 & 13 & 11 \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{4}{l}{Matched (Table 4, Model 5)} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+Estimate & -0.380* & -0.311+ & -0.364* \\ 
+Std. Error & (0.112) & (0.104) & (0.109) \\ 
+Bootstrap p & 0.029 & 0.060 & 0.044 \\ 
+N & 5,721 & 6,097 & 5,812 \\ 
+Clusters & 13 & 13 & 11 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+Each column re-estimates the same specification under a different
+time-assignment typology: probabilistic imputation of missing publication
+times (the primary analysis), the calendar day as the running variable, or
+articles without a recorded time dropped. Sample sizes differ across columns by
+construction, since the typologies retain different articles and select their
+own MSE-optimal bandwidths. The coefficient reported is Russia-Aligned x Treat.
+† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron,
+Gelbach \& Miller 2008) with Webb six-point weights (B=99999, null imposed),
+clustered by source domain. Stars follow the bootstrap p-value where one exists.\\
+\end{minipage}
+\end{table}
+

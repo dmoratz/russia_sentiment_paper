@@ -1,0 +1,314 @@
+---
+title: "11 - Typology Robustness (Time-Assignment Variants)"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+Every hypothesis is estimated three times, once under each time-assignment
+typology: **probabilistic** (KDE-imputed publication times, the primary
+analysis), **day** (the calendar day as the running variable), and **drop**
+(articles without a recorded time discarded). The question this script answers is
+narrow and specific: *does the headline result depend on which typology was
+chosen?*
+
+That question does not need the full appendix reproduced three times. It needs
+one number per hypothesis per typology, side by side. This script reads the
+serialized results of `04`-`07` for all three variants and reports exactly that.
+
+**Scope.** For each hypothesis, two specifications are shown:
+
+| Hypothesis | Main specification | Matched specification |
+|---|---|---|
+| H1 | Table 1, Model 5 (`model5_opt`) | — none in Table 1 |
+| H2 | Table 2, Model 5 (`model2d_z`) | Table 2, Model 6 (`matched_model_z`) |
+| H3a | Table 4, Model 4 (`model5a_opt_non_mil_z`) | Table 4, Model 5 (`matched_model`) |
+| H3b | Table 5, Model 4 (`model6a_opt_non_mil_z`) | Table 5, Model 5 (`matched_model_z`) |
+
+The matched specification is the preferred column in each case; the unmatched one
+is shown alongside so a reader can see both move together.
+
+**What is deliberately not here.** No appendix robustness objects, no by-topic
+breakdowns, no leave-one-out, no placebos. Those are reported once, for the
+primary probabilistic variant, in `10a_publication_outputs_prob.Rmd`. Repeating
+them per typology is what this script replaces.
+
+**Inputs** — twelve serialized result objects:
+
+- `04_h1_results{_prob,,_drop}.rds`
+- `05_h2_results{_prob,,_drop}.rds`
+- `06_alignment_results{_prob,,_drop}.rds`
+- `07_ethnic_results{_prob,,_drop}.rds`
+
+**Outputs** — written to `figures/tables/prob/`, alongside the other appendix
+tables, since this is an appendix object for the primary paper even though its
+content spans all three variants:
+
+- `table_s16a_typology_h1.{tex,html}`
+- `table_s16b_typology_h2.{tex,html}`
+- `table_s16c_typology_h3a.{tex,html}`
+- `table_s16d_typology_h3b.{tex,html}`
+- `typology_robustness_comparison.csv` — every cell in tidy form
+
+```{r setup}
+source("00_setup.R")
+
+TABLE_SUBDIR <- "prob"
+options(digits = 10)
+```
+
+# Specification Map
+
+The one place that defines what is compared. Each entry names the serialized
+object, the coefficient of interest, and the key under which its wild cluster
+bootstrap result was stored. H1 has no matched sibling and no bootstrap: Table 1
+Model 5 is an `rdrobust` fit reported with cluster-robust standard errors.
+
+```{r spec-map}
+# Suffixes on the intermediate files, in the order the tables display them
+VARIANTS <- c(Probabilistic = "_prob", Day = "", Drop = "_drop")
+
+TYPOLOGY_SPECS <- list(
+  H1 = list(
+    label   = "H1 — Effect of the invasion on sentiment",
+    file    = "04_h1_results",
+    term    = "treatment",
+    coef    = "Invasion",
+    specs   = list("Main (Table 1, Model 5)" = "model5_opt")
+  ),
+  H2 = list(
+    label   = "H2 — State-owned vs independent media",
+    file    = "05_h2_results",
+    term    = "treatment:state_owned",
+    coef    = "State-Owned x Treat",
+    specs   = list("Main (Table 2, Model 5)"    = "model2d_z",
+                   "Matched (Table 2, Model 6)" = "matched_model_z")
+  ),
+  H3a = list(
+    label   = "H3a — Russia-aligned vs neutral state media",
+    file    = "06_alignment_results",
+    term    = "treatment:csto",
+    coef    = "Russia-Aligned x Treat",
+    specs   = list("Main (Table 4, Model 4)"    = "model5a_opt_non_mil_z",
+                   "Matched (Table 4, Model 5)" = "matched_model")
+  ),
+  H3b = list(
+    label   = "H3b — Ethnic Russian population",
+    file    = "07_ethnic_results",
+    term    = "treatment:high_russia",
+    coef    = "High Russian Pop x Treat",
+    specs   = list("Main (Table 5, Model 4)"    = "model6a_opt_non_mil_z",
+                   "Matched (Table 5, Model 5)" = "matched_model_z")
+  )
+)
+```
+
+# Extraction
+
+`rdrobust` and `feols` expose their estimates differently, and only the `feols`
+models carry a wild cluster bootstrap, so one extractor handles both and returns
+a common shape. A missing object yields a row of `NA` rather than an error: the
+`drop` variant's `04` and `07` results were serialized before those scripts last
+changed, so some cells are empty until those two are re-rendered. Which cells are
+missing is reported explicitly below rather than passed over silently.
+
+```{r extract}
+# One tidy row: hypothesis x specification x variant
+extract_cell <- function(res, obj_name, term, hyp, spec_label, variant) {
+  blank <- tibble(hypothesis = hyp, spec = spec_label, variant = variant,
+                  object = obj_name, estimate = NA_real_, std_error = NA_real_,
+                  p_value = NA_real_, boot_se = NA_real_, boot_p = NA_real_,
+                  n_obs = NA_real_, n_clusters = NA_character_, available = FALSE)
+
+  m <- res[[obj_name]]
+  if (is.null(m)) return(blank)
+
+  boot <- if (!is.null(res$bootstrap_se)) res$bootstrap_se[[obj_name]] else NULL
+
+  if (inherits(m, "rdrobust")) {
+    # Table 1 Model 5: cluster-robust rdrobust, no bootstrap
+    blank$estimate   <- m$coef[1]
+    blank$std_error  <- m$se[1]
+    blank$p_value    <- m$pv[1]
+    blank$n_obs      <- m$N_h[1] + m$N_h[2]
+    blank$n_clusters <- NA_character_
+  } else {
+    ct <- coeftable(m)
+    if (!term %in% rownames(ct)) return(blank)
+    blank$estimate   <- ct[term, "Estimate"]
+    blank$std_error  <- ct[term, "Std. Error"]
+    blank$p_value    <- ct[term, "Pr(>|t|)"]
+    blank$n_obs      <- nobs(m)
+    blank$n_clusters <- get_n_clusters(m)
+    if (!is.null(boot)) {
+      blank$boot_se <- boot$se
+      blank$boot_p  <- boot$p_val
+    }
+  }
+  blank$available <- TRUE
+  blank
+}
+
+typology_cells <- map_df(names(TYPOLOGY_SPECS), function(hyp) {
+  s <- TYPOLOGY_SPECS[[hyp]]
+  map_df(names(VARIANTS), function(v) {
+    path <- file.path(DATA_INTERMEDIATE, paste0(s$file, VARIANTS[[v]], ".rds"))
+    if (!file.exists(path)) {
+      return(map_df(names(s$specs), function(sl)
+        extract_cell(list(), s$specs[[sl]], s$term, hyp, sl, v)))
+    }
+    res <- readRDS(path)
+    map_df(names(s$specs), function(sl)
+      extract_cell(res, s$specs[[sl]], s$term, hyp, sl, v))
+  })
+})
+
+cat("Cells extracted:", nrow(typology_cells),
+    "| available:", sum(typology_cells$available),
+    "| missing:", sum(!typology_cells$available), "\n\n")
+
+missing_cells <- typology_cells %>% filter(!available)
+if (nrow(missing_cells) > 0) {
+  cat("MISSING — these serialized objects were not found. The `drop` results for\n")
+  cat("04 and 07 predate the current scripts; re-render those to fill them in.\n")
+  print(as.data.frame(missing_cells %>% select(hypothesis, spec, variant, object)),
+        row.names = FALSE)
+} else {
+  cat("All cells present.\n")
+}
+```
+
+# Tables
+
+One table per hypothesis, typologies as columns. Each specification occupies a
+labelled block of rows so the same quantity can be read straight across the three
+typologies. Significance stars follow the wild cluster bootstrap p-value where
+one exists, matching Tables 2, 4 and 5; H1 uses its `rdrobust` p-value.
+
+```{r build-tables}
+# Format one specification x variant cell into the column of statistics below
+format_cell <- function(row) {
+  if (!row$available) return(rep("—", 5))
+  p_for_stars <- if (!is.na(row$boot_p)) row$boot_p else row$p_value
+  stars <- get_boot_stars(p_for_stars)
+  c(
+    sprintf("%.3f%s", row$estimate, stars),
+    sprintf("(%.3f)", if (!is.na(row$boot_se)) row$boot_se else row$std_error),
+    if (is.na(row$boot_p)) "—" else sprintf("%.3f", row$boot_p),
+    format(round(row$n_obs), big.mark = ","),
+    if (is.na(row$n_clusters)) "—" else as.character(row$n_clusters)
+  )
+}
+
+STAT_LABELS <- c("Estimate", "Std. Error", "Bootstrap p", "N", "Clusters")
+
+build_typology_table <- function(hyp) {
+  s <- TYPOLOGY_SPECS[[hyp]]
+  cells <- typology_cells %>% filter(hypothesis == hyp)
+
+  body <- map_df(names(s$specs), function(sl) {
+    tab <- tibble(Specification = sl, Statistic = STAT_LABELS)
+    for (v in names(VARIANTS)) {
+      row <- cells %>% filter(spec == sl, variant == v)
+      tab[[v]] <- format_cell(row)
+    }
+    tab
+  })
+
+  note <- str_wrap(paste(
+    "Each column re-estimates the same specification under a different",
+    "time-assignment typology: probabilistic imputation of missing publication",
+    "times (the primary analysis), the calendar day as the running variable, or",
+    "articles without a recorded time dropped. Sample sizes differ across columns",
+    "by construction, since the typologies retain different articles and select",
+    "their own MSE-optimal bandwidths.",
+    "The coefficient reported is", paste0(s$coef, "."),
+    if (hyp == "H1")
+      "Table 1 Model 5 is an rdrobust fit reported with cluster-robust standard errors, so no bootstrap p-value applies."
+    else
+      SE_NOTE_BOOT,
+    "Stars follow the bootstrap p-value where one exists."
+  ), 80)
+
+  tbl <- body %>%
+    gt(groupname_col = "Specification") %>%
+    cols_label(Statistic = "") %>%
+    tab_header(title = paste0("Typology Robustness — ", s$label),
+               subtitle = "Same specification under each time-assignment variant") %>%
+    tab_footnote(footnote = note)
+
+  tbl
+}
+
+table_s16a <- build_typology_table("H1")
+table_s16b <- build_typology_table("H2")
+table_s16c <- build_typology_table("H3a")
+table_s16d <- build_typology_table("H3b")
+
+table_s16a
+table_s16b
+table_s16c
+table_s16d
+
+save_table(table_s16a, "table_s16a_typology_h1",  TABLE_SUBDIR)
+save_table(table_s16b, "table_s16b_typology_h2",  TABLE_SUBDIR)
+save_table(table_s16c, "table_s16c_typology_h3a", TABLE_SUBDIR)
+save_table(table_s16d, "table_s16d_typology_h3b", TABLE_SUBDIR)
+```
+
+# Printed Comparison and CSV
+
+The same content in tidy form, so the numbers behind the four tables are
+available without parsing them.
+
+```{r comparison-csv}
+typology_comparison <- typology_cells %>%
+  select(hypothesis, spec, variant, object, estimate, std_error, p_value,
+         boot_se, boot_p, n_obs, n_clusters, available)
+
+print(as.data.frame(typology_comparison %>%
+        select(hypothesis, spec, variant, estimate, std_error, boot_p, n_obs)),
+      row.names = FALSE, digits = 4)
+
+write_csv(typology_comparison,
+          file.path(FIGURES_TABLES, TABLE_SUBDIR, "typology_robustness_comparison.csv"))
+cat("\nSaved to:",
+    file.path(FIGURES_TABLES, TABLE_SUBDIR, "typology_robustness_comparison.csv"), "\n")
+```
+
+# Spread Across Typologies
+
+A compact read on the actual question: how much does each estimate move when the
+typology changes? Reported as the range across the available variants, in units
+of the primary (probabilistic) standard error, so it is comparable across
+hypotheses.
+
+```{r spread}
+typology_spread <- typology_cells %>%
+  filter(available) %>%
+  group_by(hypothesis, spec) %>%
+  summarize(
+    n_variants   = n(),
+    prob_estimate = estimate[variant == "Probabilistic"][1],
+    prob_se       = coalesce(boot_se[variant == "Probabilistic"][1],
+                             std_error[variant == "Probabilistic"][1]),
+    min_estimate = min(estimate), max_estimate = max(estimate),
+    .groups = "drop"
+  ) %>%
+  mutate(spread = max_estimate - min_estimate,
+         spread_in_prob_ses = spread / prob_se)
+
+print(as.data.frame(typology_spread), row.names = FALSE, digits = 4)
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```

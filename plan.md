@@ -831,6 +831,73 @@ times). Before the fix the same comparison drifted by a few thousandths.
 > seeded values. `table_s15` footnotes this explicitly. The affected numbers differ
 > only in the third decimal place.
 
+## Phase 3 — typology robustness (in progress)
+
+### Reconcile 10b/10d — DONE
+
+The three publication scripts had diverged: 10b/10d still carried the
+Russian-related columns 10a had commented out (Table 2 Model 6 `model3a_z`,
+Table 4 Model 5 `model5a_opt_russian_z`). Both now match 10a — Table 2 is six
+models, Table 4 is five. Tables 1, 3 and 5 were already identical. Column
+headers, coefficient labels and note text aligned at the same time; titles left
+variant-specific. The orphaned models stay in 05b/05d and 06b/06d until the
+slimming pass.
+
+### `11_typology_robustness.Rmd` — DONE
+
+One table per hypothesis, typologies as columns, replacing the practice of
+reproducing the whole appendix three times. Registered in `master.Rmd` after the
+10s. Reads the twelve serialized result objects; writes `table_s16{a,b,c,d}` and
+`typology_robustness_comparison.csv` to `figures/tables/prob/`, alongside the
+other appendix tables.
+
+Specifications compared, per Donald: H1 Table 1 Model 5; H2 Table 2 Models 5 and
+6; H3a Table 4 Models 4 and 5; H3b Table 5 Models 4 and 5. H1 has no matched
+sibling, so it shows one specification.
+
+**Results** (estimate, bootstrap p where one exists):
+
+| Hypothesis | Spec | Probabilistic | Day | Drop |
+|---|---|---|---|---|
+| H1 | Main | -0.217 | -0.267 | *missing* |
+| H2 | Main | 0.222 (.034) | 0.248 (.009) | **0.154 (.097)** |
+| H2 | Matched | 0.222 (.033) | 0.182 (.012) | **0.088 (.260)** |
+| H3a | Main | -0.332 (.053) | -0.265 (.101) | -0.364 (.046) |
+| H3a | Matched | -0.380 (.029) | -0.311 (.060) | -0.364 (.044) |
+| H3b | Main | -0.002 (.989) | 0.032 (.831) | *missing* |
+| H3b | Matched | 0.015 (.917) | 0.049 (.721) | *missing* |
+
+**Reading.** H3b is a stable null across typologies, as expected. H3a is stable
+in magnitude (spread 0.6-0.9 probabilistic SEs) though its bootstrap p wanders
+either side of 0.05 — the same knife-edge the B increase was meant to settle, so
+this is worth re-reading after the re-render. **H2 is the sensitive one**: under
+the drop typology the matched estimate falls from 0.222 to 0.088 and is nowhere
+near significant (p = 0.26), a spread of 1.9 probabilistic SEs. That is the one
+result in the paper that visibly depends on how missing publication times were
+handled, and it is exactly what this table exists to surface.
+
+> **Stale `.rds` found.** Three cells are empty because `04_h1_results_drop.rds`
+> and `07_ethnic_results_drop.rds` were serialized on 2026-03-04, before the
+> current `04d` and `07d` scripts. Both scripts *do* define and serialize the
+> missing objects (`model5_opt`; `model6a_opt_non_mil_z`, `matched_model_z`), so
+> re-rendering those two fills the gaps. The script reports missing cells
+> explicitly rather than silently omitting them.
+
+### Still to do
+
+Slimming `04{b,d}`, `05{b,d}`, `06{b,d}`, `07{b,d}` to the objects `11` and the
+reconciled `10b`/`10d` actually consume. Donald has archived the current versions
+to `scripts/archive/alternative_specs_full/` (commit `129b5a3`). All figure code
+stays in both `b` and `d`, including figures that are never used, so the two
+variants stay consistent and nothing has to be recreated later.
+
+Also noted for that pass: the `## Total Effect, Sentiment-Z (No FEs)` section
+exists in **all three** 06 files, is serialized nowhere and consumed by nothing.
+In `06a` it appears to duplicate the Task E `model5a_opt_z_total` specification
+exactly; the two should be merged rather than both kept. Within the section,
+`model5_full_csto_z` uses `sentiment_z` while `model5_total_neutral` uses
+`sentiment_clean`, despite the heading.
+
 ## Bootstrap replications raised to B = 99,999
 
 `run_wild_bootstrap()` and `compare_cluster_levels()` now default to `B = 99999`,

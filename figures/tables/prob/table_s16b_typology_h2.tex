@@ -1,0 +1,41 @@
+\begin{table}[t]
+\caption*{
+{\fontsize{20}{25}\selectfont  Typology Robustness — H2 — State-owned vs independent media\fontsize{12}{15}\selectfont } \\ 
+{\fontsize{14}{17}\selectfont  Same specification under each time-assignment variant\fontsize{12}{15}\selectfont }
+} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrr}
+\toprule
+ & Probabilistic & Day & Drop \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{4}{l}{Main (Table 2, Model 5)} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+Estimate & 0.222* & 0.248** & 0.154+ \\ 
+Std. Error & (0.069) & (0.056) & (0.076) \\ 
+Bootstrap p & 0.034 & 0.009 & 0.097 \\ 
+N & 31,405 & 36,502 & 23,176 \\ 
+Clusters & 43 & 43 & 32 \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{4}{l}{Matched (Table 2, Model 6)} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+Estimate & 0.222* & 0.182* & 0.088 \\ 
+Std. Error & (0.069) & (0.055) & (0.071) \\ 
+Bootstrap p & 0.033 & 0.012 & 0.260 \\ 
+N & 31,379 & 40,901 & 20,429 \\ 
+Clusters & 43 & 60 & 46 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+Each column re-estimates the same specification under a different
+time-assignment typology: probabilistic imputation of missing publication
+times (the primary analysis), the calendar day as the running variable, or
+articles without a recorded time dropped. Sample sizes differ across columns by
+construction, since the typologies retain different articles and select their
+own MSE-optimal bandwidths. The coefficient reported is State-Owned x Treat. †
+Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron,
+Gelbach \& Miller 2008) with Webb six-point weights (B=99999, null imposed),
+clustered by source domain. Stars follow the bootstrap p-value where one exists.\\
+\end{minipage}
+\end{table}
+

@@ -1,0 +1,32 @@
+\begin{table}[t]
+\caption*{
+{\fontsize{20}{25}\selectfont  Typology Robustness — H1 — Effect of the invasion on sentiment\fontsize{12}{15}\selectfont } \\ 
+{\fontsize{14}{17}\selectfont  Same specification under each time-assignment variant\fontsize{12}{15}\selectfont }
+} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}llll}
+\toprule
+ & Probabilistic & Day & Drop \\ 
+\midrule\addlinespace[2.5pt]
+\multicolumn{4}{l}{Main (Table 1, Model 5)} \\[2.5pt] 
+\midrule\addlinespace[2.5pt]
+Estimate & -0.217*** & -0.267*** & — \\ 
+Std. Error & (0.036) & (0.034) & — \\ 
+Bootstrap p & — & — & — \\ 
+N & 45,366 & 68,973 & — \\ 
+Clusters & — & — & — \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+Each column re-estimates the same specification under a different
+time-assignment typology: probabilistic imputation of missing publication
+times (the primary analysis), the calendar day as the running variable, or
+articles without a recorded time dropped. Sample sizes differ across columns
+by construction, since the typologies retain different articles and select
+their own MSE-optimal bandwidths. The coefficient reported is Invasion. Table 1
+Model 5 is an rdrobust fit reported with cluster-robust standard errors, so no
+bootstrap p-value applies. Stars follow the bootstrap p-value where one exists.\\
+\end{minipage}
+\end{table}
+

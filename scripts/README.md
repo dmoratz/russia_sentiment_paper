@@ -66,6 +66,7 @@ scripts are archived in `scripts/archive/`.
 | `08_bandwidth_sensitivity.Rmd` | Bandwidth sensitivity | `02_*.rds` | Figures |
 | `09_preperiod_diagnostics.Rmd` | Pre-period adjustment diagnostics; table S15 models | `02_*.rds`, `05/06_*_prob.rds` | `09_preperiod_results_prob.rds`, `output/diagnostics/` |
 | `10{a,b,d}_publication_outputs_*.Rmd` | Final tables per variant | `04/05/06/07_*.rds`, `09_*.rds` | `.tex` + `.html` |
+| `11_typology_robustness.Rmd` | Main results under all three typologies | `04/05/06/07_*.rds` (all variants) | `table_s16{a-d}`, comparison CSV |
 | `master.Rmd` | Run entire pipeline | All above | All outputs |
 | `archive/` | Retired continuous-time scripts + lifted non-parametric saturation checks | - | - |
 
