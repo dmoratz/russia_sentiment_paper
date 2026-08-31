@@ -826,7 +826,7 @@ for (cntry in countries) {
                      data = data_loo_bw)
 
   boot_loo <- tryCatch(
-    run_wild_bootstrap(model_loo, "treatment:state_owned", B = 4999),
+    run_wild_bootstrap(model_loo, "treatment:state_owned", B = 99999),
     error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
   )
   loo_results[[cntry]] <- list(
@@ -1542,7 +1542,7 @@ for (cntry in countries_match) {
                              data = matched_data_loo)
 
   matched_boot_loo <- tryCatch(
-    run_wild_bootstrap(matched_model_loo, "treatment:state_owned", B = 4999),
+    run_wild_bootstrap(matched_model_loo, "treatment:state_owned", B = 99999),
     error = function(e) list(se = NA, p_val = NA, ci_lower = NA, ci_upper = NA, t_stat = NA)
   )
 

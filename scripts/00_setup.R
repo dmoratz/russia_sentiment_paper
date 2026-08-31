@@ -93,7 +93,7 @@ pacman::p_load(
 # Two streams have to be seeded, not one. fwildclusterboot >= 0.13 draws its
 # bootstrap weights through dqrng rather than base R, so `set.seed()` alone does
 # NOT make `boottest()` reproducible: bootstrap p-values drift by a few
-# thousandths between sessions (Monte Carlo error at B = 4999). Seeding dqrng
+# thousandths between sessions (Monte Carlo error). Seeding dqrng
 # here makes every wild cluster bootstrap in the pipeline exactly reproducible.
 set.seed(3184)
 if (requireNamespace("dqrng", quietly = TRUE)) dqrng::dqset.seed(3184)
@@ -358,8 +358,15 @@ glance.rdrobust <- function(x, ...) {
   )
 }
 
-# Wild cluster bootstrap helper (used in 05/06 family)
-run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999) {
+# Wild cluster bootstrap helper (used in 05/06 family).
+#
+# B = 99999 rather than the more usual 4999. The Monte Carlo SE of a bootstrap
+# p-value is sqrt(p(1-p)/B), which is ~0.003 at p = 0.05 with B = 4999 -- large
+# enough that a result sitting near the threshold flips its significance star
+# between runs. Table 4 Model 4 (p ~ 0.048) did exactly that. At B = 99999 the
+# MC SE falls to ~0.0007. The cost is small: bootstrapping is a fraction of the
+# runtime of these scripts, and the whole pipeline gains roughly four minutes.
+run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 99999) {
   boot_result <- boottest(
     object = model,
     param = param,
@@ -396,11 +403,11 @@ run_wild_bootstrap <- function(model, param, clustid = "source_domain", B = 4999
 #' @param param Coefficient name to test (e.g. "treatment:csto")
 #' @param label Short identifier for the model, used in the returned row
 #' @param levels Character vector of two clustering variables
-#' @param B Bootstrap replications (default 4999, matching run_wild_bootstrap)
+#' @param B Bootstrap replications (default 99999, matching run_wild_bootstrap)
 #' @return One-row tibble: estimate, then p/CI/cluster count at each level
 compare_cluster_levels <- function(model, param, label,
                                    levels = c("source_domain", "country"),
-                                   B = 4999) {
+                                   B = 99999) {
   one <- function(clustid) {
     tryCatch({
       r <- boottest(object = model, param = param, clustid = clustid, B = B,
@@ -618,7 +625,7 @@ save_table <- function(tbl, name, subdir = NULL) {
   invisible(tbl)
 }
 
-SE_NOTE_BOOT <- "† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach & Miller 2008) with Webb six-point weights (B=4999, null imposed), clustered by source domain."
+SE_NOTE_BOOT <- "† Standard errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach & Miller 2008) with Webb six-point weights (B=99999, null imposed), clustered by source domain."
 SE_NOTE_RDROBUST <- "‡ Cluster-robust SEs from rdrobust."
 SE_NOTE_CLUSTER <- "All standard errors are clustered at the source level."
 SE_NOTE <- paste(SE_NOTE_BOOT, SE_NOTE_RDROBUST)

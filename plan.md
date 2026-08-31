@@ -831,6 +831,48 @@ times). Before the fix the same comparison drifted by a few thousandths.
 > seeded values. `table_s15` footnotes this explicitly. The affected numbers differ
 > only in the third decimal place.
 
+## Bootstrap replications raised to B = 99,999
+
+`run_wild_bootstrap()` and `compare_cluster_levels()` now default to `B = 99999`,
+the explicit `B = 4999` overrides in the LOO loops of `05{a,b,d}` and `06{a,b,d}`
+were raised to match, `BOOT_B` in `09` follows, and `SE_NOTE_BOOT` now reads
+`B=99999`. One B throughout, so one number in the footnote.
+
+**Why.** The Monte Carlo SE of a bootstrap p-value is `sqrt(p(1-p)/B)` — about
+0.003 at p = 0.05 with B = 4999. Table 4 Model 4 sits at p ≈ 0.0484, only 0.0016
+below the threshold, so its significance star was decided by the draw:
+
+| B | MC SE | Distance to 0.05 | Chance of landing below |
+|---|---|---|---|
+| 4,999 | 0.0030 | 0.53 SE | ~70% |
+| 9,999 | 0.0021 | 0.75 SE | ~77% |
+| 99,999 | 0.00068 | 2.37 SE | ~99% |
+
+Measured across five seeds at B = 4,999 that model returned 0.0466, 0.0498,
+0.0502, 0.0510, 0.0514 — straddling 0.05. At B = 99,999, three seeds gave
+0.04823, 0.04841, 0.04852. B = 9,999 was rejected because it still gets the star
+wrong about one run in four, and costs the same as 4,999 (both are
+overhead-dominated).
+
+**Cost.** Measured per call: 0.06–0.08 s at B = 4,999, 0.67–0.82 s at B = 99,999,
+for both the 13-cluster and 43-cluster cases. The pipeline makes ~295 calls, so
+the increase is **≈ 3.7 minutes across all three variants** — an over-estimate,
+since many calls are on smaller by-topic subsets.
+
+**Unaffected entirely** (zero bootstrap calls, verified by parsing every script):
+`04{a,b,d}`, `08_bandwidth_sensitivity`, and `10{a,b,d}`, which read stored
+bootstrap results rather than computing them. The long runtimes in `04` and in the
+`b`/`d` variants come from model fitting, `rdbwselect`, the LOO loops and
+`MatchIt` — none of which scale with B.
+
+> ### ⚠ Do not rebuild tables before re-rendering their sources
+>
+> `SE_NOTE_BOOT` now says `B=99999`, but every bootstrap value currently in the
+> `.rds` files was computed at `B = 4999` under an unseeded `dqrng`. Rebuilding
+> `10a` right now would produce tables whose footnote claims 99,999 while the
+> numbers behind the stars are 4,999. The producing scripts must be re-rendered
+> first — see the queue below, which the dqrng fix already required.
+
 ## Re-render queue (for Donald, at leisure)
 
 Re-render these so the `.rds` files are once again a clean product of their host

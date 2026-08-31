@@ -1778,7 +1778,7 @@ if (is.null(country_cluster_summary) || nrow(country_cluster_summary) == 0) {
     "=========================================================",
     "",
     "Wild cluster restricted (WCR) bootstrap: Webb six-point weights, null imposed,",
-    "bootstrap_type = fnw11, B = 4999.",
+    "bootstrap_type = fnw11, B = 99999.",
     "",
     "Clustering affects inference only, so the point estimate is shared across the",
     "two clustering levels. Sources are nested within countries; country clustering",

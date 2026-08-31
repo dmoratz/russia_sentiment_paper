@@ -90,7 +90,7 @@ specifications. H1's main specification uses all articles.
 - `topic_mapping_diagnostic.csv`
 - `preperiod_diagnostics_summary.txt`
 
-The wild cluster bootstrap runs at the repository default of `B = 4999`; it was
+The wild cluster bootstrap runs at the repository default of `B = 99999`; it was
 **not** reduced for these diagnostics.
 
 ```{r setup-diag, include=FALSE}
@@ -115,7 +115,7 @@ dir.create(OUTPUT_DIAGNOSTICS, showWarnings = FALSE, recursive = TRUE)
 
 # Wild cluster bootstrap replications. This is the repository default from
 # 00_setup.R (`run_wild_bootstrap`); it is NOT reduced for these diagnostics.
-BOOT_B <- 4999
+BOOT_B <- 99999
 
 
 # Both RNG streams (base R and dqrng) are seeded in 00_setup.R; see the note
@@ -1180,7 +1180,7 @@ two normalizations, or both together, against the same matched rows:
 
 Everything else is held constant across the four: the same matched rows, the same
 bandwidth machinery inherited from the matched-sample construction, source
-clustering, and the wild cluster bootstrap at `B = 4999` under the fixed seed from
+clustering, and the wild cluster bootstrap at `B = 99999` under the fixed seed from
 `00_setup.R`.
 
 ```{r diag-s4-construct}
