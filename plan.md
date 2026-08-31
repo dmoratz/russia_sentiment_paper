@@ -597,6 +597,12 @@ to the estimand.
 - Both three-entry panels carry the note that the comparison is not
   apples-to-apples and why.
 
+**Terminology.** The S15 models are labelled **main** rather than headline, matching
+S14. Section 4's derived columns follow (`main_estimate`, `main_se`, `main_p`,
+`main_boot_p`, `shift_in_main_ses`). Sections 1-3 of the diagnostics script still say
+"headline", because they compare against the *unmatched* headline specifications
+rather than the S15 models; that is a different referent, not an inconsistency.
+
 ### Task G2 — pre-period variants on the matched preferred models — DONE
 
 Task G ran the variants against the *unmatched* headline specs. This section repeats
@@ -664,7 +670,7 @@ for a frozen topic adjustment to change.
 Four specifications per matched preferred model, built by extending the Task G2
 machinery in Section 4 of `09_preperiod_diagnostics.Rmd`:
 
-1. headline as published;
+1. main specification as published;
 2. pre-period topic adjustment only (topic FE removed, outcome demeaned by its
    pre-invasion topic means);
 3. pre-period z-scoring only (outcome standardized on pre-invasion source
@@ -679,11 +685,11 @@ reproduced at `|diff| = 0`** before any variant was estimated
 
 | Model | Spec | Estimate | SE | Analytic p | Bootstrap p |
 |---|---|---|---|---|---|
-| H2 matched (T2 M6) | (1) headline | 0.2223 | 0.0690 | 0.00247 | 0.0334 |
+| H2 matched (T2 M6) | (1) main | 0.2223 | 0.0690 | 0.00247 | 0.0334 |
 | | (2) pre-period topic | 0.2368 | 0.0688 | 0.00132 | 0.0232 |
 | | (3) pre-period z | 0.2650 | 0.0644 | 0.000176 | 0.0084 |
 | | (4) both | **0.2809** | 0.0644 | 0.0000828 | **0.0046** |
-| H3a matched (T4 M5) | (1) headline | -0.3804 | 0.1120 | 0.00530 | 0.0290 |
+| H3a matched (T4 M5) | (1) main | -0.3804 | 0.1120 | 0.00530 | 0.0290 |
 | | (2) pre-period topic | -0.3821 | 0.1118 | 0.00510 | 0.0242 |
 | | (3) pre-period z | -0.3521 | 0.0860 | 0.00148 | 0.0110 |
 | | (4) both | -0.3527 | 0.0839 | 0.00123 | **0.0054** |

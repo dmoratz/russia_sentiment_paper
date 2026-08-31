@@ -1651,7 +1651,7 @@ s15_rows <- function(models) {
 
 s15_note <- function(model_desc, interaction_desc) {
   str_wrap(paste(
-    "Column 1 is the published model.",
+    "Column 1 is the published model, referred to as the main specification.",
     "Column 2 removes the topic fixed effects and demeans the outcome by its",
     "pre-invasion topic means. Column 3 re-standardizes the outcome using each",
     "source's pre-invasion mean and standard deviation, retaining topic fixed",
@@ -1669,7 +1669,7 @@ s15_note <- function(model_desc, interaction_desc) {
   ), 80)
 }
 
-s15_col_names <- c("(1) Headline†", "(2) Topic†", "(3) Z-Score†", "(4) Both†")
+s15_col_names <- c("(1) Main†", "(2) Topic†", "(3) Z-Score†", "(4) Both†")
 
 build_s15 <- function(models, boots, param, coef_label, title, model_desc,
                       interaction_desc) {
