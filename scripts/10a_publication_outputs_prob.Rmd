@@ -1377,20 +1377,23 @@ below defines it explicitly.
 Reported as three per-hypothesis panels rather than one wide table, because the
 three carry different coefficients and, for H2 and H3a, different sample caveats.
 
-Columns run **full sample, then total effect, then main**, so that the two
-comparisons a reader needs are adjacent: column 1 against column 2 isolates the
-effect of dropping the topic adjustment on a fixed sample, and column 2 against
-column 3 shows what the sample restriction does. H1 has no separate full-sample
-column, because its main specification already uses all articles; its two columns
-are total then main, keeping the main specification last in every panel.
+S14b and S14c run four models forming a complete 2x2 of sample (all topics
+versus military omitted) against topic adjustment (fixed effects versus none):
+the non-NATO sample, the total effect, the main specification, and the total
+effect on the main specification's military-omitted sample. Reading across, the
+topic adjustment is isolated by Model 1 against Model 2 and again by Model 3
+against Model 4, while the military exclusion is isolated by Model 1 against
+Model 3 and again by Model 2 against Model 4.
+
+S14a has only two models, because H1's main specification already uses all
+articles and there is no separate sample to compare against.
 
 **The comparison is not symmetric across hypotheses.** For H1, main and total sit
 on the same sample and the pair is like-for-like. For H2 and H3a the main
-specification omits military coverage, which has no total-effect analogue by
-construction: the largest post-invasion shift in topic composition is toward
-military coverage, so a total effect that excluded it would drop most of the
-channel it exists to measure. Those two panels therefore carry the full-sample
-topic-adjusted column as a like-for-like comparator, and say so in the notes.
+specification omits military coverage, and the largest post-invasion shift in
+topic composition is toward military coverage, so the headline total effect is
+estimated on the full sample. Model 4 gives the total-effect estimand on the
+main specification's own sample, so both readings are available.
 
 ```{r table-s14}
 # Shared note text, since all three panels describe the same estimand
@@ -1403,10 +1406,13 @@ S14_NOTE_CORE <- paste(
 )
 
 S14_NOTE_ASYMMETRY <- paste(
-  "The main specification omits military coverage, so the total effect is",
-  "estimated on the full sample and Model 1 is its like-for-like comparator.",
-  "Model 1 against Model 2 isolates the topic adjustment; Model 2 against",
-  "Model 3 shows the effect of the sample restriction."
+  "The four models form a 2x2 of sample against topic adjustment. Model 1",
+  "against Model 2, and Model 3 against Model 4, isolate the topic adjustment;",
+  "Model 1 against Model 3, and Model 2 against Model 4, isolate the exclusion",
+  "of military coverage. Model 2 is the total effect on all topics, which is the",
+  "estimand of interest, since the post-invasion shift in topic composition is",
+  "largely toward military coverage; Model 4 gives the same estimand on the main",
+  "specification's own sample."
 )
 
 # Effective N, since modelsummary reports the full sample for rdrobust but the
@@ -1451,14 +1457,16 @@ save_table(table_s14a, "table_s14a_total_effect_h1", TABLE_SUBDIR)
 
 # --- Panel B: H2 -----------------------------------------------------------
 s14b_models <- list(
-  "(1) Full Sample†" = results_h2$model2d_z_alltopic,
-  "(2) Total†"       = results_h2$model2d_z_total,
-  "(3) Main†"        = results_h2$model2d_z
+  "(1) Non-NATO Sample†"   = results_h2$model2d_z_alltopic,
+  "(2) Total†"             = results_h2$model2d_z_total,
+  "(3) Main†"              = results_h2$model2d_z,
+  "(4) Total (Non-Mil.)†"  = results_h2$model2d_z_nonmil_total
 )
 boot_s14b <- list(
   results_h2$bootstrap_se[["model2d_z_alltopic"]],
   results_h2$bootstrap_se[["model2d_z_total"]],
-  results_h2$bootstrap_se[["model2d_z"]]
+  results_h2$bootstrap_se[["model2d_z"]],
+  results_h2$bootstrap_se[["model2d_z_nonmil_total"]]
 )
 vcov_s14b <- setNames(
   lapply(seq_along(s14b_models), function(k)
@@ -1466,14 +1474,14 @@ vcov_s14b <- setNames(
   names(s14b_models))
 
 rows_s14b <- tibble::tribble(
-  ~term,                  ~c1, ~c2, ~c3,
-  "Topic FEs",            "X", "-", "X",
-  "Military Included",    "X", "X", "-",
-  "Source Z-Score",       "X", "X", "X",
+  ~term,                  ~c1, ~c2, ~c3, ~c4,
+  "Topic FEs",            "X", "-", "X", "-",
+  "Military Included",    "X", "X", "-", "-",
+  "Source Z-Score",       "X", "X", "X", "X",
   "N (within bandwidth)", effective_n(s14b_models[[1]]), effective_n(s14b_models[[2]]),
-                          effective_n(s14b_models[[3]]),
+                          effective_n(s14b_models[[3]]), effective_n(s14b_models[[4]]),
   "Clusters",             get_n_clusters(s14b_models[[1]]), get_n_clusters(s14b_models[[2]]),
-                          get_n_clusters(s14b_models[[3]])
+                          get_n_clusters(s14b_models[[3]]), get_n_clusters(s14b_models[[4]])
 )
 attr(rows_s14b, "position") <- NULL
 
@@ -1487,10 +1495,11 @@ table_s14b <- modelsummary(
   add_rows = rows_s14b,
   notes = str_wrap(paste(
     S14_NOTE_CORE,
-    "Model 1, the full sample model, is unreported in the main text. It is the",
-    "hypothesis 2 interaction estimated on the non-NATO sample, but with all",
+    "Model 1, the non-NATO sample model, is unreported in the main text. It is",
+    "the hypothesis 2 interaction estimated on the non-NATO sample, but with all",
     "topics included.",
-    "Model 3 is Table 2 Model 5, the main H2 specification.",
+    "Model 3 is Table 2 Model 5, the main H2 specification. Models 2 and 4 are",
+    "unreported in the main text.",
     S14_NOTE_ASYMMETRY,
     SE_NOTE_BOOT), 80)
 )
@@ -1501,14 +1510,16 @@ save_table(table_s14b, "table_s14b_total_effect_h2", TABLE_SUBDIR)
 
 # --- Panel C: H3a ----------------------------------------------------------
 s14c_models <- list(
-  "(1) Full Sample†" = results_align$model5a_opt_z,
-  "(2) Total†"       = results_align$model5a_opt_z_total,
-  "(3) Main†"        = results_align$model5a_opt_non_mil_z
+  "(1) Non-NATO Sample†"   = results_align$model5a_opt_z,
+  "(2) Total†"             = results_align$model5a_opt_z_total,
+  "(3) Main†"              = results_align$model5a_opt_non_mil_z,
+  "(4) Total (Non-Mil.)†"  = results_align$model5a_opt_non_mil_z_total
 )
 boot_s14c <- list(
   results_align$bootstrap_se[["model5a_opt_z"]],
   results_align$bootstrap_se[["model5a_opt_z_total"]],
-  results_align$bootstrap_se[["model5a_opt_non_mil_z"]]
+  results_align$bootstrap_se[["model5a_opt_non_mil_z"]],
+  results_align$bootstrap_se[["model5a_opt_non_mil_z_total"]]
 )
 vcov_s14c <- setNames(
   lapply(seq_along(s14c_models), function(k)
@@ -1516,14 +1527,14 @@ vcov_s14c <- setNames(
   names(s14c_models))
 
 rows_s14c <- tibble::tribble(
-  ~term,                  ~c1, ~c2, ~c3,
-  "Topic FEs",            "X", "-", "X",
-  "Military Included",    "X", "X", "-",
-  "Source Z-Score",       "X", "X", "X",
+  ~term,                  ~c1, ~c2, ~c3, ~c4,
+  "Topic FEs",            "X", "-", "X", "-",
+  "Military Included",    "X", "X", "-", "-",
+  "Source Z-Score",       "X", "X", "X", "X",
   "N (within bandwidth)", effective_n(s14c_models[[1]]), effective_n(s14c_models[[2]]),
-                          effective_n(s14c_models[[3]]),
+                          effective_n(s14c_models[[3]]), effective_n(s14c_models[[4]]),
   "Clusters",             get_n_clusters(s14c_models[[1]]), get_n_clusters(s14c_models[[2]]),
-                          get_n_clusters(s14c_models[[3]])
+                          get_n_clusters(s14c_models[[3]]), get_n_clusters(s14c_models[[4]])
 )
 attr(rows_s14c, "position") <- NULL
 
@@ -1539,7 +1550,7 @@ table_s14c <- modelsummary(
     S14_NOTE_CORE,
     "Sample is state-owned media in non-NATO countries.",
     "Model 1 is Table 4 Model 3; Model 3 is Table 4 Model 4, the main H3a",
-    "specification.",
+    "specification. Models 2 and 4 are unreported in the main text.",
     S14_NOTE_ASYMMETRY,
     SE_NOTE_BOOT), 80)
 )
@@ -1576,19 +1587,23 @@ total_effect_comparison <- bind_rows(
   row_rd(results_h1$model5_opt_total, "H1", "total"),
   row_rd(results_h1$model5_opt,       "H1", "main"),
 
-  row_fe(results_h2$model2d_z_alltopic, "H2", "full sample, topic-adjusted",
+  row_fe(results_h2$model2d_z_alltopic, "H2", "non-NATO sample, topic-adjusted",
          "treatment:state_owned", results_h2$bootstrap_se[["model2d_z_alltopic"]]),
   row_fe(results_h2$model2d_z_total, "H2", "total",
          "treatment:state_owned", results_h2$bootstrap_se[["model2d_z_total"]]),
   row_fe(results_h2$model2d_z, "H2", "main",
          "treatment:state_owned", results_h2$bootstrap_se[["model2d_z"]]),
+  row_fe(results_h2$model2d_z_nonmil_total, "H2", "total, non-military",
+         "treatment:state_owned", results_h2$bootstrap_se[["model2d_z_nonmil_total"]]),
 
-  row_fe(results_align$model5a_opt_z, "H3a", "full sample, topic-adjusted",
+  row_fe(results_align$model5a_opt_z, "H3a", "non-NATO sample, topic-adjusted",
          "treatment:csto", results_align$bootstrap_se[["model5a_opt_z"]]),
   row_fe(results_align$model5a_opt_z_total, "H3a", "total",
          "treatment:csto", results_align$bootstrap_se[["model5a_opt_z_total"]]),
   row_fe(results_align$model5a_opt_non_mil_z, "H3a", "main",
-         "treatment:csto", results_align$bootstrap_se[["model5a_opt_non_mil_z"]])
+         "treatment:csto", results_align$bootstrap_se[["model5a_opt_non_mil_z"]]),
+  row_fe(results_align$model5a_opt_non_mil_z_total, "H3a", "total, non-military",
+         "treatment:csto", results_align$bootstrap_se[["model5a_opt_non_mil_z_total"]])
 )
 
 print(as.data.frame(total_effect_comparison), row.names = FALSE, digits = 4)

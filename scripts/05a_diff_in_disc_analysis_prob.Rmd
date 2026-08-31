@@ -1222,6 +1222,39 @@ summary(model2d_z_total)
 boot_model2d_z_total <- run_wild_bootstrap(model2d_z_total, "treatment:state_owned")
 cat("Bootstrap p-value (total):", boot_model2d_z_total$p_val, "\n")
 
+# --- Total effect on the main sample: military omitted, no topic FE ---------
+# Completes the 2x2 of {all topics, military omitted} x {topic FE, no topic FE}.
+# data_non_nato is the military-omitted, non-NATO sample Model 5 is fitted on.
+resid_y_nonmil_total <- feols(sentiment_z ~ 1 | state_owned,
+                              data = data_non_nato)$residuals
+
+bw_nonmil_total <- rdbwselect(y = resid_y_nonmil_total,
+                              x = data_non_nato$running_probabilistic,
+                              kernel = "triangular",
+                              cluster = data_non_nato$source_domain,
+                              p = 1,
+                              bwselect = "mserd")
+
+optimal_bw_nonmil_total <- bw_nonmil_total$bws[1, 1]
+cat("Total-effect optimal bandwidth (military omitted):",
+    round(optimal_bw_nonmil_total, 1), "days\n")
+
+optimal_bandwidth_data_nonmil_total <- data_non_nato %>%
+  filter(running_probabilistic < optimal_bw_nonmil_total,
+         running_probabilistic > -optimal_bw_nonmil_total) %>%
+  droplevels()
+
+model2d_z_nonmil_total <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned,
+                                cluster = ~source_domain,
+                                data = optimal_bandwidth_data_nonmil_total)
+
+summary(model2d_z_nonmil_total)
+
+boot_model2d_z_nonmil_total <- run_wild_bootstrap(model2d_z_nonmil_total,
+                                                  "treatment:state_owned")
+cat("Bootstrap p-value (total, military omitted):",
+    boot_model2d_z_nonmil_total$p_val, "\n")
+
 cat("\nH2 total-effect comparison (treatment:state_owned):\n")
 cat("  all topics, topic FE :", round(coef(model2d_z_alltopic)[["treatment:state_owned"]], 4),
     " N", nobs(model2d_z_alltopic), "\n")
@@ -1229,6 +1262,8 @@ cat("  main (Model 5)       :", round(coef(model2d_z)[["treatment:state_owned"]]
     " N", nobs(model2d_z), "\n")
 cat("  total (no topic FE)  :", round(coef(model2d_z_total)[["treatment:state_owned"]], 4),
     " N", nobs(model2d_z_total), "\n")
+cat("  total, non-military  :", round(coef(model2d_z_nonmil_total)[["treatment:state_owned"]], 4),
+    " N", nobs(model2d_z_nonmil_total), "\n")
 ```
 
 ## Country-Level Clustering Check
@@ -1763,6 +1798,7 @@ results_h2_prob <- list(
     model_placebo = boot_model4a,
     model2d_z_alltopic = boot_model2d_z_alltopic,
     model2d_z_total = boot_model2d_z_total,
+    model2d_z_nonmil_total = boot_model2d_z_nonmil_total,
     matched_model = boot_matched_model,
     matched_model_z = boot_matched_model_z,
     # Topic models (optimal BW)
@@ -1805,8 +1841,10 @@ results_h2_prob <- list(
   # comparator (appendix S14b)
   model2d_z_alltopic = model2d_z_alltopic,
   model2d_z_total = model2d_z_total,
+  model2d_z_nonmil_total = model2d_z_nonmil_total,
   optimal_bw_alltopic = optimal_bw_alltopic,
-  optimal_bw_total = optimal_bw_total
+  optimal_bw_total = optimal_bw_total,
+  optimal_bw_nonmil_total = optimal_bw_nonmil_total
 )
 
 saveRDS(results_h2_prob, file.path(DATA_INTERMEDIATE, "05_h2_results_prob.rds"))

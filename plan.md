@@ -543,20 +543,32 @@ post-invasion composition shift happens (Task G: its share of coverage rises 23%
 channel it exists to measure. On Donald's instruction H2 mirrors the H3a three-entry
 structure, and `table_s14` is split into per-hypothesis panels.
 
-**Results.** Columns run full sample, total effect, main — so column 1 vs 2
-isolates the topic adjustment on a fixed sample, and column 2 vs 3 shows the
-sample restriction. The main specification is last in every panel.
+**Results.** S14b and S14c run a complete 2x2 of sample (all topics vs military
+omitted) against topic adjustment (FE vs none). S14a keeps two models, since H1's
+main specification already uses all articles.
 
 | Panel | Entry | Estimate | SE | Analytic p | Bootstrap p | N |
 |---|---|---|---|---|---|---|
 | **S14a — H1** | (1) total | **-0.2398** | 0.0346 | 3.93e-12 | — | 45,398 |
 | | (2) main (T1 M5) | -0.2172 | 0.0362 | 1.96e-09 | — | 45,366 |
-| **S14b — H2** | (1) full sample, topic-adjusted | 0.1656 | 0.0796 | 0.0437 | 0.1274 | 38,264 |
+| **S14b — H2** | (1) non-NATO sample | 0.1656 | 0.0796 | 0.0437 | 0.1274 | 38,264 |
 | | (2) total | 0.1745 | 0.0877 | 0.0531 | 0.1568 | 38,218 |
 | | (3) main (T2 M5) | 0.2219 | 0.0691 | 0.00254 | **0.0344** | 31,405 |
-| **S14c — H3a** | (1) full sample, topic-adjusted | -0.1926 | 0.1110 | 0.1083 | 0.2547 | 7,164 |
+| | (4) total, non-military | 0.2079 | 0.0712 | 0.00560 | **0.0382** | 31,251 |
+| **S14c — H3a** | (1) non-NATO sample | -0.1926 | 0.1110 | 0.1083 | 0.2547 | 7,164 |
 | | (2) total | -0.2218 | 0.1220 | 0.0939 | 0.2194 | 6,999 |
 | | (3) main (T4 M4) | -0.3323 | 0.1108 | 0.0111 | **0.0530** | 6,094 |
+| | (4) total, non-military | -0.3708 | 0.1166 | 0.00791 | **0.0446** | 6,028 |
+
+**The 2x2 settles the attribution.** Holding the sample fixed, dropping the topic
+adjustment moves almost nothing: H2 0.1656 → 0.1745 on all topics and 0.2219 →
+0.2079 on the military-omitted sample; H3a -0.1926 → -0.2218 and -0.3323 →
+-0.3708. Holding the adjustment fixed, excluding military moves a great deal:
+H2 0.1656 → 0.2219 (with FE) and 0.1745 → 0.2079 (without); H3a -0.1926 → -0.3323
+and -0.2218 → -0.3708. **The total-effect estimand is not what costs significance
+— the military sample is.** Model 4 is significant in both panels (H2 bootstrap
+p = 0.038, H3a p = 0.045), so on the main specification's own sample the total
+effect survives.
 
 **Reading — and this is the finding the three-entry structure exists to expose.**
 H1 behaves as before: the total effect is *larger* than the main estimate and

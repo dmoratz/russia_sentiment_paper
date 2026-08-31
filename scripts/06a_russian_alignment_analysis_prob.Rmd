@@ -1270,6 +1270,38 @@ summary(model5a_opt_z_total)
 boot_model5a_opt_z_total <- run_wild_bootstrap(model5a_opt_z_total, "treatment:csto")
 cat("Bootstrap SE for treatment:csto (total):", boot_model5a_opt_z_total$se, "\n")
 cat("Bootstrap p-value (total):", boot_model5a_opt_z_total$p_val, "\n")
+
+# --- Total effect on the main sample: military omitted, no topic FE ---------
+# Completes the 2x2 of {all topics, military omitted} x {topic FE, no topic FE}.
+# data_align_state_non_mil is the sample Table 4 Model 4 is fitted on.
+resid_y_nonmil_total <- feols(sentiment_z ~ 1 | csto,
+                              data = data_align_state_non_mil)$residuals
+
+bw_align_nonmil_total <- rdbwselect(y = resid_y_nonmil_total,
+                                    x = data_align_state_non_mil$running_probabilistic,
+                                    kernel = "triangular",
+                                    cluster = data_align_state_non_mil$source_domain,
+                                    p = 1,
+                                    bwselect = "mserd")
+
+optimal_bw_align_nonmil_total <- bw_align_nonmil_total$bws[1, 1]
+cat("Total-effect optimal bandwidth (military omitted):",
+    round(optimal_bw_align_nonmil_total, 1), "days\n")
+
+optimal_bandwidth_data_state_nonmil_total <- data_align_state_non_mil %>%
+  filter(running_probabilistic < optimal_bw_align_nonmil_total,
+         running_probabilistic > -optimal_bw_align_nonmil_total)
+
+model5a_opt_non_mil_z_total <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
+                                     cluster = ~source_domain,
+                                     data = optimal_bandwidth_data_state_nonmil_total)
+
+summary(model5a_opt_non_mil_z_total)
+
+boot_model5a_opt_non_mil_z_total <- run_wild_bootstrap(model5a_opt_non_mil_z_total,
+                                                       "treatment:csto")
+cat("Bootstrap p-value (total, military omitted):",
+    boot_model5a_opt_non_mil_z_total$p_val, "\n")
 ```
 
 ### Country-Level Clustering Check
@@ -2342,7 +2374,8 @@ results_het_prob <- list(
 
     # Placebo test
     model_placebo_nonmil = boot_model_placebo_nonmil,
-    model5a_opt_z_total = boot_model5a_opt_z_total
+    model5a_opt_z_total = boot_model5a_opt_z_total,
+    model5a_opt_non_mil_z_total = boot_model5a_opt_non_mil_z_total
   ),
 
   optimal_bandwidth_align = optimal_bw_align,
@@ -2372,7 +2405,9 @@ results_het_prob <- list(
 
   # Total effect: Table 4 Model 3 without topic adjustment (appendix S14)
   model5a_opt_z_total = model5a_opt_z_total,
+  model5a_opt_non_mil_z_total = model5a_opt_non_mil_z_total,
   optimal_bw_align_total = optimal_bw_align_total,
+  optimal_bw_align_nonmil_total = optimal_bw_align_nonmil_total,
 
   # Mini-Regressions: Heterogeneous treatment effect decomposition
   decomposition = decomposition_results
