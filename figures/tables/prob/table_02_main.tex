@@ -3,11 +3,11 @@
 \fontsize{12.0pt}{14.0pt}\selectfont
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccc}
 \toprule
-  & (1) State-Owned‡ & (2) Independent‡ & (3)† & (4)† & (5)† & (6)† \\ 
+  & (1) State-Owned‡ & (2) Ind.‡ & (3)† & (4)† & (5)† & (6)† \\ 
 \midrule\addlinespace[2.5pt]
 Invasion & -0.1090+ & -0.214*** & -0.253*** & -0.240*** & -0.347*** & -0.348*** \\ 
  & (0.0583) & (0.034) & (0.036) & (0.031) & (0.027) & (0.026) \\ 
-State Owned x Treatment &  &  & 0.080 & 0.14+ & 0.222* & 0.222* \\ 
+State-Owned x Treat &  &  & 0.080 & 0.14+ & 0.222* & 0.222* \\ 
 {} & {} & {} & {(0.063)} & {(0.06)} & {(0.069)} & {(0.069)} \\ 
 Source Z-Score & X & X & X & X & X & X \\ 
 Clusters & 17 & 44 & 60 & 60 & 43 & 43 \\ 
@@ -21,12 +21,15 @@ R2 Adj. &  &  & 0.045 & 0.028 & 0.023 & 0.023 \\
 + p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
 All models use a source-level Z-Score normalization. Models 1-2 show separate
 RDD estimates for state-owned and independent media, filtered to omit military
-topics. Models 3-6 estimate the state-owned x treatment interaction. Model 3
-uses the optimal bandwidth. Model 4 omits military topics. Model 5 omits NATO
-allies. Model 6 uses exact matching for topic and publication date on the
-Non-Nato data. † Standard errors computed via wild cluster restricted (WCR)
-bootstrap (Cameron, Gelbach \& Miller 2008) with Webb six-point weights (B=4999,
-null imposed), clustered by source domain. ‡ Cluster-robust SEs from rdrobust.\\
+topics. Models 3-6 estimate the state-owned x treatment interaction. The sample
+restrictions in Models 3-6 are cumulative, not alternatives. Model 3 uses
+the optimal bandwidth on the full sample. Model 4 additionally omits military
+topics. Model 5 omits military topics AND NATO allies: it takes Model 4's sample
+and further drops the NATO countries, so it is not a full-sample specification.
+Model 6 applies exact matching on topic and publication date to Model 5's
+sample. † Standard errors computed via wild cluster restricted (WCR) bootstrap
+(Cameron, Gelbach \& Miller 2008) with Webb six-point weights (B=4999, null
+imposed), clustered by source domain. ‡ Cluster-robust SEs from rdrobust.\\
 \end{minipage}
 \end{table}
 

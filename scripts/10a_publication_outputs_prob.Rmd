@@ -239,10 +239,13 @@ note_t2 <- str_wrap(paste(
   "All models use a source-level Z-Score normalization.",
   "Models 1-2 show separate RDD estimates for state-owned and independent media, filtered to omit military topics.",
   "Models 3-6 estimate the state-owned x treatment interaction.",
-  "Model 3 uses the optimal bandwidth.",
-  "Model 4 omits military topics. Model 5 omits NATO allies.",
-#  "Model 6 restricts to Russian-related articles with a re-optimized bandwidth.",
-  "Model 6 uses exact matching for topic and publication date on the Non-Nato data.", SE_NOTE
+  "The sample restrictions in Models 3-6 are cumulative, not alternatives.",
+  "Model 3 uses the optimal bandwidth on the full sample.",
+  "Model 4 additionally omits military topics.",
+  "Model 5 omits military topics AND NATO allies: it takes Model 4's sample and",
+  "further drops the NATO countries, so it is not a full-sample specification.",
+  "Model 6 applies exact matching on topic and publication date to Model 5's sample.",
+  SE_NOTE
 ), 80)
 
 table_2 <- modelsummary(
