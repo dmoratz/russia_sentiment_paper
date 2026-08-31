@@ -239,11 +239,9 @@ note_t2 <- str_wrap(paste(
   "All models use a source-level Z-Score normalization.",
   "Models 1-2 show separate RDD estimates for state-owned and independent media, filtered to omit military topics.",
   "Models 3-6 estimate the state-owned x treatment interaction.",
-  "The sample restrictions in Models 3-6 are cumulative, not alternatives.",
   "Model 3 uses the optimal bandwidth on the full sample.",
-  "Model 4 additionally omits military topics.",
-  "Model 5 omits military topics AND NATO allies: it takes Model 4's sample and",
-  "further drops the NATO countries, so it is not a full-sample specification.",
+  "Model 4 omits military topics.",
+  "Model 5 omits military topics and NATO allies.",
   "Model 6 applies exact matching on topic and publication date to Model 5's sample.",
   SE_NOTE
 ), 80)
@@ -1397,22 +1395,18 @@ topic-adjusted column as a like-for-like comparator, and say so in the notes.
 ```{r table-s14}
 # Shared note text, since all three panels describe the same estimand
 S14_NOTE_CORE <- paste(
-  "The total-effect column removes the topic adjustment and is a distinct",
-  "estimand, not a robustness check: it includes shifts in the topic composition",
-  "of coverage rather than holding it fixed. It is not reported in the main",
-  "paper. The source-level Z-Score outcome and source clustering are unchanged,",
-  "and its MSE-optimal bandwidth is re-selected with topic removed from the",
-  "residualization, so the bandwidth remains optimal for the specification",
-  "actually estimated."
+  "The total-effect model removes the topic adjustment. It is a distinct",
+  "estimand, not a robustness check: it lets the topic composition of coverage",
+  "move rather than holding it fixed. Outcome, source clustering and bandwidth",
+  "procedure are otherwise unchanged, with the bandwidth re-selected without",
+  "topic."
 )
 
 S14_NOTE_ASYMMETRY <- paste(
-  "This comparison is not apples-to-apples: the main specification excludes",
-  "military coverage, so the total effect is estimated on the full sample, with",
-  "the full-sample topic-adjusted column provided as the like-for-like",
-  "comparator. Column 1 against column 2 isolates the topic adjustment on a",
-  "fixed sample; column 2 against column 3 shows the effect of the sample",
-  "restriction."
+  "The main specification omits military coverage, so the total effect is",
+  "estimated on the full sample and Model 1 is its like-for-like comparator.",
+  "Model 1 against Model 2 isolates the topic adjustment; Model 2 against",
+  "Model 3 shows the effect of the sample restriction."
 )
 
 # Effective N, since modelsummary reports the full sample for rdrobust but the
@@ -1446,10 +1440,9 @@ table_s14a <- modelsummary(
   add_rows = rows_s14a,
   notes = str_wrap(paste(
     S14_NOTE_CORE,
-    "Column 2 is Table 1 Model 5, the main H1 specification, which already uses",
-    "all articles including military coverage. Column 1 is that same sample and",
-    "outcome with the topic covariates dropped, so the two columns are",
-    "like-for-like and no separate full-sample comparator is needed.",
+    "Model 2 is Table 1 Model 5, the main H1 specification, which already uses",
+    "all articles including military coverage, so both models share a sample and",
+    "no separate comparator is needed.",
     SE_NOTE_RDROBUST), 80)
 )
 
@@ -1494,15 +1487,10 @@ table_s14b <- modelsummary(
   add_rows = rows_s14b,
   notes = str_wrap(paste(
     S14_NOTE_CORE,
-    "Column 3 is Table 2 Model 5, the main H2 specification: non-NATO countries",
-    "with military coverage omitted.",
-    "Column 2, the total effect, is not a model reported in the main paper. It is",
-    "the state-owned x invasion interaction estimated on the non-NATO sample with",
-    "all topics retained including military, on the source-level Z-Scored outcome,",
-    "with no topic fixed effects, clustered by source domain, at its own",
-    "MSE-optimal bandwidth selected after residualizing on source ownership only.",
-    "Column 1 is that identical sample and bandwidth procedure with topic fixed",
-    "effects retained, and exists so that column 2 has a like-for-like comparator.",
+    "Model 1, the full sample model, is unreported in the main text. It is the",
+    "hypothesis 2 interaction estimated on the non-NATO sample, but with all",
+    "topics included.",
+    "Model 3 is Table 2 Model 5, the main H2 specification.",
     S14_NOTE_ASYMMETRY,
     SE_NOTE_BOOT), 80)
 )
@@ -1549,13 +1537,9 @@ table_s14c <- modelsummary(
   add_rows = rows_s14c,
   notes = str_wrap(paste(
     S14_NOTE_CORE,
-    "Sample is state-owned media in non-NATO countries. Column 3 is Table 4",
-    "Model 4, the main H3a specification, which omits military coverage.",
-    "Column 2, the total effect, is not a model reported in the main paper: it is",
-    "the Russia-aligned x invasion interaction on the full sample with all topics",
-    "retained, no topic fixed effects, and its own re-selected bandwidth.",
-    "Column 1 is Table 4 Model 3, the same full sample with topic fixed effects,",
-    "and serves as the like-for-like comparator for column 2.",
+    "Sample is state-owned media in non-NATO countries.",
+    "Model 1 is Table 4 Model 3; Model 3 is Table 4 Model 4, the main H3a",
+    "specification.",
     S14_NOTE_ASYMMETRY,
     SE_NOTE_BOOT), 80)
 )
@@ -1651,21 +1635,17 @@ s15_rows <- function(models) {
 
 s15_note <- function(model_desc, interaction_desc) {
   str_wrap(paste(
-    "Column 1 is the published model, referred to as the main specification.",
-    "Column 2 removes the topic fixed effects and demeans the outcome by its",
-    "pre-invasion topic means. Column 3 re-standardizes the outcome using each",
-    "source's pre-invasion mean and standard deviation, retaining topic fixed",
-    "effects. Column 4 applies both: the pre-invasion source z-score, then",
-    "demeaning by pre-invasion topic means computed on that same scale, with no",
-    "topic fixed effects.",
+    "Model 1 is the published specification. Model 2 removes the topic fixed",
+    "effects and demeans the outcome by its pre-invasion topic means. Model 3",
+    "re-standardizes the outcome on pre-invasion source means and standard",
+    "deviations, keeping topic fixed effects. Model 4 applies both.",
     model_desc,
     interaction_desc,
-    "All four columns use the identical exact-matched sample, bandwidth and source",
+    "All four use the identical exact-matched sample, bandwidth and source",
     "clustering.",
     SE_NOTE_BOOT,
-    "Bootstrap p-values here are computed under the fixed RNG seed set in",
-    "00_setup.R and may differ in the third decimal place from those in Tables 2",
-    "and 4 until those scripts are re-rendered."
+    "Bootstrap p-values use the fixed RNG seed from 00_setup.R and may differ in",
+    "the third decimal from Tables 2 and 4 until those are re-rendered."
   ), 80)
 }
 
