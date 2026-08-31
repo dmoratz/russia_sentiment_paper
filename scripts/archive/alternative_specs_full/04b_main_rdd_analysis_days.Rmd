@@ -1,0 +1,1072 @@
+---
+title: "04b - Main RDD Analysis (Day Running Variable) (Hypothesis 1)"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script performs the main Regression Discontinuity Design (RDD) analysis for Hypothesis 1: The effect of the Russian invasion on media sentiment.
+
+**Inputs:**
+- `data/intermediate/02_data_non_ukraine.rds`
+
+**Outputs:**
+- Main RDD regression results
+- Visualizations of the discontinuity
+- Table 1
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_RDD_DAYS, "/"))
+```
+
+# Load Data
+
+```{r load}
+# Load non-Ukraine, independent media data (main analysis sample)
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+
+cat("Analysis sample:", nrow(data_non_ukraine), "articles\n")
+cat("Date range:", as.character(min(data_non_ukraine$date_publish)), "to",
+    as.character(max(data_non_ukraine$date_publish)), "\n")
+```
+
+# Full Data RDD
+
+## Model 1: Basic RDD (Different Slopes)
+
+```{r model1-basic}
+model1_basic <- feols(sentiment_clean ~ running * treatment,
+                      cluster = ~source_domain,
+                      data = data_non_ukraine)
+
+summary(model1_basic)
+```
+
+## Model 2: With Topic Fixed Effects
+
+```{r model1-country}
+model1_country_fe <- feols(sentiment_clean ~ running * treatment | topic_clean,
+                           cluster = ~source_domain,
+                           data = data_non_ukraine)
+
+summary(model1_country_fe)
+```
+
+## Model 3: With Topic and Source Fixed Effects
+
+```{r model1-source}
+model1_country_source_fe <- feols(sentiment_clean ~ running * treatment | topic_clean + source_domain,
+                                   cluster = ~source_domain,
+                                   data = data_non_ukraine)
+
+summary(model1_country_source_fe)
+```
+
+## Model 4: Full Model (Country + Source + Topic FE)
+
+```{r model1-full}
+model1_full_linear <- feols(sentiment_clean ~ running * treatment | country + source_domain + topic_clean,
+                    cluster = ~source_domain,
+                    data = data_non_ukraine)
+
+summary(model1_full_linear)
+```
+
+### Linear Effect Size Calculation
+
+```{r effect-size}
+sd_sentiment <- sd(data_non_ukraine$sentiment_clean)
+
+cat("Standard deviation of sentiment:", round(sd_sentiment, 3), "\n\n")
+
+# Mean sentiment before/after
+mean_pre <- mean(data_non_ukraine$sentiment_clean[data_non_ukraine$running < 0], na.rm = TRUE)
+mean_post <- mean(data_non_ukraine$sentiment_clean[data_non_ukraine$running >= 0], na.rm = TRUE)
+
+cat("Mean sentiment (pre-invasion):", round(mean_pre, 3), "\n")
+cat("Mean sentiment (post-invasion):", round(mean_post, 3), "\n\n")
+
+# Effect size in SD units
+coef_treatment <- model1_full_linear$coeftable["treatment","Estimate"]
+effect_size <- coef_treatment / sd_sentiment
+
+cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
+cat("Effect size (in SD units):", round(effect_size, 3), "\n")
+```
+
+
+## Model 5: Z-Score Model (Topic FE)
+
+```{r model1-Z}
+data_non_ukraine <- data_non_ukraine %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) / 
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+model1_z <- feols(sentiment_z ~ running * treatment | topic_clean,
+                    cluster = ~source_domain,
+                    data = data_non_ukraine)
+
+summary(model1_z)
+```
+
+
+# Main RDD Models
+
+## RD Robust Estimation
+
+```{r rdrobust}
+model1_rdrobust <- rdrobust(data_non_ukraine$sentiment_clean,
+                            data_non_ukraine$running)
+
+summary(model1_rdrobust)
+```
+
+## Optimal Bandwidth Selection
+
+```{r optimal-bandwidth}
+# Select optimal bandwidth
+bw_select <- rdbwselect(y = data_non_ukraine$sentiment_clean,
+                        x = data_non_ukraine$running,
+                        cluster = data_non_ukraine$source_domain,
+                        kernel = "triangular",
+                        p = 1,
+                        bwselect = "mserd")
+
+summary(bw_select)
+
+# Extract bandwidth
+optimal_bw <- bw_select$bws[1, 1]
+cat("\nOptimal bandwidth:", round(optimal_bw, 1), "days\n")
+
+# Filter to optimal bandwidth, removed since rdrobust does this automatically
+optimal_bandwidth_data <- data_non_ukraine
+
+cat("Observations within optimal bandwidth:", nrow(optimal_bandwidth_data), "\n")
+```
+
+## Model 1: Basic RDD
+
+```{r model1-optimal}
+model1_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_clean, 
+  x = optimal_bandwidth_data$running,
+  cluster = optimal_bandwidth_data$source_domain
+)
+
+summary(model1_opt)
+```
+
+## Model 2: With Topic Fixed Effects
+
+```{r model2-optimal}
+# Only country fixed effects as covariates
+covs_matrix <- model.matrix(~ topic_clean - 1, data = optimal_bandwidth_data)
+
+model2_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_clean, 
+  x = optimal_bandwidth_data$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data$source_domain
+)
+
+summary(model2_opt)
+```
+
+## Model 3: With Topic and Source Fixed Effects
+
+```{r model3-optimal}
+# Only country and source domain fixed effects as covariates
+covs_matrix <- model.matrix(~ topic_clean + source_domain - 1, data = optimal_bandwidth_data)
+
+model3_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_clean, 
+  x = optimal_bandwidth_data$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data$source_domain
+)
+
+summary(model3_opt)
+```
+
+## Model 4: Full Model (Country + Source + Topic FE)
+
+```{r model4-optimal}
+# All covariates
+covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = optimal_bandwidth_data)
+
+model4_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_clean, 
+  x = optimal_bandwidth_data$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data$source_domain
+)
+
+summary(model4_opt)
+```
+
+### RDRobust Effect Size Calculation
+
+```{r effect-size-rdrobust}
+sd_sentiment <- sd(data_non_ukraine$sentiment_clean)
+
+cat("Standard deviation of sentiment:", round(sd_sentiment, 3), "\n\n")
+
+# Mean sentiment before/after
+mean_pre <- mean(data_non_ukraine$sentiment_clean[data_non_ukraine$running < 0], na.rm = TRUE)
+mean_post <- mean(data_non_ukraine$sentiment_clean[data_non_ukraine$running >= 0], na.rm = TRUE)
+
+cat("Mean sentiment (pre-invasion):", round(mean_pre, 3), "\n")
+cat("Mean sentiment (post-invasion):", round(mean_post, 3), "\n\n")
+
+# Effect size in SD units
+coef_treatment <- model4_opt$coef["Conventional", "Coeff"]
+effect_size <- coef_treatment / sd_sentiment
+
+cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
+cat("Effect size (in SD units):", round(effect_size, 3), "\n")
+```
+
+
+## Model 5: Z-Score Model (Topic FE)
+
+```{r model5-optimal}
+# All covariates
+covs_matrix <- model.matrix(~ topic_clean - 1, data = optimal_bandwidth_data)
+
+model5_opt <- rdrobust(
+  y = optimal_bandwidth_data$sentiment_z, 
+  x = optimal_bandwidth_data$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data$source_domain
+)
+
+summary(model5_opt)
+```
+
+## Non-Mil Models
+
+### Model 6: Non-Military Topics Only
+
+```{r non-military}
+data_non_mil <- optimal_bandwidth_data %>%
+  filter(topic_clean != "Military")
+
+cat("Non-military sample:", nrow(data_non_mil), "articles\n")
+
+covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_non_mil)
+
+model6_nonmil <- rdrobust(
+  y = data_non_mil$sentiment_clean, 
+  x = data_non_mil$running,
+  covs = covs_matrix,
+  cluster = data_non_mil$source_domain
+)
+
+summary(model6_nonmil)
+```
+
+#### Effect Size (Non-Military)
+
+```{r effect-non-mil}
+sd_sentiment_non_mil <- sd(data_non_mil$sentiment_clean)
+coef_model6_nonmil <- model6_nonmil$coef["Conventional", "Coeff"]
+
+cat("Effect size (non-military, in SD units):", round(coef_model6_nonmil / sd_sentiment_non_mil, 3), "\n")
+```
+
+### Model 6A: Z-Score Model (Topic FE)
+
+```{r model6a-nonmil-z}
+# All covariates
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_non_mil)
+
+model6a_nonmil <- rdrobust(
+  y = data_non_mil$sentiment_z, 
+  x = data_non_mil$running,
+  covs = covs_matrix,
+  cluster = data_non_mil$source_domain
+)
+
+summary(model6a_nonmil)
+```
+
+## Non-Nato Models
+
+### Model 7: Non-NATO Countries, Non-Mil Only
+
+```{r non-nato}
+data_non_nato <- data_non_mil %>%
+  filter(!country %in% NATO_COUNTRIES)
+
+covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_non_nato)
+
+model7_nonnato <- rdrobust(
+  y = data_non_nato$sentiment_clean, 
+  x = data_non_nato$running,
+  covs = covs_matrix,
+  cluster = data_non_nato$source_domain
+)
+summary(model7_nonnato)
+```
+
+### Model 7A: Z-Score Model (Topic FE)
+
+```{r model6a-nonmil}
+# All covariates
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_non_nato)
+
+model7a_nonnato <- rdrobust(
+  y = data_non_nato$sentiment_z, 
+  x = data_non_nato$running,
+  covs = covs_matrix,
+  cluster = data_non_nato$source_domain
+)
+
+summary(model7a_nonnato)
+```
+
+# By Topic RDD
+
+## RDD Sentiment Clean Topics
+
+```{r}
+# Create by topic data
+
+optimal_bandwidth_data_pol <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Political")
+
+optimal_bandwidth_data_mil <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Military")
+
+optimal_bandwidth_data_econ <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Economic")
+
+optimal_bandwidth_data_cult <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Culture")
+
+optimal_bandwidth_data_oth <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Other")
+```
+
+### Political Model
+
+```{r model4-optimal-pol}
+# All covariates
+covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_pol)
+
+model4_opt_pol <- rdrobust(
+  y = optimal_bandwidth_data_pol$sentiment_clean, 
+  x = optimal_bandwidth_data_pol$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_pol$source_domain
+)
+
+summary(model4_opt_pol)
+```
+
+### Military Model
+
+```{r model4-optimal-mil}
+# All covariates
+covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_mil)
+
+model4_opt_mil <- rdrobust(
+  y = optimal_bandwidth_data_mil$sentiment_clean, 
+  x = optimal_bandwidth_data_mil$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_mil$source_domain
+)
+
+summary(model4_opt_mil)
+```
+
+### Economic Model
+
+```{r model4-optimal-econ}
+# All covariates
+covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_econ)
+
+model4_opt_econ <- rdrobust(
+  y = optimal_bandwidth_data_econ$sentiment_clean, 
+  x = optimal_bandwidth_data_econ$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_econ$source_domain
+)
+
+summary(model4_opt_econ)
+```
+
+### Cultural Model
+
+```{r model4-optimal-cult}
+# All covariates
+covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_cult)
+
+model4_opt_cult <- rdrobust(
+  y = optimal_bandwidth_data_cult$sentiment_clean, 
+  x = optimal_bandwidth_data_cult$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_cult$source_domain
+)
+
+summary(model4_opt_cult)
+```
+
+### Other Model
+
+```{r model4-optimal-other}
+# All covariates
+covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_oth)
+
+model4_opt_oth <- rdrobust(
+  y = optimal_bandwidth_data_oth$sentiment_clean, 
+  x = optimal_bandwidth_data_oth$running,
+  covs = covs_matrix,
+  cluster = optimal_bandwidth_data_oth$source_domain
+)
+
+summary(model4_opt_oth)
+```
+
+## RDD Z-Score Topics
+
+```{r}
+# Create by topic data
+
+optimal_bandwidth_data_pol <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Political")
+
+optimal_bandwidth_data_mil <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Military")
+
+optimal_bandwidth_data_econ <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Economic")
+
+optimal_bandwidth_data_cult <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Culture")
+
+optimal_bandwidth_data_oth <- optimal_bandwidth_data %>%
+  filter(topic_clean == "Other")
+```
+
+### Political Model
+
+```{r model5-optimal-pol}
+model5_opt_pol <- rdrobust(
+  y = optimal_bandwidth_data_pol$sentiment_z, 
+  x = optimal_bandwidth_data_pol$running,
+  cluster = optimal_bandwidth_data_pol$source_domain
+)
+
+summary(model5_opt_pol)
+```
+
+### Military Model
+
+```{r model5-optimal-mil}
+model5_opt_mil <- rdrobust(
+  y = optimal_bandwidth_data_mil$sentiment_z, 
+  x = optimal_bandwidth_data_mil$running,
+  cluster = optimal_bandwidth_data_mil$source_domain
+)
+
+summary(model5_opt_mil)
+```
+
+### Economic Model
+
+```{r model5-optimal-econ}
+model5_opt_econ <- rdrobust(
+  y = optimal_bandwidth_data_econ$sentiment_z, 
+  x = optimal_bandwidth_data_econ$running,
+  cluster = optimal_bandwidth_data_econ$source_domain
+)
+
+summary(model5_opt_econ)
+```
+
+### Cultural Model
+
+```{r model5-optimal-cult}
+model5_opt_cult <- rdrobust(
+  y = optimal_bandwidth_data_cult$sentiment_z, 
+  x = optimal_bandwidth_data_cult$running,
+  cluster = optimal_bandwidth_data_cult$source_domain
+)
+
+summary(model5_opt_cult)
+```
+
+### Other Model
+
+```{r model5-optimal-other}
+model5_opt_oth <- rdrobust(
+  y = optimal_bandwidth_data_oth$sentiment_z, 
+  x = optimal_bandwidth_data_oth$running,
+  cluster = optimal_bandwidth_data_oth$source_domain
+)
+
+summary(model5_opt_oth)
+```
+
+
+# Visualizations
+
+## Main RDD Plot
+
+```{r rdd-plot, fig.width=10, fig.height=7}
+# Aggregate data for points
+agg_data <- data_non_ukraine %>%
+  group_by(running) %>%
+  summarize(
+    sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+    num_obs = n(),
+    .groups = "drop"
+  )
+
+invasion_on_sentiment_graph <- data_non_ukraine %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment",
+    subtitle = "All Sources and Topics",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_graph
+
+ggsave(plot = invasion_on_sentiment_graph,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment.png"),
+       width = 10, height = 7)
+```
+
+
+## Main RDD Plot for Presentations
+
+```{r rdd-plot-presentation, fig.width=10, fig.height=7}
+
+
+invasion_on_sentiment_graph_present <- data_non_ukraine %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm", linewidth = 1.2) +
+  scale_color_manual(
+    values = c("steelblue3", "red4"),
+    name = NULL,
+    labels = c("Pre-Invasion", "Post-Invasion")
+  ) +
+  scale_size(guide = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = c(0.85, 0.85),
+    legend.text = element_text(size = 16),
+    plot.title = element_blank(),
+    plot.subtitle = element_blank()
+  ) +
+  labs(
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_graph_present
+
+ggsave(plot = invasion_on_sentiment_graph_present,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_present.png"),
+       width = 10, height = 7)
+```
+
+## GAM Smoothed Version (Appendix)
+
+```{r rdd-gam, fig.width=10, fig.height=7}
+invasion_on_sentiment_graph_smooth <- data_non_ukraine %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "gam") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Figure 2 Appendix: Effect of Invasion on Sentiment",
+    subtitle = "All Sources and Topics (GAM Smoothed)",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_graph_smooth
+
+ggsave(plot = invasion_on_sentiment_graph_smooth,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_smooth.png"),
+       width = 10, height = 7)
+```
+
+## RD Plot
+
+```{r rd-plot}
+rdplot(y = data_non_ukraine$sentiment_clean,
+       x = data_non_ukraine$running,
+       title = "RD Plot: Sentiment around Invasion",
+       x.label = "Days from Invasion",
+       y.label = "Sentiment")
+```
+
+## RDD Topic Plots
+
+### Political
+
+```{r rdd-plot-pol, fig.width=10, fig.height=7}
+# Aggregate data for points
+agg_data <- optimal_bandwidth_data_pol %>%
+  group_by(running) %>%
+  summarize(
+    sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+    num_obs = n(),
+    .groups = "drop"
+  )
+
+invasion_on_sentiment_graph_pol <- optimal_bandwidth_data_pol %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment",
+    subtitle = "Political Articles",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_graph_pol
+
+ggsave(plot = invasion_on_sentiment_graph_pol,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_pol.png"),
+       width = 10, height = 7)
+```
+
+### Military
+
+```{r rdd-plot-mil, fig.width=10, fig.height=7}
+# Aggregate data for points
+agg_data <- optimal_bandwidth_data_mil %>%
+  group_by(running) %>%
+  summarize(
+    sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+    num_obs = n(),
+    .groups = "drop"
+  )
+
+invasion_on_sentiment_graph_mil <- optimal_bandwidth_data_mil %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment",
+    subtitle = "Military Articles",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_graph_mil
+
+ggsave(plot = invasion_on_sentiment_graph_mil,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_mil.png"),
+       width = 10, height = 7)
+```
+
+### Economic
+
+```{r rdd-plot-econ, fig.width=10, fig.height=7}
+# Aggregate data for points
+agg_data <- optimal_bandwidth_data_econ %>%
+  group_by(running) %>%
+  summarize(
+    sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+    num_obs = n(),
+    .groups = "drop"
+  )
+
+invasion_on_sentiment_graph_econ <- optimal_bandwidth_data_econ %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment",
+    subtitle = "Economic Articles",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_graph_econ
+
+ggsave(plot = invasion_on_sentiment_graph_econ,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_econ.png"),
+       width = 10, height = 7)
+```
+
+### Cultural
+
+```{r rdd-plot-cult, fig.width=10, fig.height=7}
+# Aggregate data for points
+agg_data <- optimal_bandwidth_data_cult %>%
+  group_by(running) %>%
+  summarize(
+    sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+    num_obs = n(),
+    .groups = "drop"
+  )
+
+invasion_on_sentiment_graph_cult <- optimal_bandwidth_data_cult %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment",
+    subtitle = "Cultural Articles",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_graph_cult
+
+ggsave(plot = invasion_on_sentiment_graph_cult,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_cult.png"),
+       width = 10, height = 7)
+```
+
+### Other
+
+```{r rdd-plot-oth, fig.width=10, fig.height=7}
+# Aggregate data for points
+agg_data <- optimal_bandwidth_data_oth %>%
+  group_by(running) %>%
+  summarize(
+    sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+    num_obs = n(),
+    .groups = "drop"
+  )
+
+invasion_on_sentiment_graph_oth <- optimal_bandwidth_data_oth %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment",
+    subtitle = "Other Articles",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_graph_oth
+
+ggsave(plot = invasion_on_sentiment_graph_oth,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_oth.png"),
+       width = 10, height = 7)
+```
+
+## Visualization (Non-Military)
+
+```{r plot-non-mil, fig.width=10, fig.height=7}
+agg_data_non_mil <- data_non_mil %>%
+  group_by(running) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+invasion_on_sentiment_non_mil_graph <- data_non_mil %>%
+  mutate(treatment = as.factor(treatment)) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
+  geom_point(data = agg_data_non_mil,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment",
+    subtitle = "Non-Military Topics",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_non_mil_graph
+
+ggsave(plot = invasion_on_sentiment_non_mil_graph,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_non_mil.png"),
+       width = 10, height = 7)
+```
+
+### Direct-Labelled Variant
+
+The same plot with the series named directly on their own fitted lines instead of
+in a colour legend, which keeps the reader's eye on the discontinuity rather than
+moving between panel and key. Written to a separate `_labeled` file; the canonical
+figure above is left untouched.
+
+```{r plot-non-mil-labeled, fig.width=10, fig.height=7}
+plot_data_labeled <- data_non_mil %>%
+  mutate(period = factor(ifelse(treatment == 1, "Post-Invasion", "Pre-Invasion"),
+                         levels = c("Pre-Invasion", "Post-Invasion")))
+
+labels_non_mil <- series_label_positions(plot_data_labeled, "period")
+
+invasion_on_sentiment_non_mil_labeled <- plot_data_labeled %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = period, color = period)) +
+  geom_point(data = agg_data_non_mil,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  geom_text(data = labels_non_mil,
+            aes(x = .x, y = .y, label = .series, color = .series, hjust = .hjust),
+            vjust = -0.9, inherit.aes = FALSE, fontface = "bold", size = 3.6,
+            show.legend = FALSE) +
+  scale_color_manual(values = c("dodgerblue", "red4"), guide = "none") +
+  scale_size(name = "Observations") +
+  scale_x_continuous(expand = expansion(mult = 0.04)) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on Sentiment",
+    subtitle = "Non-Military Topics",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+invasion_on_sentiment_non_mil_labeled
+
+ggsave(plot = invasion_on_sentiment_non_mil_labeled,
+       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_non_mil_labeled.png"),
+       width = 10, height = 7)
+```
+
+
+# Placebo Test: December 7th Announcement
+
+## FE Model, Non Mil
+
+```{r placebo-dec}
+data_dec <- data_non_ukraine %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running = as.numeric(date_publish - as.Date("2021-12-07")),
+    treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
+  ) %>%
+  filter(topic_clean != "Military")
+
+# Full model specification using rdrobust (matches model4_opt)
+covs_matrix_dec <- model.matrix(~ country + source_domain + topic_clean - 1,
+                                data = data_dec)
+
+model_placebo <- rdrobust(
+  y = data_dec$sentiment_clean,
+  x = data_dec$running,
+  covs = covs_matrix_dec,
+  cluster = data_dec$source_domain
+)
+
+summary(model_placebo)
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
+## Z-Score Model
+
+```{r placebo-dec-z}
+data_dec <- data_non_ukraine %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running = as.numeric(date_publish - as.Date("2021-12-07")),
+    treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
+  )
+
+# Full model specification using rdrobust (matches model4_opt)
+covs_matrix_dec <- model.matrix(~ topic_clean - 1,
+                                data = data_dec)
+
+model_placebo_z <- rdrobust(
+  y = data_dec$sentiment_z,
+  x = data_dec$running,
+  covs = covs_matrix_dec,
+  cluster = data_dec$source_domain
+)
+
+summary(model_placebo_z)
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
+
+# Robustness: Heavily Saturated Full Model with Re-Optimized Bandwidth
+
+## Using Rbrobust
+
+```{r}
+# Computationally impossible
+## Fully saturated fixed effects
+#covs_matrix_saturated <- model.matrix(
+#  ~ country:source_domain:topic_clean - 1,
+#  data = optimal_bandwidth_data
+#)
+
+#model4_fully_saturated <- rdrobust(
+#  y = optimal_bandwidth_data$sentiment_clean, 
+#  x = optimal_bandwidth_data$running,
+#  covs = covs_matrix_saturated,
+#  cluster = optimal_bandwidth_data$source_domain
+#)
+
+#summary(model4_fully_saturated)
+
+optimal_bw <- model4_opt$bws[1, 1]
+```
+
+
+## Using FELM
+
+```{r}
+# Using optimal bandwidth from fully saturated rdrobust
+optimal_bandwidth_data_filtered <- optimal_bandwidth_data %>%
+  filter(abs(running) <= optimal_bw) %>%
+  mutate(post = ifelse(running >= 0, 1, 0))
+
+# Fully saturated feols RDD model
+model4_felm_saturated <- feols(
+  sentiment_clean ~ post + running + running:post |
+    source_domain^topic_clean,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_filtered
+)
+
+summary(model4_felm_saturated)
+```
+
+# Summary Table (Table 1)
+
+```{r table1}
+rows <- tibble::tribble(
+  ~term, ~row1, ~row2, ~row3, ~row4, ~row5, ~row6, ~row7,
+  'Topic FEs', '-', '-', '-', 'X', 'X', 'X', 'X',
+  'State FEs', '-', 'X', 'X', 'X', '-', '-', '-',
+  'Source FEs', '-', '-', 'X', 'X', '-', '-', '-',
+  'Source Z-Score', '-', '-', '-', '-', 'X', 'X', 'X'
+)
+attr(rows, 'position') <- c(3, 4, 5, 6)
+
+note_text <- "All standard errors are clustered at the source level. Models 1-4 uses the optimal bandwidth. Models 5-7 uses a Z-Score adjustment instead of fixed effects. Model 6 omits Military Topics. Model 7 omits NATO allies."
+note_wrapped <- str_wrap(note_text, width = 80)
+
+table_1 <- modelsummary(
+  list(model1_opt, model2_opt, model3_opt, model4_opt, model5_opt, model6a_nonmil, model7a_nonnato),
+  output = "gt",
+  fmt = fmt_significant(2),
+  stars = TRUE,
+  coef_map = c("treatment" = "Invasion"),
+  gof_omit = "BIC|AIC|RMSE|Std.Errors",
+  title = "Hypothesis 1: RDD Analysis with Day Running Variable",
+  add_rows = rows,
+  notes = note_wrapped
+)
+
+table_1
+```
+
+# Save Results
+
+```{r save-results}
+# Save model objects for later use
+results_h1 <- list(
+  model1_basic = model1_basic,
+  model1_country_fe = model1_country_fe,
+  model1_country_source_fe = model1_country_source_fe,
+  model1_full_linear = model1_full_linear,
+  model1_z = model1_z,
+  model1_opt = model1_opt,
+  model2_opt = model2_opt,
+  model3_opt = model3_opt,
+  model4_opt = model4_opt,
+  model5_opt = model5_opt,
+  model7_non_nato = model7_nonnato,
+  model7a_nonnato = model7a_nonnato,
+  model6_non_mil = model6_nonmil,
+  model6a_nonmil = model6a_nonmil,
+  model4_felm_saturated = model4_felm_saturated,
+  model4_opt_pol = model4_opt_pol,
+  model4_opt_mil = model4_opt_mil,
+  model4_opt_econ = model4_opt_econ,
+  model4_opt_cult = model4_opt_cult,
+  model4_opt_oth = model4_opt_oth,
+  model5_opt_pol = model5_opt_pol,
+  model5_opt_mil = model5_opt_mil,
+  model5_opt_econ = model5_opt_econ,
+  model5_opt_cult = model5_opt_cult,
+  model5_opt_oth = model5_opt_oth,
+  optimal_bandwidth = optimal_bw,
+  model_placebo = model_placebo,
+  model_placebo_z = model_placebo_z
+)
+
+saveRDS(results_h1, file.path(DATA_INTERMEDIATE, "04_h1_results.rds"))
+cat("Results saved to:", file.path(DATA_INTERMEDIATE, "04_h1_results.rds"), "\n")
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```

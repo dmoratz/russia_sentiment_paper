@@ -1,0 +1,386 @@
+---
+title: "07b - Ethnic Russian Population Analysis (Day Running Variable)"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script examines heterogeneous treatment effects by Ethnic Russian Population. It tests whether state-owned media in non-NATO countries with high ethnic Russian populations showed differential sentiment changes following the Russian invasion of Ukraine (H3b). This is an alternative specification to the CSTO analysis (H3) — the null expectation is that ethnic Russian population share does not explain the pattern.
+
+**Analysis:**
+- Separate RDDs: High vs Low Ethnic Russian population (rdrobust, Z-score, non-military)
+- Diff-in-disc interaction models: Optimal bandwidth and non-military subset (Z-score, topic FEs)
+- Matched model (Z-score, topic FEs)
+- Placebo test using December 7th 2021 announcement date
+
+**Inputs:**
+- `data/intermediate/02_cleaned_data.rds`
+- `data/intermediate/02_data_non_ukraine.rds`
+
+**Outputs:**
+- `data/intermediate/07_ethnic_results.rds`
+- Table 6 (Ethnic Russian Population heterogeneity)
+
+```{r setup, include=FALSE}
+source("00_setup.R")
+knitr::opts_chunk$set(fig.path = paste0(FIGURES_HETEROGENEITY_DAYS, "/"))
+options(digits = 10)
+
+set.seed(3184)
+```
+
+# Load Data
+
+```{r load}
+library(fwildclusterboot)
+
+data <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds"))
+data_non_ukraine <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds"))
+
+cat("Full data:", nrow(data), "articles\n")
+cat("Non-Ukraine data:", nrow(data_non_ukraine), "articles\n")
+
+data <- data %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
+data_non_ukraine <- data_non_ukraine %>% mutate(across(c(topic_clean, country, source_domain), as.factor))
+```
+
+# Ethnic Russian Population Analysis
+
+## Create Ethnic Subsets
+
+```{r ethnic-data}
+data_ethnic <- data %>%
+  filter(nato == 0)
+
+data_ethnic <- data_ethnic %>%
+  mutate(ethnic_indicator = factor(case_when(
+    indicator == 1 & high_russia == 1 ~ "Pre. Ind. High Rus",
+    indicator == 1 & high_russia == 0 ~ "Pre. Ind. Low Rus",
+    indicator == 2 & high_russia == 1 ~ "Pre. State High Rus",
+    indicator == 2 & high_russia == 0 ~ "Pre. State Low Rus",
+    indicator == 3 & high_russia == 1 ~ "Post Ind. High Rus",
+    indicator == 3 & high_russia == 0 ~ "Post Ind. Low Rus",
+    indicator == 4 & high_russia == 1 ~ "Post State High Rus",
+    indicator == 4 & high_russia == 0 ~ "Post State Low Rus"
+  ),
+  levels = c("Pre. Ind. High Rus", "Pre. Ind. Low Rus", "Pre. State High Rus",
+             "Pre. State Low Rus", "Post Ind. High Rus", "Post Ind. Low Rus",
+             "Post State High Rus", "Post State Low Rus")))
+
+cat("High Russian population:", sum(data_ethnic$high_russia), "\n")
+cat("Low Russian population:", sum(data_ethnic$high_russia == 0), "\n")
+```
+
+## State Media Subset and Z-Score
+
+```{r ethnic-state-data}
+# running is already in days — no /86400 conversion needed
+data_ethnic_state <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  mutate(source_domain = droplevels(source_domain))
+
+# Compute Z-score on full state media data
+data_ethnic_state <- data_ethnic_state %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+## Visualization: State Media by Ethnic Russian Population
+
+```{r ethnic-plot, fig.width=10, fig.height=7}
+agg_data_ethnic <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  group_by(running, csto) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+ethnic_discs_graph <- data_ethnic %>%
+  filter(state_owned == 1) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = ethnic_indicator, color = ethnic_indicator)) +
+  geom_point(data = agg_data_ethnic,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
+  scale_size(name = "Observations") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic() +
+  labs(
+    title = "Effect of Invasion on State Media Sentiment",
+    subtitle = "High vs Low Ethnic Russian, Difference in Discontinuities",
+    x = "Days Pre/Post Invasion",
+    y = "Sentiment"
+  )
+
+ethnic_discs_graph
+
+ggsave(plot = ethnic_discs_graph,
+       file.path(FIGURES_HETEROGENEITY_DAYS, "ethnic_discs.png"),
+       width = 10, height = 7)
+```
+
+# Separate RDD Models (Z-Score)
+
+## High Ethnic Russian Population
+
+```{r ethnic-high-rdd}
+data_high <- data_ethnic_state %>%
+  filter(high_russia == 1) %>%
+  filter(!topic_clean %in% "Military")
+
+# Recompute Z-score within this subset
+data_high <- data_high %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_high)
+
+model6a_high_z <- rdrobust(
+  y = data_high$sentiment_z,
+  x = data_high$running,
+  covs = covs_matrix,
+  cluster = data_high$source_domain
+)
+
+summary(model6a_high_z)
+```
+
+## Low Ethnic Russian Population
+
+```{r ethnic-low-rdd}
+data_low <- data_ethnic_state %>%
+  filter(high_russia == 0) %>%
+  filter(!topic_clean %in% "Military")
+
+# Recompute Z-score within this subset
+data_low <- data_low %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+covs_matrix <- model.matrix(~ topic_clean - 1, data = data_low)
+
+model6a_low_z <- rdrobust(
+  y = data_low$sentiment_z,
+  x = data_low$running,
+  covs = covs_matrix,
+  cluster = data_low$source_domain
+)
+
+summary(model6a_low_z)
+```
+
+# Interaction Model — Optimal Bandwidth, Z-Score
+
+```{r ethnic-optimal-z}
+# Residualize for bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | topic_clean + high_russia,
+                 data = data_ethnic_state)$residuals
+
+bw_ethnic_z <- rdbwselect(y = resid_y,
+                          x = data_ethnic_state$running,
+                          kernel = "triangular",
+                          cluster = data_ethnic_state$source_domain,
+                          p = 1,
+                          bwselect = "mserd")
+
+optimal_bw_ethnic_z <- bw_ethnic_z$bws[1, 1]
+cat("Optimal bandwidth (Z-score):", round(optimal_bw_ethnic_z, 1), "days\n")
+
+optimal_bandwidth_data_z <- data_ethnic_state %>%
+  filter(running < optimal_bw_ethnic_z,
+         running > -optimal_bw_ethnic_z)
+
+model6a_opt_z <- feols(
+  sentiment_z ~ running * treatment * high_russia | topic_clean,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_z
+)
+
+summary(model6a_opt_z)
+
+boot_model6a_opt_z <- run_wild_bootstrap(model6a_opt_z, "treatment:high_russia")
+cat("Bootstrap SE:", boot_model6a_opt_z$se, "\n")
+cat("Bootstrap p-value:", boot_model6a_opt_z$p_val, "\n")
+```
+
+# Non-Military Topics, Z-Score
+
+```{r ethnic-non-mil-z}
+data_ethnic_state_non_mil <- data_ethnic_state %>%
+  filter(!topic_clean %in% "Military")
+
+# Recompute Z-score on non-mil subset
+data_ethnic_state_non_mil <- data_ethnic_state_non_mil %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Residualize for bandwidth selection
+resid_y <- feols(sentiment_z ~ 1 | topic_clean + high_russia,
+                 data = data_ethnic_state_non_mil)$residuals
+
+bw_ethnic_non_mil_z <- rdbwselect(y = resid_y,
+                                  x = data_ethnic_state_non_mil$running,
+                                  kernel = "triangular",
+                                  cluster = data_ethnic_state_non_mil$source_domain,
+                                  p = 1,
+                                  bwselect = "mserd")
+
+optimal_bw_ethnic_non_mil_z <- bw_ethnic_non_mil_z$bws[1, 1]
+cat("Optimal bandwidth (non-mil, Z-score):", round(optimal_bw_ethnic_non_mil_z, 1), "days\n")
+
+optimal_bandwidth_data_non_mil_z <- data_ethnic_state_non_mil %>%
+  filter(running < optimal_bw_ethnic_non_mil_z,
+         running > -optimal_bw_ethnic_non_mil_z)
+
+model6a_opt_non_mil_z <- feols(
+  sentiment_z ~ running * treatment * high_russia | topic_clean,
+  cluster = ~source_domain,
+  data = optimal_bandwidth_data_non_mil_z
+)
+
+summary(model6a_opt_non_mil_z)
+
+boot_model6a_opt_non_mil_z <- run_wild_bootstrap(model6a_opt_non_mil_z, "treatment:high_russia")
+cat("Bootstrap SE:", boot_model6a_opt_non_mil_z$se, "\n")
+cat("Bootstrap p-value:", boot_model6a_opt_non_mil_z$p_val, "\n")
+```
+
+# Matched Model, Z-Score
+
+```{r ethnic-matching}
+library(MatchIt)
+library(cobalt)
+
+matching_data <- optimal_bandwidth_data_non_mil_z %>%
+  select(sentiment_z, running, treatment, high_russia,
+         topic_clean, source_domain, country)
+
+ps_model <- matchit(
+  high_russia ~ running + topic_clean,
+  data = matching_data,
+  method = "exact",
+  ratio = 1
+)
+
+summary(ps_model)
+```
+
+## Assess Balance
+
+```{r ethnic-balance}
+bal.tab(ps_model, un = TRUE, stats = c("m", "v"), thresholds = c(m = 0.1))
+```
+
+## Matching Analysis
+
+```{r ethnic-matched-model}
+matched_data <- match.data(ps_model)
+cat("Matched observations:", nrow(matched_data), "\n")
+
+matched_model_z <- feols(
+  sentiment_z ~ running * treatment * high_russia | topic_clean,
+  cluster = ~source_domain,
+  data = matched_data
+)
+
+summary(matched_model_z)
+
+boot_matched_model_z <- run_wild_bootstrap(matched_model_z, "treatment:high_russia")
+cat("Bootstrap SE:", boot_matched_model_z$se, "\n")
+cat("Bootstrap p-value:", boot_matched_model_z$p_val, "\n")
+```
+
+# Placebo Test: December 7th Announcement (Non-Military Topics, Ethnic Russian)
+
+```{r placebo-dec-ethnic}
+data_dec_ethnic <- data_ethnic_state_non_mil %>%
+  filter(date_publish < "2022-02-19") %>%
+  mutate(
+    running = as.numeric(date_publish - as.Date("2021-12-07")),
+    treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
+  )
+
+# Recompute Z-score for placebo subset
+data_dec_ethnic <- data_dec_ethnic %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
+                   sd(sentiment_clean, na.rm = TRUE)) %>%
+  ungroup()
+
+bw_placebo_ethnic <- rdbwselect(y = data_dec_ethnic$sentiment_z,
+                                x = data_dec_ethnic$running,
+                                kernel = "triangular",
+                                cluster = data_dec_ethnic$source_domain,
+                                p = 1,
+                                bwselect = "mserd")
+
+optimal_bw_placebo_ethnic <- bw_placebo_ethnic$bws[1, 1]
+cat("Placebo optimal bandwidth (ethnic, non-mil):", round(optimal_bw_placebo_ethnic, 1), "days\n")
+
+data_dec_ethnic_bw <- data_dec_ethnic %>%
+  filter(running < optimal_bw_placebo_ethnic, running > -optimal_bw_placebo_ethnic)
+
+model_placebo_ethnic <- feols(sentiment_z ~ running * treatment * high_russia | topic_clean,
+                               cluster = ~source_domain,
+                               data = data_dec_ethnic_bw)
+
+summary(model_placebo_ethnic)
+
+boot_model_placebo_ethnic <- run_wild_bootstrap(model_placebo_ethnic, "treatment:high_russia")
+cat("Bootstrap SE for treatment:high_russia (placebo):", boot_model_placebo_ethnic$se, "\n")
+cat("Bootstrap p-value (placebo):", boot_model_placebo_ethnic$p_val, "\n")
+cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
+```
+
+# Save Results
+
+```{r save}
+results_ethnic <- list(
+  # Z-score models for Table 6
+  model6a_high_z = model6a_high_z,
+  model6a_low_z = model6a_low_z,
+  model6a_opt_z = model6a_opt_z,
+  model6a_opt_non_mil_z = model6a_opt_non_mil_z,
+  matched_model_z = matched_model_z,
+
+  # Bootstrap SEs (only for feols interaction models)
+  bootstrap_se = list(
+    model6a_opt_z = boot_model6a_opt_z,
+    model6a_opt_non_mil_z = boot_model6a_opt_non_mil_z,
+    matched_model_z = boot_matched_model_z
+  ),
+
+  # Placebo
+  model_placebo_ethnic = model_placebo_ethnic,
+  optimal_bw_placebo_ethnic = optimal_bw_placebo_ethnic,
+  bootstrap_se_placebo = list(
+    model_placebo_ethnic = boot_model_placebo_ethnic
+  ),
+
+  # Bandwidths
+  optimal_bw_ethnic_z = optimal_bw_ethnic_z,
+  optimal_bw_ethnic_non_mil_z = optimal_bw_ethnic_non_mil_z
+)
+
+saveRDS(results_ethnic, file.path(DATA_INTERMEDIATE, "07_ethnic_results.rds"))
+cat("Results saved to:", file.path(DATA_INTERMEDIATE, "07_ethnic_results.rds"), "\n")
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```
