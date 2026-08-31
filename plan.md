@@ -617,25 +617,43 @@ not the paper's main results (Table 2 Model 5 and Table 4 Model 4).
 - **S14 / S15 models** are labelled **main**, with derived columns to match
   (`main_estimate`, `main_se`, `main_p`, `main_boot_p`, `shift_in_main_ses`).
 - **Sections 1-3 of `09_preperiod_diagnostics.Rmd`** are labelled **baseline**,
-  because what they clone is not the main specification. The script now states the
-  mapping explicitly, in the Overview, the baseline section, the chunk comments and
-  the summary text:
+  and were **repointed to the paper's main unmatched specifications**:
 
   | Hypothesis | Object | Reported as | Raw-scale sibling |
   |---|---|---|---|
   | H1 | `model5_opt` | Table 1, Model 5 | `model2_opt` (Table 1, Model 2) |
-  | H2 | `model2a_opt_z` | Table 2, Model 3 | `model2a_opt` (Table S3, Model 4) |
-  | H3a | `model5a_opt_z` | Table 4, Model 3 | `model5a_opt` (Table S7, Model 3) |
+  | H2 | `model2d_z` | Table 2, Model 5 | `model2d` (Table S3, Model 7) |
+  | H3a | `model5a_opt_non_mil_z` | Table 4, Model 4 | `model5a_opt_non_mil` (Table S7, Model 4) |
+
+  The H2 and H3a samples now omit military coverage, matching those columns. All
+  three baselines are checked against their serialized objects at `|diff| = 0` in
+  a new `diag-baseline-check` chunk before any diagnostic runs.
 
 - **Task D's model labels** now name their table column:
   `H2_table2_model3`, `H2_table2_model6`, `H3a_table4_model3`, `H3a_table4_model5`.
   Regenerating that CSV changed labels only — its runner already seeded `dqrng`
   explicitly, so every bootstrap p-value is byte-identical.
 
-**Coverage note.** Sections 1-3 diagnose the full-sample columns; Section 4 covers
-the matched preferred models (Table 2 Model 6, Table 4 Model 5). Neither covers the
-*unmatched* main specifications, Table 2 Model 5 and Table 4 Model 4. That is a gap
-if the pre-period normalizations are wanted for those exact columns.
+**Coverage, after the repoint.** Sections 1-3 now diagnose the main *unmatched*
+specifications and Section 4 the main *matched* ones, so between them the script
+covers both versions of the results the paper leads with. The earlier gap is closed.
+
+Under the repointed baselines both diagnostics leave the main results intact:
+
+| Section | Spec | Baseline | Diagnostic | Baseline boot p | Diagnostic boot p |
+|---|---|---|---|---|---|
+| 1 (topic frozen) | H1 | -0.2172 | -0.2221 | — | — |
+| | H2 | 0.2219 | 0.2406 | 0.0310 | 0.0280 |
+| | H3a | -0.3323 | -0.3725 | 0.0510 | 0.0340 |
+| 2 (pre-period z) | H1 | -0.2172 | -0.2418 | — | — |
+| | H2 | 0.2219 | 0.2705 | 0.0310 | 0.0078 |
+| | H3a | -0.3323 | -0.2948 | 0.0510 | 0.0598 |
+
+Section 1 moves every estimate by well under half a baseline SE and, on the new
+baselines, every H2/H3a bootstrap p *falls*. Section 2 strengthens H1 and H2; for
+H3a it shrinks the estimate by 11% and pushes the bootstrap p from 0.051 to 0.060,
+the one place either normalization makes a result weaker. H3a's baseline is
+marginal to begin with (Table 4 Model 4 bootstrap p = 0.051).
 
 ### Task G2 — pre-period variants on the matched preferred models — DONE
 
