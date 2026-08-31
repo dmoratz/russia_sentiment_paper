@@ -10,11 +10,11 @@ is the more conservative level when shocks are country-wide.
 
 Side-by-side
 ------------
-        model estimate n_obs source_domain_clusters source_domain_p
-  H2_headline  0.07971 40710                     60         0.25965
-   H2_matched  0.22230 31379                     43         0.02981
- H3a_headline -0.19263  7164                     13         0.25305
-  H3a_matched -0.38037  5721                     13         0.02561
+             model estimate n_obs source_domain_clusters source_domain_p
+  H2_table2_model3  0.07971 40710                     60         0.25965
+  H2_table2_model6  0.22230 31379                     43         0.02981
+ H3a_table4_model3 -0.19263  7164                     13         0.25305
+ H3a_table4_model5 -0.38037  5721                     13         0.02561
  source_domain_ci_lower source_domain_ci_upper country_clusters country_p
                -0.08911                0.21020               11   0.15803
                 0.03328                0.36042                8   0.02480

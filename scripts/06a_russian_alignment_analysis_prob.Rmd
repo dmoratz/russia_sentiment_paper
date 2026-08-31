@@ -1234,7 +1234,7 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 
 ### Total Effect (No Topic Adjustment)
 
-The headline H3a interaction conditions on topic, so it measures how
+Table 4 Model 3 conditions on topic, so it measures how
 Russia-aligned and neutral state media diverged *within* topics. The total effect
 also lets the topic mix move. This clone keeps the sample (state-owned, non-NATO,
 all articles including military), the source-level z-scored outcome and the source
@@ -1274,7 +1274,7 @@ cat("Bootstrap p-value (total):", boot_model5a_opt_z_total$p_val, "\n")
 
 ### Country-Level Clustering Check
 
-The headline H3a inference clusters at the source level, but the treatment
+Table 4 Model 3 clusters inference at the source level, but the treatment
 contrast here is between country groups and only eight countries contribute
 state-owned sources. This chunk re-runs the same WCR bootstrap clustered by
 country for the two H3a RDIDs the paper reports (the optimal-bandwidth
@@ -1304,8 +1304,8 @@ stopifnot(
 )
 
 country_cluster_check <- bind_rows(
-  compare_cluster_levels(model5a_opt_z_dl, "treatment:csto", "H3a_headline"),
-  compare_cluster_levels(matched_model_dl, "treatment:csto", "H3a_matched")
+  compare_cluster_levels(model5a_opt_z_dl, "treatment:csto", "H3a_table4_model3"),
+  compare_cluster_levels(matched_model_dl, "treatment:csto", "H3a_table4_model5")
 )
 
 print(as.data.frame(country_cluster_check), row.names = FALSE, digits = 4)
@@ -2370,7 +2370,7 @@ results_het_prob <- list(
   # Source- vs country-level WCR inference for the reported H3a RDIDs
   country_cluster_check = country_cluster_check,
 
-  # Total effect: headline interaction without topic adjustment (appendix S14)
+  # Total effect: Table 4 Model 3 without topic adjustment (appendix S14)
   model5a_opt_z_total = model5a_opt_z_total,
   optimal_bw_align_total = optimal_bw_align_total,
 

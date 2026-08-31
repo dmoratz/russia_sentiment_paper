@@ -273,8 +273,8 @@ model5_opt_total <- rdrobust(
 
 summary(model5_opt_total)
 
-cat("\nH1 total effect vs headline (Model 5):\n")
-cat("  headline (topic FE):", round(model5_opt$coef[1], 4),
+cat("\nH1 total effect vs main (Table 1 Model 5):\n")
+cat("  main (topic FE):    ", round(model5_opt$coef[1], 4),
     " SE", round(model5_opt$se[1], 4),
     " N", model5_opt$N_h[1] + model5_opt$N_h[2], "\n")
 cat("  total (no topic FE):", round(model5_opt_total$coef[1], 4),

@@ -1233,7 +1233,7 @@ cat("  total (no topic FE)  :", round(coef(model2d_z_total)[["treatment:state_ow
 
 ## Country-Level Clustering Check
 
-The headline H2 inference clusters at the source level. Sources are nested within
+Table 2 Model 3 clusters inference at the source level. Sources are nested within
 countries, so if the invasion shifted coverage country-wide the source-level
 bootstrap understates the true uncertainty. This chunk re-runs the same WCR
 bootstrap clustered by country for the two H2 RDIDs the paper reports (the
@@ -1264,8 +1264,8 @@ stopifnot(
 )
 
 country_cluster_check <- bind_rows(
-  compare_cluster_levels(model2a_opt_z_dl, "treatment:state_owned", "H2_headline"),
-  compare_cluster_levels(matched_model_z_dl, "treatment:state_owned", "H2_matched")
+  compare_cluster_levels(model2a_opt_z_dl, "treatment:state_owned", "H2_table2_model3"),
+  compare_cluster_levels(matched_model_z_dl, "treatment:state_owned", "H2_table2_model6")
 )
 
 print(as.data.frame(country_cluster_check), row.names = FALSE, digits = 4)

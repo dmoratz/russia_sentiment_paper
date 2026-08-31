@@ -1601,7 +1601,7 @@ cat("\nSaved to:",
 
 ## Table S15: Pre-Period Adjustment Variants, Matched Models
 
-Both headline normalizations -- the pooled topic fixed effects and the source-level
+Both normalizations in the main specifications -- the pooled topic fixed effects and the source-level
 z-score -- are fitted using data from both sides of the cutoff. If the invasion
 changed what a topic label means, or changed a source's sentiment distribution, an
 adjustment estimated across the cutoff absorbs part of the treatment effect. Table
@@ -1613,7 +1613,7 @@ interaction terms: S15a is Table 2 Model 6 (state ownership) and S15b is Table 4
 Model 5 (Russia-aligned). Within each panel the matched sample, bandwidth
 machinery and source clustering are identical across all four columns; only the
 outcome and the fixed-effect structure change. The models are built in
-`09_preperiod_diagnostics.Rmd`, which reproduces both headline estimates at
+`09_preperiod_diagnostics.Rmd`, which reproduces both main estimates at
 `|diff| = 0` before estimating any variant.
 
 ```{r table-s15}
