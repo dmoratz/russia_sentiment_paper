@@ -3,29 +3,30 @@
 \fontsize{12.0pt}{14.0pt}\selectfont
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcc}
 \toprule
-  & (1) Main‡ & (2) Total‡ \\ 
+  & (1) Total‡ & (2) Main‡ \\ 
 \midrule\addlinespace[2.5pt]
-Invasion & -0.217*** & -0.240*** \\ 
- & (0.036) & (0.035) \\ 
-Topic FEs & X & - \\ 
+Invasion & -0.240*** & -0.217*** \\ 
+ & (0.035) & (0.036) \\ 
+Topic FEs & - & X \\ 
 Source Z-Score & X & X \\ 
-N (within bandwidth) & 45,366 & 45,398 \\ 
+N (within bandwidth) & 45,398 & 45,366 \\ 
 Clusters & — & — \\ 
 \bottomrule
 \end{tabular*}
 \begin{minipage}{\linewidth}
 \vspace{.05em}
 + p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
-The total-effect column removes the topic adjustment from the corresponding
-specification and is a distinct estimand, not a robustness check: it includes
-shifts in the topic composition of coverage rather than holding it fixed.
-The source-level Z-Score outcome and source clustering are unchanged. The
-MSE-optimal bandwidth is re-selected for the total-effect column with topic
-removed from the residualization, so the bandwidth remains optimal for the
-specification actually estimated. The main specification here is Table 1 Model
-5, which already uses all articles including military coverage, so both columns
-sit on the same sample and the comparison is like-for-like. ‡ Cluster-robust SEs
-from rdrobust.\\
+The total-effect column removes the topic adjustment and is a distinct
+estimand, not a robustness check: it includes shifts in the topic composition
+of coverage rather than holding it fixed. It is not reported in the main
+paper. The source-level Z-Score outcome and source clustering are unchanged,
+and its MSE-optimal bandwidth is re-selected with topic removed from the
+residualization, so the bandwidth remains optimal for the specification actually
+estimated. Column 2 is Table 1 Model 5, the main H1 specification, which already
+uses all articles including military coverage. Column 1 is that same sample and
+outcome with the topic covariates dropped, so the two columns are like-for-like
+and no separate full-sample comparator is needed. ‡ Cluster-robust SEs from
+rdrobust.\\
 \end{minipage}
 \end{table}
 

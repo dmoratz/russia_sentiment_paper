@@ -3,38 +3,46 @@
 \fontsize{12.0pt}{14.0pt}\selectfont
 \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccc}
 \toprule
-  & (1) Full Sample† & (2) Main† & (3) Total† \\ 
+  & (1) Full Sample† & (2) Total† & (3) Main† \\ 
 \midrule\addlinespace[2.5pt]
-Invasion & -0.355*** & -0.347*** & -0.382*** \\ 
- & (0.039) & (0.027) & (0.042) \\ 
-State-Owned x Treat & 0.17 & 0.222* & 0.174 \\ 
-{} & {(0.08)} & {(0.069)} & {(0.088)} \\ 
-R2 & 0.039 & 0.024 & 0.020 \\ 
-R2 Adj. & 0.039 & 0.023 & 0.020 \\ 
-Topic FEs & X & X & - \\ 
-Military Included & X & - & X \\ 
+Invasion & -0.355*** & -0.382*** & -0.347*** \\ 
+ & (0.039) & (0.042) & (0.027) \\ 
+State-Owned x Treat & 0.17 & 0.174 & 0.222* \\ 
+{} & {(0.08)} & {(0.088)} & {(0.069)} \\ 
+R2 & 0.039 & 0.020 & 0.024 \\ 
+R2 Adj. & 0.039 & 0.020 & 0.023 \\ 
+Topic FEs & X & - & X \\ 
+Military Included & X & X & - \\ 
 Source Z-Score & X & X & X \\ 
-N (within bandwidth) & 38,264 & 31,405 & 38,218 \\ 
+N (within bandwidth) & 38,264 & 38,218 & 31,405 \\ 
 Clusters & 43 & 43 & 43 \\ 
 \bottomrule
 \end{tabular*}
 \begin{minipage}{\linewidth}
 \vspace{.05em}
 + p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
-The total-effect column removes the topic adjustment from the corresponding
-specification and is a distinct estimand, not a robustness check: it includes
-shifts in the topic composition of coverage rather than holding it fixed.
-The source-level Z-Score outcome and source clustering are unchanged. The
-MSE-optimal bandwidth is re-selected for the total-effect column with topic
-removed from the residualization, so the bandwidth remains optimal for the
-specification actually estimated. Column 2 is Table 2 Model 5, the main H2
-specification: non-NATO countries, military coverage omitted. This comparison
-is not apples-to-apples: the main specification excludes military coverage,
-so the total effect is estimated on the full sample, with the full-sample
-topic-adjusted column provided as the like-for-like comparator. † Standard
-errors computed via wild cluster restricted (WCR) bootstrap (Cameron, Gelbach
-\& Miller 2008) with Webb six-point weights (B=4999, null imposed), clustered by
-source domain.\\
+The total-effect column removes the topic adjustment and is a distinct
+estimand, not a robustness check: it includes shifts in the topic composition
+of coverage rather than holding it fixed. It is not reported in the main
+paper. The source-level Z-Score outcome and source clustering are unchanged,
+and its MSE-optimal bandwidth is re-selected with topic removed from the
+residualization, so the bandwidth remains optimal for the specification actually
+estimated. Column 3 is Table 2 Model 5, the main H2 specification: non-NATO
+countries with military coverage omitted. Column 2, the total effect, is not a
+model reported in the main paper. It is the state-owned x invasion interaction
+estimated on the non-NATO sample with all topics retained including military,
+on the source-level Z-Scored outcome, with no topic fixed effects, clustered
+by source domain, at its own MSE-optimal bandwidth selected after residualizing
+on source ownership only. Column 1 is that identical sample and bandwidth
+procedure with topic fixed effects retained, and exists so that column 2 has
+a like-for-like comparator. This comparison is not apples-to-apples: the main
+specification excludes military coverage, so the total effect is estimated
+on the full sample, with the full-sample topic-adjusted column provided as
+the like-for-like comparator. Column 1 against column 2 isolates the topic
+adjustment on a fixed sample; column 2 against column 3 shows the effect of the
+sample restriction. † Standard errors computed via wild cluster restricted (WCR)
+bootstrap (Cameron, Gelbach \& Miller 2008) with Webb six-point weights (B=4999,
+null imposed), clustered by source domain.\\
 \end{minipage}
 \end{table}
 

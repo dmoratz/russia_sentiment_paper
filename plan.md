@@ -543,18 +543,20 @@ post-invasion composition shift happens (Task G: its share of coverage rises 23%
 channel it exists to measure. On Donald's instruction H2 mirrors the H3a three-entry
 structure, and `table_s14` is split into per-hypothesis panels.
 
-**Results.**
+**Results.** Columns run full sample, total effect, main — so column 1 vs 2
+isolates the topic adjustment on a fixed sample, and column 2 vs 3 shows the
+sample restriction. The main specification is last in every panel.
 
 | Panel | Entry | Estimate | SE | Analytic p | Bootstrap p | N |
 |---|---|---|---|---|---|---|
-| **S14a — H1** | main (T1 M5) | -0.2172 | 0.0362 | 1.96e-09 | — | 45,366 |
-| | total | **-0.2398** | 0.0346 | 3.93e-12 | — | 45,398 |
-| **S14b — H2** | full sample, topic-adjusted | 0.1656 | 0.0796 | 0.0437 | 0.1274 | 38,264 |
-| | main (T2 M5) | 0.2219 | 0.0691 | 0.00254 | **0.0344** | 31,405 |
-| | total | 0.1745 | 0.0877 | 0.0531 | 0.1568 | 38,218 |
-| **S14c — H3a** | full sample, topic-adjusted | -0.1926 | 0.1110 | 0.1083 | 0.2547 | 7,164 |
-| | main (T4 M4) | -0.3323 | 0.1108 | 0.0111 | **0.0530** | 6,094 |
-| | total | -0.2218 | 0.1220 | 0.0939 | 0.2194 | 6,999 |
+| **S14a — H1** | (1) total | **-0.2398** | 0.0346 | 3.93e-12 | — | 45,398 |
+| | (2) main (T1 M5) | -0.2172 | 0.0362 | 1.96e-09 | — | 45,366 |
+| **S14b — H2** | (1) full sample, topic-adjusted | 0.1656 | 0.0796 | 0.0437 | 0.1274 | 38,264 |
+| | (2) total | 0.1745 | 0.0877 | 0.0531 | 0.1568 | 38,218 |
+| | (3) main (T2 M5) | 0.2219 | 0.0691 | 0.00254 | **0.0344** | 31,405 |
+| **S14c — H3a** | (1) full sample, topic-adjusted | -0.1926 | 0.1110 | 0.1083 | 0.2547 | 7,164 |
+| | (2) total | -0.2218 | 0.1220 | 0.0939 | 0.2194 | 6,999 |
+| | (3) main (T4 M4) | -0.3323 | 0.1108 | 0.0111 | **0.0530** | 6,094 |
 
 **Reading — and this is the finding the three-entry structure exists to expose.**
 H1 behaves as before: the total effect is *larger* than the main estimate and

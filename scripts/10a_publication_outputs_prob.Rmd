@@ -1373,39 +1373,46 @@ save_table(table_s13, "table_s13_placebo_aligned", TABLE_SUBDIR)
 The main specifications all condition on topic, so they identify the shift in
 sentiment *within* topics. The total effect instead lets the topic mix move,
 which is what a reader of these outlets experiences. It is a distinct estimand,
-not a robustness check.
+not a robustness check, and **it does not appear in the main paper** — each panel
+below defines it explicitly.
 
 Reported as three per-hypothesis panels rather than one wide table, because the
-three carry different coefficients and, for H2 and H3a, different sample
-caveats.
+three carry different coefficients and, for H2 and H3a, different sample caveats.
 
-**The comparison is not symmetric across hypotheses.** For H1 the main
-specification already uses all articles, so main and total sit on the same
-sample and the pair is like-for-like. For H2 and H3a the main specification
-omits military coverage, which has no total-effect analogue by construction: the
-largest post-invasion shift in topic composition is toward military coverage, so
-a total effect that excluded it would drop most of the channel it exists to
-measure. Those two panels therefore carry three columns — the full-sample
-topic-adjusted specification as a like-for-like comparator, the main
-military-omitted specification, and the total effect — and say so in the notes.
+Columns run **full sample, then total effect, then main**, so that the two
+comparisons a reader needs are adjacent: column 1 against column 2 isolates the
+effect of dropping the topic adjustment on a fixed sample, and column 2 against
+column 3 shows what the sample restriction does. H1 has no separate full-sample
+column, because its main specification already uses all articles; its two columns
+are total then main, keeping the main specification last in every panel.
+
+**The comparison is not symmetric across hypotheses.** For H1, main and total sit
+on the same sample and the pair is like-for-like. For H2 and H3a the main
+specification omits military coverage, which has no total-effect analogue by
+construction: the largest post-invasion shift in topic composition is toward
+military coverage, so a total effect that excluded it would drop most of the
+channel it exists to measure. Those two panels therefore carry the full-sample
+topic-adjusted column as a like-for-like comparator, and say so in the notes.
 
 ```{r table-s14}
 # Shared note text, since all three panels describe the same estimand
 S14_NOTE_CORE <- paste(
-  "The total-effect column removes the topic adjustment from the corresponding",
-  "specification and is a distinct estimand, not a robustness check: it includes",
-  "shifts in the topic composition of coverage rather than holding it fixed.",
-  "The source-level Z-Score outcome and source clustering are unchanged. The",
-  "MSE-optimal bandwidth is re-selected for the total-effect column with topic",
-  "removed from the residualization, so the bandwidth remains optimal for the",
-  "specification actually estimated."
+  "The total-effect column removes the topic adjustment and is a distinct",
+  "estimand, not a robustness check: it includes shifts in the topic composition",
+  "of coverage rather than holding it fixed. It is not reported in the main",
+  "paper. The source-level Z-Score outcome and source clustering are unchanged,",
+  "and its MSE-optimal bandwidth is re-selected with topic removed from the",
+  "residualization, so the bandwidth remains optimal for the specification",
+  "actually estimated."
 )
 
 S14_NOTE_ASYMMETRY <- paste(
   "This comparison is not apples-to-apples: the main specification excludes",
   "military coverage, so the total effect is estimated on the full sample, with",
   "the full-sample topic-adjusted column provided as the like-for-like",
-  "comparator."
+  "comparator. Column 1 against column 2 isolates the topic adjustment on a",
+  "fixed sample; column 2 against column 3 shows the effect of the sample",
+  "restriction."
 )
 
 # Effective N, since modelsummary reports the full sample for rdrobust but the
@@ -1417,13 +1424,13 @@ effective_n <- function(m) {
 
 # --- Panel A: H1 -----------------------------------------------------------
 s14a_models <- list(
-  "(1) Main‡"  = results_h1$model5_opt,
-  "(2) Total‡" = results_h1$model5_opt_total
+  "(1) Total‡" = results_h1$model5_opt_total,
+  "(2) Main‡"  = results_h1$model5_opt
 )
 
 rows_s14a <- tibble::tribble(
   ~term,                  ~c1, ~c2,
-  "Topic FEs",            "X", "-",
+  "Topic FEs",            "-", "X",
   "Source Z-Score",       "X", "X",
   "N (within bandwidth)", effective_n(s14a_models[[1]]), effective_n(s14a_models[[2]]),
   "Clusters",             get_n_clusters(s14a_models[[1]]), get_n_clusters(s14a_models[[2]])
@@ -1439,9 +1446,10 @@ table_s14a <- modelsummary(
   add_rows = rows_s14a,
   notes = str_wrap(paste(
     S14_NOTE_CORE,
-    "The main specification here is Table 1 Model 5, which already uses all",
-    "articles including military coverage, so both columns sit on the same",
-    "sample and the comparison is like-for-like.",
+    "Column 2 is Table 1 Model 5, the main H1 specification, which already uses",
+    "all articles including military coverage. Column 1 is that same sample and",
+    "outcome with the topic covariates dropped, so the two columns are",
+    "like-for-like and no separate full-sample comparator is needed.",
     SE_NOTE_RDROBUST), 80)
 )
 
@@ -1450,14 +1458,14 @@ save_table(table_s14a, "table_s14a_total_effect_h1", TABLE_SUBDIR)
 
 # --- Panel B: H2 -----------------------------------------------------------
 s14b_models <- list(
-  "(1) Full Sample†"    = results_h2$model2d_z_alltopic,
-  "(2) Main†"           = results_h2$model2d_z,
-  "(3) Total†"          = results_h2$model2d_z_total
+  "(1) Full Sample†" = results_h2$model2d_z_alltopic,
+  "(2) Total†"       = results_h2$model2d_z_total,
+  "(3) Main†"        = results_h2$model2d_z
 )
 boot_s14b <- list(
   results_h2$bootstrap_se[["model2d_z_alltopic"]],
-  results_h2$bootstrap_se[["model2d_z"]],
-  results_h2$bootstrap_se[["model2d_z_total"]]
+  results_h2$bootstrap_se[["model2d_z_total"]],
+  results_h2$bootstrap_se[["model2d_z"]]
 )
 vcov_s14b <- setNames(
   lapply(seq_along(s14b_models), function(k)
@@ -1466,8 +1474,8 @@ vcov_s14b <- setNames(
 
 rows_s14b <- tibble::tribble(
   ~term,                  ~c1, ~c2, ~c3,
-  "Topic FEs",            "X", "X", "-",
-  "Military Included",    "X", "-", "X",
+  "Topic FEs",            "X", "-", "X",
+  "Military Included",    "X", "X", "-",
   "Source Z-Score",       "X", "X", "X",
   "N (within bandwidth)", effective_n(s14b_models[[1]]), effective_n(s14b_models[[2]]),
                           effective_n(s14b_models[[3]]),
@@ -1486,8 +1494,15 @@ table_s14b <- modelsummary(
   add_rows = rows_s14b,
   notes = str_wrap(paste(
     S14_NOTE_CORE,
-    "Column 2 is Table 2 Model 5, the main H2 specification: non-NATO countries,",
-    "military coverage omitted.",
+    "Column 3 is Table 2 Model 5, the main H2 specification: non-NATO countries",
+    "with military coverage omitted.",
+    "Column 2, the total effect, is not a model reported in the main paper. It is",
+    "the state-owned x invasion interaction estimated on the non-NATO sample with",
+    "all topics retained including military, on the source-level Z-Scored outcome,",
+    "with no topic fixed effects, clustered by source domain, at its own",
+    "MSE-optimal bandwidth selected after residualizing on source ownership only.",
+    "Column 1 is that identical sample and bandwidth procedure with topic fixed",
+    "effects retained, and exists so that column 2 has a like-for-like comparator.",
     S14_NOTE_ASYMMETRY,
     SE_NOTE_BOOT), 80)
 )
@@ -1499,13 +1514,13 @@ save_table(table_s14b, "table_s14b_total_effect_h2", TABLE_SUBDIR)
 # --- Panel C: H3a ----------------------------------------------------------
 s14c_models <- list(
   "(1) Full Sample†" = results_align$model5a_opt_z,
-  "(2) Main†"        = results_align$model5a_opt_non_mil_z,
-  "(3) Total†"       = results_align$model5a_opt_z_total
+  "(2) Total†"       = results_align$model5a_opt_z_total,
+  "(3) Main†"        = results_align$model5a_opt_non_mil_z
 )
 boot_s14c <- list(
   results_align$bootstrap_se[["model5a_opt_z"]],
-  results_align$bootstrap_se[["model5a_opt_non_mil_z"]],
-  results_align$bootstrap_se[["model5a_opt_z_total"]]
+  results_align$bootstrap_se[["model5a_opt_z_total"]],
+  results_align$bootstrap_se[["model5a_opt_non_mil_z"]]
 )
 vcov_s14c <- setNames(
   lapply(seq_along(s14c_models), function(k)
@@ -1514,8 +1529,8 @@ vcov_s14c <- setNames(
 
 rows_s14c <- tibble::tribble(
   ~term,                  ~c1, ~c2, ~c3,
-  "Topic FEs",            "X", "X", "-",
-  "Military Included",    "X", "-", "X",
+  "Topic FEs",            "X", "-", "X",
+  "Military Included",    "X", "X", "-",
   "Source Z-Score",       "X", "X", "X",
   "N (within bandwidth)", effective_n(s14c_models[[1]]), effective_n(s14c_models[[2]]),
                           effective_n(s14c_models[[3]]),
@@ -1534,8 +1549,13 @@ table_s14c <- modelsummary(
   add_rows = rows_s14c,
   notes = str_wrap(paste(
     S14_NOTE_CORE,
-    "Sample is state-owned media in non-NATO countries. Column 2 is Table 4",
+    "Sample is state-owned media in non-NATO countries. Column 3 is Table 4",
     "Model 4, the main H3a specification, which omits military coverage.",
+    "Column 2, the total effect, is not a model reported in the main paper: it is",
+    "the Russia-aligned x invasion interaction on the full sample with all topics",
+    "retained, no topic fixed effects, and its own re-selected bandwidth.",
+    "Column 1 is Table 4 Model 3, the same full sample with topic fixed effects,",
+    "and serves as the like-for-like comparator for column 2.",
     S14_NOTE_ASYMMETRY,
     SE_NOTE_BOOT), 80)
 )
@@ -1548,7 +1568,8 @@ save_table(table_s14c, "table_s14c_total_effect_h3a", TABLE_SUBDIR)
 ### Total Effect vs Main: Printed Comparison
 
 Writes the paired comparison to CSV so the estimates, standard errors and sample
-sizes behind the three panels are available without re-reading the tables.
+sizes behind the three panels are available without re-reading the tables. Rows
+follow the same order as the panels.
 
 ```{r table-s14-comparison}
 # rdrobust and fixest expose their estimates differently; one row-builder each
@@ -1568,22 +1589,22 @@ row_fe <- function(m, spec, kind, term, boot) {
 }
 
 total_effect_comparison <- bind_rows(
-  row_rd(results_h1$model5_opt,       "H1", "main"),
   row_rd(results_h1$model5_opt_total, "H1", "total"),
+  row_rd(results_h1$model5_opt,       "H1", "main"),
 
   row_fe(results_h2$model2d_z_alltopic, "H2", "full sample, topic-adjusted",
          "treatment:state_owned", results_h2$bootstrap_se[["model2d_z_alltopic"]]),
-  row_fe(results_h2$model2d_z, "H2", "main",
-         "treatment:state_owned", results_h2$bootstrap_se[["model2d_z"]]),
   row_fe(results_h2$model2d_z_total, "H2", "total",
          "treatment:state_owned", results_h2$bootstrap_se[["model2d_z_total"]]),
+  row_fe(results_h2$model2d_z, "H2", "main",
+         "treatment:state_owned", results_h2$bootstrap_se[["model2d_z"]]),
 
   row_fe(results_align$model5a_opt_z, "H3a", "full sample, topic-adjusted",
          "treatment:csto", results_align$bootstrap_se[["model5a_opt_z"]]),
-  row_fe(results_align$model5a_opt_non_mil_z, "H3a", "main",
-         "treatment:csto", results_align$bootstrap_se[["model5a_opt_non_mil_z"]]),
   row_fe(results_align$model5a_opt_z_total, "H3a", "total",
-         "treatment:csto", results_align$bootstrap_se[["model5a_opt_z_total"]])
+         "treatment:csto", results_align$bootstrap_se[["model5a_opt_z_total"]]),
+  row_fe(results_align$model5a_opt_non_mil_z, "H3a", "main",
+         "treatment:csto", results_align$bootstrap_se[["model5a_opt_non_mil_z"]])
 )
 
 print(as.data.frame(total_effect_comparison), row.names = FALSE, digits = 4)
