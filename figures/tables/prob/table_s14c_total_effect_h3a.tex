@@ -1,0 +1,40 @@
+\begin{table}[t]
+\caption{Total Effect Without Topic Adjustment — H3a (Probabilistic Time)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccc}
+\toprule
+  & (1) Full Sample† & (2) Main† & (3) Total† \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.068 & 0.098 & -0.053 \\ 
+ & (0.080) & (0.070) & (0.076) \\ 
+Russia-Aligned x Treat & -0.19 & -0.33+ & -0.22 \\ 
+{} & {(0.11)} & {(0.11)} & {(0.12)} \\ 
+R2 & 0.025 & 0.015 & 0.010 \\ 
+R2 Adj. & 0.024 & 0.013 & 0.009 \\ 
+Topic FEs & X & X & - \\ 
+Military Included & X & - & X \\ 
+Source Z-Score & X & X & X \\ 
+N (within bandwidth) & 7,164 & 6,094 & 6,999 \\ 
+Clusters & 13 & 13 & 13 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
++ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
+The total-effect column removes the topic adjustment from the corresponding
+specification and is a distinct estimand, not a robustness check: it includes
+shifts in the topic composition of coverage rather than holding it fixed.
+The source-level Z-Score outcome and source clustering are unchanged. The
+MSE-optimal bandwidth is re-selected for the total-effect column with topic
+removed from the residualization, so the bandwidth remains optimal for the
+specification actually estimated. Sample is state-owned media in non-NATO
+countries. Column 2 is Table 4 Model 4, the main H3a specification, which
+omits military coverage. This comparison is not apples-to-apples: the main
+specification excludes military coverage, so the total effect is estimated on
+the full sample, with the full-sample topic-adjusted column provided as the
+like-for-like comparator. † Standard errors computed via wild cluster restricted
+(WCR) bootstrap (Cameron, Gelbach \& Miller 2008) with Webb six-point weights
+(B=4999, null imposed), clustered by source domain.\\
+\end{minipage}
+\end{table}
+

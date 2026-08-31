@@ -204,7 +204,8 @@ Repo-wide sweep for `06C_russian`, `08{a,b,d}_publication_outputs`, and
 | A1 fix | **DONE** | `06a` | slopes → `figures/heterogeneity/prob/pretrend_slopes_aligned.csv` (shipped with B) |
 | **B** | **DONE** | `06a`, `09a` | pooled aligned Dec-7 placebo (`placebo_aligned_pooled`); `table_s13_placebo_aligned.{tex,html}`; pooled + per-country est/CI/p/bw/N CSV |
 | **D** | **DONE** | `00_setup.R`, `05a`, `06a`, `09a` | country-clustered WCR for 4 models; side-by-side txt + CSV; explicit point-estimate identity check |
-| **E** | **DONE** | `04a`, `05a`, `06a`, `09a` | `model5_opt_total`, `model2a_opt_z_total`, `model5a_opt_z_total`; `table_s14`; total-vs-headline comparison CSV |
+| **E** | **SUPERSEDED by E3** | `04a`, `05a`, `06a`, `10a` | original total-effect pass; see Task E3 below |
+| **E3** | **DONE** | `05a`, `10a` | Model-5-level H2 total effect + comparator; `table_s14a/b/c`; "main" relabel; comparison CSV |
 | **F** | **DONE** | `05a`, `05b` | neutral state-owned vs independent floor figure, both variants |
 | **G** | **DONE** | new `09_preperiod_diagnostics.Rmd` (was `10_`) | pre-period topic demeaning; pre-period-only z; topic-mapping diagnostic. Not registered in `master.Rmd` |
 | **G2** | **DONE** | `09_preperiod_diagnostics.Rmd` (Section 4) | both pre-period variants re-run on the matched preferred models (Table 2 Model 6, Table 4 Model 5); side-by-side to text/CSV |
@@ -518,6 +519,82 @@ every article in all three samples (0 disagreements), and H1's running variable 
 **seconds** (04a never divides by 86400) while H2/H3a are in days — hence H1's
 bandwidths printing as ~2.1e6. That is pre-existing 04a behaviour, preserved.
 
+### Task E3 — total-effect table corrections — DONE
+
+Supersedes the original Task E table. Three changes: "headline" relabelled to
+**"main"** throughout `table_s14` and `total_effect_comparison.csv`; the H2
+comparison moved from Model-3 level to Model-5 level; and the H3a block
+restructured so its sample asymmetry is visible.
+
+> **Correction to the brief.** The brief described Table 2 Model 5 as "non-NATO
+> sample, topic FE, all articles including military". It is **not** all articles:
+> `data_non_nato` descends from `data_non_mil`, so Model 5 inherits Model 4's
+> military exclusion and then drops the NATO countries. Table 2's own note is what
+> misleads — "Model 4 omits military topics. Model 5 omits NATO allies" reads as
+> though 5 only drops NATO. The brief also quoted Model 5's interaction as 0.2223;
+> that is Model 6 (`matched_model_z`). Model 5 (`model2d_z`) is **0.2218979**, and
+> the two differ only in the fourth decimal, consistent with "numerically
+> unchanged". Reproduced at `|diff| = 0` before anything else was estimated.
+
+H2 therefore has the same structural problem the brief already identified for H3a:
+the main specification omits military coverage, and military is where the largest
+post-invasion composition shift happens (Task G: its share of coverage rises 23% →
+30%). A total effect estimated on a military-excluded sample would drop most of the
+channel it exists to measure. On Donald's instruction H2 mirrors the H3a three-entry
+structure, and `table_s14` is split into per-hypothesis panels.
+
+**Results.**
+
+| Panel | Entry | Estimate | SE | Analytic p | Bootstrap p | N |
+|---|---|---|---|---|---|---|
+| **S14a — H1** | main (T1 M5) | -0.2172 | 0.0362 | 1.96e-09 | — | 45,366 |
+| | total | **-0.2398** | 0.0346 | 3.93e-12 | — | 45,398 |
+| **S14b — H2** | full sample, topic-adjusted | 0.1656 | 0.0796 | 0.0437 | 0.1274 | 38,264 |
+| | main (T2 M5) | 0.2219 | 0.0691 | 0.00254 | **0.0344** | 31,405 |
+| | total | 0.1745 | 0.0877 | 0.0531 | 0.1568 | 38,218 |
+| **S14c — H3a** | full sample, topic-adjusted | -0.1926 | 0.1110 | 0.1083 | 0.2547 | 7,164 |
+| | main (T4 M4) | -0.3323 | 0.1108 | 0.0111 | **0.0530** | 6,094 |
+| | total | -0.2218 | 0.1220 | 0.0939 | 0.2194 | 6,999 |
+
+**Reading — and this is the finding the three-entry structure exists to expose.**
+H1 behaves as before: the total effect is *larger* than the main estimate and
+strongly significant.
+
+For H2 and H3a the picture is different, and it is **not** what a two-column
+main-vs-total pair would have suggested. Read naively, H2 falls from 0.222 to
+0.174 and loses significance, which looks like the topic fixed effects were doing
+the work. The like-for-like comparator shows that is wrong: on the *same*
+full-sample data, the topic-adjusted estimate is 0.166 and the total effect is
+0.174 — dropping the topic FE moves the estimate by less than a tenth of a standard
+error, and *upward*. What actually costs the significance is including military
+coverage, which takes the estimate from 0.222 (non-military) to 0.166
+(full sample). The same holds for H3a: main -0.332 → full-sample topic-adjusted
+-0.193, while removing the topic FE from the full sample moves it only from -0.193
+to -0.222.
+
+So the honest statement is that **the H2 and H3a interactions are not robust to
+including military coverage**, and that the topic adjustment itself is close to
+irrelevant on a common sample. Neither total effect is significant on the
+bootstrap p-values the paper reports (H2 0.157, H3a 0.219). Reported as found,
+per instruction. The three-entry layout is what makes the sample effect separable
+from the topic-FE effect; a two-column pair would have attributed the whole change
+to the estimand.
+
+**Implementation notes.**
+
+- The H2 comparator and total effect are new models on `data_non_ukraine` filtered
+  to non-NATO with all topics retained (`model2d_z_alltopic`, `model2d_z_total`).
+  Their outcome is the full-window source z-score from `load-prob`; that is the
+  right analogue of Model 5's outcome, because the non-military branch
+  re-standardizes only on account of its sample change, and the all-topics sample
+  is the original one.
+- H3a needed no new estimation: all three entries already existed
+  (`model5a_opt_z`, `model5a_opt_non_mil_z`, `model5a_opt_z_total`).
+- `model2a_opt_z_total` (the old Model-3-level total) is removed from `05a` and
+  from the serialized results, since nothing reads it any more.
+- Both three-entry panels carry the note that the comparison is not
+  apples-to-apples and why.
+
 ### Task G2 — pre-period variants on the matched preferred models — DONE
 
 Task G ran the variants against the *unmatched* headline specs. This section repeats
@@ -731,6 +808,15 @@ The three canonical PNGs are byte-for-byte unchanged.
   total columns paired for H1, H2, H3a
 - `figures/tables/prob/table_s14_total_effect.html`
 - `figures/tables/prob/total_effect_comparison.csv` — estimates, SEs, N, bandwidth
+
+**Task E3** (appendix, supersedes the original Task E table)
+
+- `figures/tables/prob/table_s14a_total_effect_h1.{tex,html}`
+- `figures/tables/prob/table_s14b_total_effect_h2.{tex,html}`
+- `figures/tables/prob/table_s14c_total_effect_h3a.{tex,html}`
+- `figures/tables/prob/total_effect_comparison.csv` — refreshed, `kind` uses "main"
+- `figures/tables/prob/table_s14_total_effect.*` **deleted** — the single wide
+  table is no longer produced by any chunk
 
 **Table S15** (appendix)
 

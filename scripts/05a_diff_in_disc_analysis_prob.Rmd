@@ -1125,44 +1125,110 @@ cat("Z-score matched model — Bootstrap p-value:", boot_matched_model_z$p_val, 
 
 ## Total Effect (No Topic Adjustment)
 
-The headline H2 interaction conditions on topic, so it measures how state and
-independent outlets diverged *within* topics. The total effect additionally lets
-the topic mix move, which is what a reader experiences. This clone keeps the
-sample (all articles, military included), the source-level z-scored outcome and
-the source clustering, and removes topic from both the model and the bandwidth
-residualization — keeping the bandwidth MSE-optimal for the specification that is
-actually estimated.
+The H2 result the paper leads with is **Table 2 Model 5** (`model2d_z`): the
+non-NATO sample with topic fixed effects. Its sample descends from
+`data_non_mil`, so it also **omits military coverage** — Model 5 inherits Model
+4's military exclusion and then drops the NATO countries.
 
-```{r model2a-opt-total-prob}
-# Following `model2a-opt-prob-z`, with topic_clean removed from the
-# residualization and from the fixed effects.
+That matters for a total effect. Conditioning on topic measures how state and
+independent outlets diverged *within* topics; the total effect lets the topic mix
+move too, which is what a reader actually experiences. But the single largest
+compositional shift after the invasion is toward military coverage, so a total
+effect estimated on a military-excluded sample would omit most of the channel it
+is meant to capture. The total effect is therefore estimated on the full non-NATO
+sample, all topics included.
+
+Because that changes the sample as well as the fixed effects, a like-for-like
+comparator is needed: the same full non-NATO all-topics sample **with** topic
+fixed effects. Three objects are built here, and they are reported together in
+appendix table S14b:
+
+1. `model2d_z_alltopic` — non-NATO, all topics, topic FE (the comparator);
+2. `model2d_z` — non-NATO, military omitted, topic FE (the main specification,
+   estimated above);
+3. `model2d_z_total` — non-NATO, all topics, no topic FE (the total effect).
+
+The outcome for the all-topics objects is `data_non_ukraine`'s source-level
+z-score, computed over the full window on all topics. This is the correct
+analogue of Model 5's outcome: the non-military branch re-standardizes because
+its sample changed, whereas the all-topics sample is the original one.
+
+```{r model2d-total-prob}
+# Non-NATO, all topics. Following `non-nato-prob`, but without the upstream
+# military filter, so this branches from data_non_ukraine rather than data_non_mil.
+data_non_nato_alltopic <- data_non_ukraine %>%
+  filter(!country %in% NATO_COUNTRIES)
+
+cat("Non-NATO, all topics:", nrow(data_non_nato_alltopic), "articles\n")
+
+# --- Comparator: same sample as the total effect, but topic-adjusted ---------
+# Following `non-nato-prob` (z-score variant): residualize on the model's own FE
+# structure, then select the MSE-optimal bandwidth.
+resid_y_alltopic <- feols(sentiment_z ~ 1 | topic_clean + state_owned,
+                          data = data_non_nato_alltopic)$residuals
+
+bw_alltopic <- rdbwselect(y = resid_y_alltopic,
+                          x = data_non_nato_alltopic$running_probabilistic,
+                          kernel = "triangular",
+                          cluster = data_non_nato_alltopic$source_domain,
+                          p = 1,
+                          bwselect = "mserd")
+
+optimal_bw_alltopic <- bw_alltopic$bws[1, 1]
+cat("All-topics (topic-adjusted) optimal bandwidth:",
+    round(optimal_bw_alltopic, 1), "days\n")
+
+optimal_bandwidth_data_alltopic <- data_non_nato_alltopic %>%
+  filter(running_probabilistic < optimal_bw_alltopic,
+         running_probabilistic > -optimal_bw_alltopic) %>%
+  droplevels()
+
+model2d_z_alltopic <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned |
+                              topic_clean,
+                            cluster = ~source_domain,
+                            data = optimal_bandwidth_data_alltopic)
+
+summary(model2d_z_alltopic)
+
+boot_model2d_z_alltopic <- run_wild_bootstrap(model2d_z_alltopic, "treatment:state_owned")
+cat("Bootstrap p-value (all topics, topic-adjusted):",
+    boot_model2d_z_alltopic$p_val, "\n")
+
+# --- Total effect: same sample, topic dropped from model and bandwidth -------
 resid_y_total <- feols(sentiment_z ~ 1 | state_owned,
-                       data = data_non_ukraine)$residuals
+                       data = data_non_nato_alltopic)$residuals
 
 bw_select_total <- rdbwselect(y = resid_y_total,
-                              x = data_non_ukraine$running_probabilistic,
+                              x = data_non_nato_alltopic$running_probabilistic,
                               kernel = "triangular",
-                              cluster = data_non_ukraine$source_domain,
+                              cluster = data_non_nato_alltopic$source_domain,
                               p = 1,
                               bwselect = "mserd")
 
 optimal_bw_total <- bw_select_total$bws[1, 1]
 cat("Total-effect optimal bandwidth:", round(optimal_bw_total, 1), "days\n")
 
-optimal_bandwidth_data_total <- data_non_ukraine %>%
+optimal_bandwidth_data_total <- data_non_nato_alltopic %>%
   filter(running_probabilistic < optimal_bw_total,
          running_probabilistic > -optimal_bw_total) %>%
   droplevels()
 
-model2a_opt_z_total <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned,
-                             cluster = ~source_domain,
-                             data = optimal_bandwidth_data_total)
+model2d_z_total <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned,
+                         cluster = ~source_domain,
+                         data = optimal_bandwidth_data_total)
 
-summary(model2a_opt_z_total)
+summary(model2d_z_total)
 
-boot_model2a_opt_z_total <- run_wild_bootstrap(model2a_opt_z_total, "treatment:state_owned")
-cat("Bootstrap SE for treatment:state_owned (total):", boot_model2a_opt_z_total$se, "\n")
-cat("Bootstrap p-value (total):", boot_model2a_opt_z_total$p_val, "\n")
+boot_model2d_z_total <- run_wild_bootstrap(model2d_z_total, "treatment:state_owned")
+cat("Bootstrap p-value (total):", boot_model2d_z_total$p_val, "\n")
+
+cat("\nH2 total-effect comparison (treatment:state_owned):\n")
+cat("  all topics, topic FE :", round(coef(model2d_z_alltopic)[["treatment:state_owned"]], 4),
+    " N", nobs(model2d_z_alltopic), "\n")
+cat("  main (Model 5)       :", round(coef(model2d_z)[["treatment:state_owned"]], 4),
+    " N", nobs(model2d_z), "\n")
+cat("  total (no topic FE)  :", round(coef(model2d_z_total)[["treatment:state_owned"]], 4),
+    " N", nobs(model2d_z_total), "\n")
 ```
 
 ## Country-Level Clustering Check
@@ -1695,7 +1761,8 @@ results_h2_prob <- list(
     #model3a_opt_saturated = boot_model3a_opt_saturated,
     model_did = boot_model_did,
     model_placebo = boot_model4a,
-    model2a_opt_z_total = boot_model2a_opt_z_total,
+    model2d_z_alltopic = boot_model2d_z_alltopic,
+    model2d_z_total = boot_model2d_z_total,
     matched_model = boot_matched_model,
     matched_model_z = boot_matched_model_z,
     # Topic models (optimal BW)
@@ -1734,8 +1801,11 @@ results_h2_prob <- list(
   # Source- vs country-level WCR inference for the reported H2 RDIDs
   country_cluster_check = country_cluster_check,
 
-  # Total effect: headline interaction without topic adjustment (appendix S14)
-  model2a_opt_z_total = model2a_opt_z_total,
+  # Total effect at the Model-5 level, with its like-for-like all-topics
+  # comparator (appendix S14b)
+  model2d_z_alltopic = model2d_z_alltopic,
+  model2d_z_total = model2d_z_total,
+  optimal_bw_alltopic = optimal_bw_alltopic,
   optimal_bw_total = optimal_bw_total
 )
 
