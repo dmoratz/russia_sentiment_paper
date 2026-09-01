@@ -883,13 +883,17 @@ handled, and it is exactly what this table exists to surface.
 > re-rendering those two fills the gaps. The script reports missing cells
 > explicitly rather than silently omitting them.
 
-### Still to do
+### Still to do — handed off
 
-Slimming `04{b,d}`, `05{b,d}`, `06{b,d}`, `07{b,d}` to the objects `11` and the
-reconciled `10b`/`10d` actually consume. Donald has archived the current versions
-to `scripts/archive/alternative_specs_full/` (commit `129b5a3`). All figure code
-stays in both `b` and `d`, including figures that are never used, so the two
-variants stay consistent and nothing has to be recreated later.
+Slimming `04{b,d}`, `05{b,d}`, `06{b,d}`, `07{b,d}`. Specified in
+`plans/claude_code_brief_phase3_variant_slimming.md`, written for a fresh session
+because the work spans ~10,000 lines across eight files.
+
+**Decision taken:** the b/d scripts keep the objects behind Tables 1-5 per
+variant, not just the seven `11` consumes, so `10b`/`10d` remain rebuildable.
+Keep lists, drop lists and verification steps are in the brief. All figure code
+stays in both `b` and `d`, including unused figures, so the two variants stay
+consistent and nothing has to be recreated later.
 
 Also noted for that pass: the `## Total Effect, Sentiment-Z (No FEs)` section
 exists in **all three** 06 files, is serialized nowhere and consumed by nothing.
