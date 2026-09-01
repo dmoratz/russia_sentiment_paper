@@ -49,92 +49,8 @@ data_non_ukraine <- data_non_ukraine %>%
   ungroup()
 ```
 
-# Full Data RDD
-
-## Model 1: Basic RDD (Different Slopes)
-
-```{r model1-basic-drop}
-model1_basic <- feols(sentiment_clean ~ running_continuous * treatment,
-                      cluster = ~source_domain,
-                      data = data_non_ukraine)
-
-summary(model1_basic)
-```
-
-## Model 2: With Topic Fixed Effects
-
-```{r model1-country-drop}
-model1_country_fe <- feols(sentiment_clean ~ running_continuous * treatment | topic_clean,
-                           cluster = ~source_domain,
-                           data = data_non_ukraine)
-
-summary(model1_country_fe)
-```
-
-## Model 3: With Topic and Source Fixed Effects
-
-```{r model1-source-drop}
-model1_country_source_fe <- feols(sentiment_clean ~ running_continuous * treatment | topic_clean + source_domain,
-                                   cluster = ~source_domain,
-                                   data = data_non_ukraine)
-
-summary(model1_country_source_fe)
-```
-
-## Model 4: Full Model (Country + Source + Topic FE)
-
-```{r model1-full-drop}
-model1_full_linear <- feols(sentiment_clean ~ running_continuous * treatment | country + source_domain + topic_clean,
-                    cluster = ~source_domain,
-                    data = data_non_ukraine)
-
-summary(model1_full_linear)
-```
-
-### Linear Effect Size Calculation
-
-```{r effect-size-linear-drop}
-sd_sentiment <- sd(data_non_ukraine$sentiment_clean)
-
-cat("Standard deviation of sentiment:", round(sd_sentiment, 3), "\n\n")
-
-# Mean sentiment before/after
-mean_pre <- mean(data_non_ukraine$sentiment_clean[data_non_ukraine$running_continuous < 0], na.rm = TRUE)
-mean_post <- mean(data_non_ukraine$sentiment_clean[data_non_ukraine$running_continuous >= 0], na.rm = TRUE)
-
-cat("Mean sentiment (pre-invasion):", round(mean_pre, 3), "\n")
-cat("Mean sentiment (post-invasion):", round(mean_post, 3), "\n\n")
-
-# Effect size in SD units
-coef_treatment <- model1_full_linear$coeftable["treatment","Estimate"]
-effect_size <- coef_treatment / sd_sentiment
-
-cat("Treatment coefficient:", round(coef_treatment, 4), "\n")
-cat("Effect size (in SD units):", round(effect_size, 3), "\n")
-```
-
-
-## Model 5: Z-Score Model (Topic FE)
-
-```{r model1-z-drop}
-model1_z <- feols(sentiment_z ~ running_continuous * treatment | topic_clean,
-                    cluster = ~source_domain,
-                    data = data_non_ukraine)
-
-summary(model1_z)
-```
-
 
 # Main RDD Models
-
-## RD Robust Estimation
-
-```{r rdrobust-drop}
-model1_rdrobust <- rdrobust(data_non_ukraine$sentiment_clean,
-                            data_non_ukraine$running_continuous)
-
-summary(model1_rdrobust)
-```
 
 ## Optimal Bandwidth Selection
 
@@ -260,33 +176,17 @@ summary(model5_opt)
 
 ## Non-Mil Models
 
-### Model 6: Non-Military Topics Only
+### Non-Military Sample
+
+Military coverage moves for reasons that have nothing to do with the signalling
+mechanism, so Table 1 Model 6 is fitted with it omitted. This chunk builds that
+sample; the model follows.
 
 ```{r non-military-drop}
 data_non_mil <- optimal_bandwidth_data %>%
   filter(topic_clean != "Military")
 
 cat("Non-military sample:", nrow(data_non_mil), "articles\n")
-
-covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_non_mil)
-
-model6_nonmil <- rdrobust(
-  y = data_non_mil$sentiment_clean,
-  x = data_non_mil$running_continuous,
-  covs = covs_matrix,
-  cluster = data_non_mil$source_domain
-)
-
-summary(model6_nonmil)
-```
-
-#### Effect Size (Non-Military)
-
-```{r effect-non-mil-drop}
-sd_sentiment_non_mil <- sd(data_non_mil$sentiment_clean)
-coef_model6_nonmil <- model6_nonmil$coef["Conventional", "Coeff"]
-
-cat("Effect size (non-military, in SD units):", round(coef_model6_nonmil / sd_sentiment_non_mil, 3), "\n")
 ```
 
 ### Model 6A: Z-Score Model (Topic FE)
@@ -307,22 +207,17 @@ summary(model6a_nonmil)
 
 ## Non-Nato Models
 
-### Model 7: Non-NATO Countries, Non-Mil Only
+### Non-NATO Sample
+
+Table 1 Model 7 narrows the non-military sample further to non-NATO countries,
+dropping the states whose media had their own reasons to turn against the
+invasion. This chunk builds that sample; the model follows.
 
 ```{r non-nato-drop}
 data_non_nato <- data_non_mil %>%
   filter(!country %in% NATO_COUNTRIES)
 
-covs_matrix <- model.matrix(~ country + source_domain + topic_clean - 1, data = data_non_nato)
-
-model7_nonnato <- rdrobust(
-  y = data_non_nato$sentiment_clean,
-  x = data_non_nato$running_continuous,
-  covs = covs_matrix,
-  cluster = data_non_nato$source_domain
-)
-
-summary(model7_nonnato)
+cat("Non-NATO, non-military sample:", nrow(data_non_nato), "articles\n")
 ```
 
 ### Model 7A: Z-Score Model (Topic FE)
@@ -341,13 +236,13 @@ model7a_nonnato <- rdrobust(
 summary(model7a_nonnato)
 ```
 
-# By Topic RDD
+# By-Topic Samples
 
-## RDD Sentiment Clean Topics
+The five topic figures below each plot one topic's subset of the optimal-bandwidth
+sample. The subsets are built once here; no by-topic model is fitted, since none
+reaches a table 10d or 11 builds.
 
-```{r topic-subsets-drop}
-# Create by topic data
-
+```{r by-topic-data-drop}
 optimal_bandwidth_data_pol <- optimal_bandwidth_data %>%
   filter(topic_clean == "Political")
 
@@ -362,158 +257,6 @@ optimal_bandwidth_data_cult <- optimal_bandwidth_data %>%
 
 optimal_bandwidth_data_oth <- optimal_bandwidth_data %>%
   filter(topic_clean == "Other")
-```
-
-### Political Model
-
-```{r model4-optimal-pol-drop}
-# All covariates
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_pol)
-
-model4_opt_pol <- rdrobust(
-  y = optimal_bandwidth_data_pol$sentiment_clean,
-  x = optimal_bandwidth_data_pol$running_continuous,
-  covs = covs_matrix,
-  cluster = optimal_bandwidth_data_pol$source_domain
-)
-
-summary(model4_opt_pol)
-```
-
-### Military Model
-
-```{r model4-optimal-mil-drop}
-# All covariates
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_mil)
-
-model4_opt_mil <- rdrobust(
-  y = optimal_bandwidth_data_mil$sentiment_clean,
-  x = optimal_bandwidth_data_mil$running_continuous,
-  covs = covs_matrix,
-  cluster = optimal_bandwidth_data_mil$source_domain
-)
-
-summary(model4_opt_mil)
-```
-
-### Economic Model
-
-```{r model4-optimal-econ-drop}
-# All covariates
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_econ)
-
-model4_opt_econ <- rdrobust(
-  y = optimal_bandwidth_data_econ$sentiment_clean,
-  x = optimal_bandwidth_data_econ$running_continuous,
-  covs = covs_matrix,
-  cluster = optimal_bandwidth_data_econ$source_domain
-)
-
-summary(model4_opt_econ)
-```
-
-### Cultural Model
-
-```{r model4-optimal-cult-drop}
-# All covariates
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_cult)
-
-model4_opt_cult <- rdrobust(
-  y = optimal_bandwidth_data_cult$sentiment_clean,
-  x = optimal_bandwidth_data_cult$running_continuous,
-  covs = covs_matrix,
-  cluster = optimal_bandwidth_data_cult$source_domain
-)
-
-summary(model4_opt_cult)
-```
-
-### Other Model
-
-```{r model4-optimal-other-drop}
-# All covariates
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_oth)
-
-model4_opt_oth <- rdrobust(
-  y = optimal_bandwidth_data_oth$sentiment_clean,
-  x = optimal_bandwidth_data_oth$running_continuous,
-  covs = covs_matrix,
-  cluster = optimal_bandwidth_data_oth$source_domain
-)
-
-summary(model4_opt_oth)
-```
-
-## RDD Z-Score Topics
-
-### Political Model
-
-```{r model5-optimal-pol-drop}
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_pol)
-
-model5_opt_pol <- rdrobust(
-  y = optimal_bandwidth_data_pol$sentiment_z,
-  x = optimal_bandwidth_data_pol$running_continuous,
-  cluster = optimal_bandwidth_data_pol$source_domain
-)
-
-summary(model5_opt_pol)
-```
-
-### Military Model
-
-```{r model5-optimal-mil-drop}
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_mil)
-
-model5_opt_mil <- rdrobust(
-  y = optimal_bandwidth_data_mil$sentiment_z,
-  x = optimal_bandwidth_data_mil$running_continuous,
-  cluster = optimal_bandwidth_data_mil$source_domain
-)
-
-summary(model5_opt_mil)
-```
-
-### Economic Model
-
-```{r model5-optimal-econ-drop}
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_econ)
-
-model5_opt_econ <- rdrobust(
-  y = optimal_bandwidth_data_econ$sentiment_z,
-  x = optimal_bandwidth_data_econ$running_continuous,
-  cluster = optimal_bandwidth_data_econ$source_domain
-)
-
-summary(model5_opt_econ)
-```
-
-### Cultural Model
-
-```{r model5-optimal-cult-drop}
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_cult)
-
-model5_opt_cult <- rdrobust(
-  y = optimal_bandwidth_data_cult$sentiment_z,
-  x = optimal_bandwidth_data_cult$running_continuous,
-  cluster = optimal_bandwidth_data_cult$source_domain
-)
-
-summary(model5_opt_cult)
-```
-
-### Other Model
-
-```{r model5-optimal-other-drop}
-covs_matrix <- model.matrix(~ country + source_domain - 1, data = optimal_bandwidth_data_oth)
-
-model5_opt_oth <- rdrobust(
-  y = optimal_bandwidth_data_oth$sentiment_z,
-  x = optimal_bandwidth_data_oth$running_continuous,
-  cluster = optimal_bandwidth_data_oth$source_domain
-)
-
-summary(model5_opt_oth)
 ```
 
 
@@ -813,85 +556,6 @@ ggsave(plot = invasion_on_sentiment_non_mil_graph,
        width = 10, height = 7)
 ```
 
-
-# Placebo Test: December 7th Announcement
-
-## FE Model, Non Mil
-
-```{r placebo-dec-drop}
-data_dec <- data_non_ukraine %>%
-  filter(date_publish < "2022-02-19") %>%
-  mutate(
-    running_continuous = as.numeric(difftime(date_publish_continuous, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
-    treatment = ifelse(date_publish_continuous < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
-  ) %>%
-  filter(topic_clean != "Military")
-
-# Full model specification using rdrobust (matches model4_opt)
-covs_matrix_dec <- model.matrix(~ country + source_domain + topic_clean - 1,
-                                data = data_dec)
-
-model_placebo <- rdrobust(
-  y = data_dec$sentiment_clean,
-  x = data_dec$running_continuous,
-  covs = covs_matrix_dec,
-  cluster = data_dec$source_domain
-)
-
-summary(model_placebo)
-cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
-```
-
-## Z-Score Model
-
-```{r placebo-dec-z-drop}
-data_dec <- data_non_ukraine %>%
-  filter(date_publish < "2022-02-19") %>%
-  mutate(
-    running_continuous = as.numeric(difftime(date_publish_continuous, as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), units = "secs")),
-    treatment = ifelse(date_publish_continuous < as.POSIXct("2021-12-07 00:00:00", tz = "UTC"), 0, 1)
-  )
-
-# Full model specification using rdrobust (matches model5_opt)
-covs_matrix_dec <- model.matrix(~ topic_clean - 1,
-                                data = data_dec)
-
-model_placebo_z <- rdrobust(
-  y = data_dec$sentiment_z,
-  x = data_dec$running_continuous,
-  covs = covs_matrix_dec,
-  cluster = data_dec$source_domain
-)
-
-summary(model_placebo_z)
-cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
-```
-
-
-# Robustness: Heavily Saturated Full Model with Re-Optimized Bandwidth
-
-## Using FELM
-
-```{r saturated-model-drop}
-optimal_bw <- model4_opt$bws[1, 1]
-
-# Using optimal bandwidth from model4_opt
-optimal_bandwidth_data_filtered <- optimal_bandwidth_data %>%
-  filter(abs(running_continuous) <= optimal_bw) %>%
-  mutate(post = ifelse(running_continuous >= 0, 1, 0))
-
-# Fully saturated feols RDD model
-model4_felm_saturated <- feols(
-  sentiment_clean ~ post + running_continuous + running_continuous:post |
-    source_domain^topic_clean,
-  cluster = ~source_domain,
-  data = optimal_bandwidth_data_filtered
-)
-
-summary(model4_felm_saturated)
-```
-
-
 # Summary Table (Table 1D)
 
 ```{r table1d-drop}
@@ -927,34 +591,13 @@ table_1d
 ```{r save-results-drop}
 # Save model objects for later use
 results_h1_drop <- list(
-  model1_basic = model1_basic,
-  model1_country_fe = model1_country_fe,
-  model1_country_source_fe = model1_country_source_fe,
-  model1_full_linear = model1_full_linear,
-  model1_z = model1_z,
   model1_opt = model1_opt,
   model2_opt = model2_opt,
   model3_opt = model3_opt,
   model4_opt = model4_opt,
   model5_opt = model5_opt,
-  model7_non_nato = model7_nonnato,
-  model7a_nonnato = model7a_nonnato,
-  model6_non_mil = model6_nonmil,
   model6a_nonmil = model6a_nonmil,
-  model4_felm_saturated = model4_felm_saturated,
-  model4_opt_pol = model4_opt_pol,
-  model4_opt_mil = model4_opt_mil,
-  model4_opt_econ = model4_opt_econ,
-  model4_opt_cult = model4_opt_cult,
-  model4_opt_oth = model4_opt_oth,
-  model5_opt_pol = model5_opt_pol,
-  model5_opt_mil = model5_opt_mil,
-  model5_opt_econ = model5_opt_econ,
-  model5_opt_cult = model5_opt_cult,
-  model5_opt_oth = model5_opt_oth,
-  optimal_bandwidth = optimal_bw,
-  model_placebo = model_placebo,
-  model_placebo_z = model_placebo_z
+  model7a_nonnato = model7a_nonnato
 )
 
 saveRDS(results_h1_drop, file.path(DATA_INTERMEDIATE, "04_h1_results_drop.rds"))
