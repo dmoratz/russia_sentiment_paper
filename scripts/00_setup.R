@@ -617,11 +617,73 @@ get_n_clusters <- function(model) {
   }, error = function(e) "—")
 }
 
-save_table <- function(tbl, name, subdir = NULL) {
+# Normalise the LaTeX caption block and set the cross-reference label.
+#
+# gt writes two different caption shapes. A table built through modelsummary
+# carries a knitr caption, \caption{\label{tab:<chunk>}Title}, which is what we
+# want. A table built with gt() %>% tab_header() carries gt's own header, which
+# becomes an *unnumbered* \caption*{} block set in 20pt/14pt display fonts, and
+# a malformed hybrid when a subtitle is present -- a stray \\ and a dangling
+# {\fontsize{14}{17}...} group left outside the caption.
+#
+# Neither shape lets two tables built in the same chunk carry distinct labels,
+# because knitr derives the label from the chunk name.
+#
+# This collapses every shape to one numbered caption at the house 12pt body
+# size, carrying the label given. A subtitle, where there is one, is folded into
+# the caption rather than dropped. The HTML output is untouched, so it keeps
+# title and subtitle as gt renders them.
+normalize_tex_caption <- function(filepath, label = NULL, sep = ". ") {
+  if (!file.exists(filepath)) return(invisible(FALSE))
+  lines <- readLines(filepath, warn = FALSE)
+
+  cap_start <- grep("^\\s*\\\\caption\\*?\\{", lines)
+  if (!length(cap_start)) return(invisible(FALSE))
+  cap_start <- cap_start[1]
+
+  # the body-font line closes the caption block in every gt LaTeX table
+  body_font <- grep("^\\s*\\\\fontsize\\{12\\.0pt\\}", lines)
+  body_font <- body_font[body_font > cap_start]
+  cap_end <- if (length(body_font)) body_font[1] - 1L else cap_start
+
+  txt <- paste(lines[cap_start:cap_end], collapse = "\n")
+
+  # keep whatever label is already there unless an explicit one was supplied
+  found <- regmatches(txt, regexpr("\\\\label\\{[^}]*\\}", txt))
+  keep <- if (!is.null(label)) label
+          else if (length(found)) sub("^\\\\label\\{(.*)\\}$", "\\1", found) else NULL
+
+  txt <- gsub("\\\\label\\{[^}]*\\}", "", txt)
+  txt <- sub("^\\s*\\\\caption\\*?\\{", "", txt)
+  txt <- gsub("\\\\fontsize\\{[^}]*\\}\\{[^}]*\\}\\\\selectfont", "", txt)
+  txt <- gsub("\\\\\\\\", "\n", txt)          # \\ separates title from subtitle
+
+  pieces <- unlist(strsplit(txt, "\n", fixed = TRUE))
+  pieces <- trimws(gsub("\\s+", " ", pieces))
+  pieces <- sub("^\\{+", "", pieces)           # only boundary braces, so any
+  pieces <- sub("\\}+$", "", pieces)           # braces inside the text survive
+  pieces <- trimws(pieces)
+  pieces <- pieces[nzchar(pieces)]
+  if (!length(pieces)) return(invisible(FALSE))
+
+  caption <- paste(pieces, collapse = sep)
+  new_line <- if (is.null(keep)) sprintf("\\caption{%s}", caption)
+              else sprintf("\\caption{\\label{%s}%s}", keep, caption)
+
+  writeLines(c(lines[seq_len(cap_start - 1L)], new_line,
+               lines[(cap_end + 1L):length(lines)]), filepath)
+  invisible(TRUE)
+}
+
+# `label` is the full cross-reference target, e.g. "tab:s13". Omit it to leave
+# whatever label knitr derived from the chunk name in place.
+save_table <- function(tbl, name, subdir = NULL, label = NULL) {
   out_dir <- if (!is.null(subdir)) file.path(FIGURES_TABLES, subdir) else FIGURES_TABLES
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-  gtsave(tbl, file.path(out_dir, paste0(name, ".tex")))
+  tex_path <- file.path(out_dir, paste0(name, ".tex"))
+  gtsave(tbl, tex_path)
   gtsave(tbl, file.path(out_dir, paste0(name, ".html")))
+  normalize_tex_caption(tex_path, label = label)
   invisible(tbl)
 }
 

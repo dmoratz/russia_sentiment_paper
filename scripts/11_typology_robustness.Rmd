@@ -256,10 +256,10 @@ table_s16b
 table_s16c
 table_s16d
 
-save_table(table_s16a, "table_s16a_typology_h1",  TABLE_SUBDIR)
-save_table(table_s16b, "table_s16b_typology_h2",  TABLE_SUBDIR)
-save_table(table_s16c, "table_s16c_typology_h3a", TABLE_SUBDIR)
-save_table(table_s16d, "table_s16d_typology_h3b", TABLE_SUBDIR)
+save_table(table_s16a, "table_s16a_typology_h1",  TABLE_SUBDIR, label = "tab:s16a")
+save_table(table_s16b, "table_s16b_typology_h2",  TABLE_SUBDIR, label = "tab:s16b")
+save_table(table_s16c, "table_s16c_typology_h3a", TABLE_SUBDIR, label = "tab:s16c")
+save_table(table_s16d, "table_s16d_typology_h3b", TABLE_SUBDIR, label = "tab:s16d")
 ```
 
 # Printed Comparison and CSV

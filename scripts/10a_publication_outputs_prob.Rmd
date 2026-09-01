@@ -503,7 +503,7 @@ table_7 <- table_data_7 %>%
   )
 
 table_7
-save_table(table_7, "table_07_classification", TABLE_SUBDIR)
+save_table(table_7, "table_07_classification", TABLE_SUBDIR, label = "tab:07")
 ```
 
 # Supplementary Tables
@@ -859,7 +859,7 @@ table_s6 <- loo_combined %>%
   tab_footnote(footnote = str_wrap(note_loo_h2, 80))
 
 table_s6
-save_table(table_s6, "table_s06_h2_loo", TABLE_SUBDIR)
+save_table(table_s6, "table_s06_h2_loo", TABLE_SUBDIR, label = "tab:s6")
 
 ```
 
@@ -934,7 +934,7 @@ s7_col_names <- names(s7_models)
 table_s7 <- override_interaction_stars(table_s7, boot_results_s7, s7_col_names)
 
 table_s7
-save_table(table_s7, "table_s07_h3a_fe_core", TABLE_SUBDIR)
+save_table(table_s7, "table_s07_h3a_fe_core", TABLE_SUBDIR, label = "tab:s7")
 ```
 
 ## Table S8: H3a By-Topic Z-Score — CSTO Alignment (Pattern C-z)
@@ -1101,7 +1101,7 @@ table_s10 <- loo_combined_h3a %>%
   tab_footnote(footnote = str_wrap(note_loo_h3a, 80))
 
 table_s10
-save_table(table_s10, "table_s10_h3a_loo", TABLE_SUBDIR)
+save_table(table_s10, "table_s10_h3a_loo", TABLE_SUBDIR, label = "tab:s10loo")
 ```
 
 ## Table S11: H3a Heterogenous Treatment Effects
@@ -1192,7 +1192,7 @@ table_s11 <- decomp_combined %>%
   sub_values(values = "", replacement = "\u2014")
 
 table_s11
-save_table(table_s11, "table_s11_decomposition", TABLE_SUBDIR)
+save_table(table_s11, "table_s11_decomposition", TABLE_SUBDIR, label = "tab:s11minireg")
 
 ```
 
@@ -1288,7 +1288,7 @@ table_s12 <- placebo_summary %>%
   tab_footnote(footnote = note_placebo)
 
 table_s12
-save_table(table_s12, "table_s12_placebo", TABLE_SUBDIR)
+save_table(table_s12, "table_s12_placebo", TABLE_SUBDIR, label = "tab:s12")
 ```
 
 
@@ -1362,7 +1362,7 @@ table_s13 <- placebo_aligned_summary %>%
   tab_footnote(footnote = note_placebo_aligned)
 
 table_s13
-save_table(table_s13, "table_s13_placebo_aligned", TABLE_SUBDIR)
+save_table(table_s13, "table_s13_placebo_aligned", TABLE_SUBDIR, label = "tab:s13")
 ```
 
 
@@ -1453,7 +1453,7 @@ table_s14a <- modelsummary(
 )
 
 table_s14a
-save_table(table_s14a, "table_s14a_total_effect_h1", TABLE_SUBDIR)
+save_table(table_s14a, "table_s14a_total_effect_h1", TABLE_SUBDIR, label = "tab:s14a")
 
 # --- Panel B: H2 -----------------------------------------------------------
 s14b_models <- list(
@@ -1506,7 +1506,7 @@ table_s14b <- modelsummary(
 
 table_s14b <- override_interaction_stars(table_s14b, boot_s14b, names(s14b_models))
 table_s14b
-save_table(table_s14b, "table_s14b_total_effect_h2", TABLE_SUBDIR)
+save_table(table_s14b, "table_s14b_total_effect_h2", TABLE_SUBDIR, label = "tab:s14b")
 
 # --- Panel C: H3a ----------------------------------------------------------
 s14c_models <- list(
@@ -1557,7 +1557,7 @@ table_s14c <- modelsummary(
 
 table_s14c <- override_interaction_stars(table_s14c, boot_s14c, names(s14c_models))
 table_s14c
-save_table(table_s14c, "table_s14c_total_effect_h3a", TABLE_SUBDIR)
+save_table(table_s14c, "table_s14c_total_effect_h3a", TABLE_SUBDIR, label = "tab:s14c")
 ```
 
 ### Total Effect vs Main: Printed Comparison
@@ -1697,7 +1697,7 @@ table_s15a <- build_s15(
   results_prepd$bootstrap_se$h2_matched,
   "treatment:state_owned",
   "State-Owned x Treat",
-  "Pre-Period Adjustment Variants — State Ownership, Matched (Probabilistic Time)",
+  "Pre-Period Adjustment Variants — H2, State Ownership, Matched (Probabilistic Time)",
   "Sample is the exact-matched non-NATO, non-military sample of Table 2 Model 6.",
   "The interaction is state-owned x invasion."
 )
@@ -1707,7 +1707,7 @@ table_s15b <- build_s15(
   results_prepd$bootstrap_se$h3a_matched,
   "treatment:csto",
   "Russia-Aligned x Treat",
-  "Pre-Period Adjustment Variants — Russia-Aligned, Matched (Probabilistic Time)",
+  "Pre-Period Adjustment Variants — H3a, Russia-Aligned, Matched (Probabilistic Time)",
   paste("Sample is the exact-matched state-owned, non-NATO, non-military sample of",
         "Table 4 Model 5."),
   "The interaction is Russia-aligned x invasion."
@@ -1716,8 +1716,8 @@ table_s15b <- build_s15(
 table_s15a
 table_s15b
 
-save_table(table_s15a, "table_s15a_preperiod_matched_h2", TABLE_SUBDIR)
-save_table(table_s15b, "table_s15b_preperiod_matched_h3a", TABLE_SUBDIR)
+save_table(table_s15a, "table_s15a_preperiod_matched_h2", TABLE_SUBDIR, label = "tab:s15a")
+save_table(table_s15b, "table_s15b_preperiod_matched_h3a", TABLE_SUBDIR, label = "tab:s15b")
 ```
 
 ### Table S15: Printed Side-by-Side
@@ -1794,32 +1794,6 @@ if (is.null(country_cluster_summary) || nrow(country_cluster_summary) == 0) {
   cat("\nSaved to:", file.path(out_dir, "country_clustering_comparison.{csv,txt}"), "\n")
 }
 ```
-
-# GT Caption Fix
-
-```{r}
-fix_gt_caption <- function(filepath) {
-  tex <- readLines(filepath)
-  text <- paste(tex, collapse = "\n")
-  
-  # Match the full gt caption block and extract the title
-  text <- gsub(
-    "\\\\caption\\*\\{\\s*\n\\{\\\\fontsize\\{[^}]+\\}\\{[^}]+\\}\\\\selectfont\\s+(.+?)\\\\fontsize\\{[^}]+\\}\\{[^}]+\\}\\\\selectfont\\s*\\}\\s*\n\\}",
-    "\\\\caption{\\1}",
-    text
-  )
-  
-  writeLines(text, filepath)
-}
-
-gt_tables <- c("table_s06_h2_loo", "table_s10_h3a_loo",
-               "table_s11_decomposition", "table_s12_placebo",
-               "table_s13_placebo_aligned")
-for (t in gt_tables) {
-  fix_gt_caption(here::here(paste0("figures/tables/",TABLE_SUBDIR), paste0(t, ".tex")))
-}
-```
-
 
 # Summary
 
