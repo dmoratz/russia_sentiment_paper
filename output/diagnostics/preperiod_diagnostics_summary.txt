@@ -1,14 +1,14 @@
 =============================================================
 PRE-PERIOD ADJUSTMENT DIAGNOSTICS (PROBABILISTIC VARIANT)
 Produced by scripts/09_preperiod_diagnostics.Rmd
-Generated: 2026-08-31 13:12:23.189024 
+Generated: 2026-09-01 12:42:31.50489 
 =============================================================
 
 Sections 1-3 are author diagnostics, not paper outputs.
 Section 4 produces the models behind appendix table S15, serialized to
   data/intermediate/09_preperiod_results_prob.rds and read by 10a.
 
-Wild cluster bootstrap: B = 4999 (repository default from 00_setup.R; not reduced)
+Wild cluster bootstrap: B = 99999 (repository default from 00_setup.R; not reduced)
 Pre-invasion period defined as running_probabilistic < 0.
 Running variable units: H1 seconds (04a convention); H2/H3a days.
 
@@ -35,13 +35,13 @@ Baselines are the paper's main unmatched specifications.
         0  TRUE
         0  TRUE
 
-  section spec   scale         outcome estimate     se        p boot_p n_obs
- baseline   H1 z-score     sentiment_z  -0.2172 0.0362 1.96e-09     NA 45366
- baseline   H2 z-score     sentiment_z   0.2219 0.0691 2.54e-03 0.0310 31405
- baseline  H3a z-score     sentiment_z  -0.3323 0.1109 1.11e-02 0.0510  6094
- baseline   H1     raw sentiment_clean  -0.1153 0.0209 3.35e-08     NA 40674
- baseline   H2     raw sentiment_clean   0.1462 0.0328 6.17e-05 0.0038 32095
- baseline  H3a     raw sentiment_clean  -0.2015 0.0608 6.16e-03 0.0216  5917
+  section spec   scale         outcome estimate     se        p  boot_p n_obs
+ baseline   H1 z-score     sentiment_z  -0.2172 0.0362 1.96e-09      NA 45366
+ baseline   H2 z-score     sentiment_z   0.2219 0.0691 2.54e-03 0.03250 31405
+ baseline  H3a z-score     sentiment_z  -0.3323 0.1109 1.11e-02 0.04800  6094
+ baseline   H1     raw sentiment_clean  -0.1153 0.0209 3.35e-08      NA 40674
+ baseline   H2     raw sentiment_clean   0.1462 0.0328 6.17e-05 0.00382 32095
+ baseline  H3a     raw sentiment_clean  -0.2015 0.0608 6.16e-03 0.02050  5917
   bandwidth n_clusters
  2129700.73         61
       42.28         43
@@ -67,11 +67,11 @@ the raw-scale baseline siblings.
  s1_pre_topic_demeaned  H3a     raw   sentiment_tdm  -0.2141 0.0709 1.06e-02
  boot_p n_obs  bandwidth n_clusters
      NA 43396 1959000.75         61
- 0.0280 31370      42.21         43
- 0.0340  6081      40.46         13
+ 0.0269 31370      42.21         43
+ 0.0355  6081      40.46         13
      NA 37444 1633640.65         61
- 0.0122 30573      41.04         43
- 0.0208  5987      39.78         13
+ 0.0115 30573      41.04         43
+ 0.0201  5987      39.78         13
 
 Shift relative to baseline:
  spec   scale baseline diagnostic abs_change pct_change shift_in_baseline_ses
@@ -112,15 +112,15 @@ any variant was estimated. Four specifications per model; see table S15.
  s4_matched H3a matched z-score     sentiment_z_tdm  -0.3821 0.1118 0.0051000
  s4_matched H3a matched z-score     sentiment_z_pre  -0.3521 0.0860 0.0014800
  s4_matched H3a matched z-score sentiment_z_pre_tdm  -0.3527 0.0839 0.0012300
- boot_p n_obs bandwidth n_clusters
- 0.0302 31379     42.28         43
- 0.0216 31379     42.28         43
- 0.0088 31379     42.28         43
- 0.0048 31379     42.28         43
- 0.0298  5721     40.52         13
- 0.0240  5721     40.52         13
- 0.0088  5721     40.52         13
- 0.0064  5721     40.52         13
+  boot_p n_obs bandwidth n_clusters
+ 0.03200 31379     42.28         43
+ 0.02530 31379     42.28         43
+ 0.00871 31379     42.28         43
+ 0.00533 31379     42.28         43
+ 0.02700  5721     40.52         13
+ 0.02370  5721     40.52         13
+ 0.00841  5721     40.52         13
+ 0.00398  5721     40.52         13
 
 Shift relative to the matched main specification:
         spec                   variant    main diagnostic abs_change pct_change
@@ -131,12 +131,12 @@ Shift relative to the matched main specification:
  H3a matched    (3) pre-period z-score -0.3804    -0.3521     0.0283        7.4
  H3a matched                  (4) both -0.3804    -0.3527     0.0277        7.3
  shift_in_main_ses  main_p diagnostic_p main_boot_p diagnostic_boot_p
-             0.210 0.00247    0.0013200      0.0302            0.0216
-             0.618 0.00247    0.0001760      0.0302            0.0088
-             0.849 0.00247    0.0000827      0.0302            0.0048
-            -0.015 0.00530    0.0051000      0.0298            0.0240
-             0.253 0.00530    0.0014800      0.0298            0.0088
-             0.247 0.00530    0.0012300      0.0298            0.0064
+             0.210 0.00247    0.0013200       0.032           0.02530
+             0.618 0.00247    0.0001760       0.032           0.00871
+             0.849 0.00247    0.0000827       0.032           0.00533
+            -0.015 0.00530    0.0051000       0.027           0.02370
+             0.253 0.00530    0.0014800       0.027           0.00841
+             0.247 0.00530    0.0012300       0.027           0.00398
 
 
 SECTION 2: PRE-PERIOD-ONLY Z-SCORING
@@ -152,10 +152,10 @@ Sources dropped for zero/undefined pre-invasion SD:
  s2_pre_period_zscore   H1 z-score sentiment_z_pre  -0.2418 0.0425 1.28e-08
  s2_pre_period_zscore   H2 z-score sentiment_z_pre   0.2705 0.0658 1.80e-04
  s2_pre_period_zscore  H3a z-score sentiment_z_pre  -0.2948 0.1004 1.25e-02
- boot_p n_obs  bandwidth n_clusters
-     NA 46365 2213439.22         60
- 0.0078 33438      46.14         43
- 0.0598  6667      44.01         13
+  boot_p n_obs  bandwidth n_clusters
+      NA 46365 2213439.22         60
+ 0.00655 33438      46.14         43
+ 0.06560  6667      44.01         13
 
 Shift relative to baseline:
  spec baseline diagnostic abs_change pct_change se_ratio baseline_p
@@ -238,16 +238,16 @@ Full estimation window:
 
 BOOTSTRAP STATUS
 -------------------------------------------------------------
-               section spec   scale boot_p status
-              baseline   H2 z-score 0.0310     ok
-              baseline  H3a z-score 0.0510     ok
-              baseline   H2     raw 0.0038     ok
-              baseline  H3a     raw 0.0216     ok
- s1_pre_topic_demeaned   H2 z-score 0.0280     ok
- s1_pre_topic_demeaned  H3a z-score 0.0340     ok
- s1_pre_topic_demeaned   H2     raw 0.0122     ok
- s1_pre_topic_demeaned  H3a     raw 0.0208     ok
-  s2_pre_period_zscore   H2 z-score 0.0078     ok
-  s2_pre_period_zscore  H3a z-score 0.0598     ok
+               section spec   scale  boot_p status
+              baseline   H2 z-score 0.03250     ok
+              baseline  H3a z-score 0.04800     ok
+              baseline   H2     raw 0.00382     ok
+              baseline  H3a     raw 0.02050     ok
+ s1_pre_topic_demeaned   H2 z-score 0.02690     ok
+ s1_pre_topic_demeaned  H3a z-score 0.03550     ok
+ s1_pre_topic_demeaned   H2     raw 0.01150     ok
+ s1_pre_topic_demeaned  H3a     raw 0.02010     ok
+  s2_pre_period_zscore   H2 z-score 0.00655     ok
+  s2_pre_period_zscore  H3a z-score 0.06560     ok
 
 =============================================================

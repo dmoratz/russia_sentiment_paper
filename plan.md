@@ -862,18 +862,19 @@ Specifications compared, per Donald: H1 Table 1 Model 5; H2 Table 2 Models 5 and
 sibling, so it shows one specification.
 
 **Results** (estimate, bootstrap p where one exists). Refreshed 2026-09-01 after
-the slimming pass re-rendered all eight `b`/`d` scripts; every cell is now
-populated and every bootstrap p is a seeded draw at B = 99,999.
+the slimming pass re-rendered all eight `b`/`d` scripts, and again after the
+probabilistic chain was re-rendered the same day. Every cell is now populated
+and every bootstrap p in every column is a seeded draw at B = 99,999.
 
 | Hypothesis | Spec | Probabilistic | Day | Drop |
 |---|---|---|---|---|
 | H1 | Main | -0.217 | -0.267 | -0.156 |
-| H2 | Main | 0.222 (.034) | 0.248 (.008) | **0.154 (.100)** |
-| H2 | Matched | 0.222 (.033) | 0.248 (.008) | **0.153 (.103)** |
-| H3a | Main | -0.332 (.053) | -0.265 (.095) | -0.364 (.046) |
-| H3a | Matched | -0.380 (.029) | -0.311 (.058) | -0.364 (.047) |
-| H3b | Main | -0.002 (.989) | 0.032 (.823) | -0.002 (.992) |
-| H3b | Matched | 0.015 (.917) | 0.050 (.725) | 0.021 (.898) |
+| H2 | Main | 0.222 (.032) | 0.248 (.008) | **0.154 (.100)** |
+| H2 | Matched | 0.222 (.031) | 0.248 (.008) | **0.153 (.103)** |
+| H3a | Main | -0.332 (.049) | -0.265 (.095) | -0.364 (.046) |
+| H3a | Matched | -0.380 (.027) | -0.311 (.058) | -0.364 (.047) |
+| H3b | Main | -0.002 (.988) | 0.032 (.823) | -0.002 (.992) |
+| H3b | Matched | 0.015 (.921) | 0.050 (.725) | 0.021 (.898) |
 
 > ### ⚠ Correction — the earlier H2 matched row was read off stale `.rds` files
 >
@@ -900,10 +901,14 @@ populated and every bootstrap p is a seeded draw at B = 99,999.
 
 **Reading.** H3b is a stable null across all three typologies, as expected, and
 the drop cells now confirm it rather than being empty. H3a is stable in
-magnitude (spread 0.6-0.9 probabilistic SEs); at B = 99,999 its bootstrap p is
-now below 0.05 for the probabilistic matched and both drop specifications, and
-just above it for the day variant — the knife-edge the B increase was meant to
-settle, resolved in favour of significance for the primary variant.
+magnitude (spread 0.6-0.9 probabilistic SEs), and the knife-edge the B increase
+was meant to settle has settled. Table 4 Model 4 on the primary probabilistic
+variant now returns a bootstrap p of **0.0487**, below 0.05, against 0.0530 from
+the old unseeded B = 4,999 draw — squarely inside the 0.04823 / 0.04841 / 0.04852
+range this plan predicted for it at B = 99,999. Its significance star in Table 4
+is unchanged, but it now rests on a reproducible draw rather than a lucky one.
+H3a is below 0.05 for the probabilistic main and matched and for both drop
+specifications, and just above it for the day variant.
 
 **H2 remains the sensitive one, but not in the way previously recorded.** The
 estimate attenuates from 0.222 (probabilistic) and 0.248 (day) to 0.154 under
@@ -987,11 +992,43 @@ bandwidth. Task E already uses `optimal_bw_align_total` and
 `optimal_bandwidth_align`, so no output changes; `06a` was not re-rendered here
 and its queued re-render will correct the stored value.
 
-The section's two single-group `rdrobust` fits are left in place — `06a` is
-otherwise out of scope. Confirmed and left as a **question for Donald**:
-`model5_full_csto_z` is fitted on `sentiment_z`, matching the heading, while
-`model5_total_neutral` is fitted on `sentiment_clean`. A prose note records it.
-Fixing it would change an estimate, so it was not done unilaterally.
+### `06a` neutral total-effect fit — FIXED
+
+Raised as a question, then resolved on Donald's instruction to work the logic
+rather than trust the heading. `model5_total_neutral` was a copy of the Table 4
+Model 2 chunk with only the object name changed: it kept `sentiment_clean` *and*
+`covs = covs_matrix`, while its aligned-side twin `model5_full_csto_z` used
+`sentiment_z` with no covariates.
+
+Both differences were wrong, not just the outcome:
+
+- `covs_matrix` at that point was a stale binding from 1,800 lines earlier — the
+  topic dummies built for `model5a_neutral_z`. It still carried a
+  `topic_cleanMilitary` column for a sample that filters Military out, so
+  `rdrobust` was warning "Multicollinearity issue detected in covs".
+- With topic dummies in the model this was not a total effect at all. The total
+  effect, as Task E defines it, lets the topic mix move; topic comes out of the
+  model, which is also what the "No FEs" heading says.
+- **Decisive:** switching only the outcome to `sentiment_z` while keeping the
+  covariates reproduces Table 4 Model 2 exactly — 0.05509 either way — which
+  would make the object a duplicate of a headline model rather than a total
+  effect. Only dropping the covariates as well yields a distinct quantity.
+- The section exists to read the two sides of the contrast against each other,
+  which requires one specification, not two.
+
+Now `sentiment_z`, no covariates, source clustering, renamed
+`model5_total_neutral_z` to match its twin. Neither object is serialized and
+nothing consumes them.
+
+| Side | Estimate | SE | p | Eff. N |
+|---|---|---|---|---|
+| Russia-aligned (`model5_full_csto_z`, unchanged) | -0.228 | 0.102 | 0.025 | 4,094 |
+| Neutral, corrected | +0.108 | 0.098 | 0.268 | 2,108 |
+| Neutral, as it stood | +0.062 | 0.064 | 0.329 | 2,150 |
+
+The pair now says what the section is for: Russia-aligned state media fell
+discontinuously at the invasion, neutral state media did not. Confirmed in the
+re-rendered `06a` report, effective N 770 + 1,338 = 2,108.
 
 ### `10b`/`10d` S-tables stripped — DONE
 
@@ -1037,43 +1074,63 @@ bootstrap results rather than computing them. The long runtimes in `04` and in t
 `b`/`d` variants come from model fitting, `rdbwselect`, the LOO loops and
 `MatchIt` — none of which scale with B.
 
-> ### ⚠ Do not rebuild tables before re-rendering their sources
+> ### ✓ Resolved 2026-09-01 — footnote and numbers now agree
 >
-> `SE_NOTE_BOOT` now says `B=99999`, but every bootstrap value currently in the
-> `.rds` files was computed at `B = 4999` under an unseeded `dqrng`. Rebuilding
-> `10a` right now would produce tables whose footnote claims 99,999 while the
-> numbers behind the stars are 4,999. The producing scripts must be re-rendered
-> first — see the queue below, which the dqrng fix already required.
+> This section previously carried a warning not to rebuild any table before its
+> sources were re-rendered: `SE_NOTE_BOOT` claimed `B=99999` while every stored
+> bootstrap value was an unseeded `B = 4999` draw. Every producing script has
+> now been re-rendered — see the queue below, which is empty — so the footnote
+> and the numbers behind the stars describe the same computation. Point
+> estimates did not move; bootstrap p-values moved in the third decimal, and
+> H3a Table 4 Model 4 crossed from 0.0530 to 0.0487 on the primary variant.
 
-## Re-render queue (for Donald, at leisure)
+## Re-render queue — EMPTY
 
-**Already re-rendered, 2026-09-01** as part of the slimming pass, so these are
-clean products of their current host scripts under the seeded `dqrng` stream at
-B = 99,999: `04b`, `04d`, `05b`, `05d`, `06b`, `06d`, `07b`, `07d`, then
-`10b`, `10d` and `11`. Wall-clock for the whole set was about 15 minutes; `04b`
-dominates it at 8 minutes, and the 06s now run in 20 seconds each.
+Cleared 2026-09-01. Every script in the pipeline has now been rendered from its
+current source, so no `.rds` in `data/intermediate/` is a patched or stale
+artifact any more, and every bootstrap value in the repo is a seeded `dqrng`
+draw at B = 99,999.
 
-Still outstanding — all in the **prob** chain, whose `.rds` files carry
-Task B/D/E objects that were patched in rather than produced by a full render,
-and whose bootstrap values still predate the `dqrng` fix:
+| Batch | Scripts | Wall clock |
+|---|---|---|
+| `b`/`d` variants | `04b` `04d` `05b` `05d` `06b` `06d` `07b` `07d` | ~13 min (`04b` alone 8 min) |
+| publication + typology | `10b` `10d` `11` | < 1 min |
+| probabilistic chain | `04a` `05a` `06a` `07a` `08` `09` `10a` `11` | 11 min |
 
-- `06a_russian_alignment_analysis_prob.Rmd` — adds `placebo_aligned_pooled`,
-  `placebo_aligned_pooled_cl`, `placebo_aligned_estimates` (Task B) and
-  `country_cluster_check` (Task D) to `06_alignment_results_prob.rds`. Also
-  corrects the serialized `optimal_bandwidth_align`, which the total-effect
-  merge re-bound to the headline Table 4 bandwidth.
-- `05a_diff_in_disc_analysis_prob.Rmd` — adds `country_cluster_check` (Task D) and
-  `model2a_opt_z_total`, `optimal_bw_total`, `bootstrap_se$model2a_opt_z_total`
-  (Task E) to `05_h2_results_prob.rds`.
-- `04a_main_rdd_analysis_prob.Rmd` — adds `model5_opt_total` to
-  `04_h1_results_prob.rds` (Task E). 06a additionally gains
-  `model5a_opt_z_total`, `optimal_bw_align_total` and its bootstrap (Task E).
-- `07a`, `08_bandwidth_sensitivity`, `09_preperiod_diagnostics` and `10a` — for
-  seeded bootstrap values at B = 99,999 throughout.
+Probabilistic chain timings, each checked on exit status rather than log
+contents: `04a` 257 s, `05a` 150 s, `06a` 63 s, `07a` 15 s, `08` 97 s, `09` 46 s,
+`10a` 17 s, `11` 7 s. All exit 0.
 
-Once `10a` is re-rendered, `11` should be re-rendered after it: its
-probabilistic column reads the prob `.rds` files, so those three cells are the
-only ones in `table_s16` still carrying pre-fix bootstrap p-values.
+**What moved.** Point estimates, standard errors, sample sizes and bandwidths are
+identical to fifteen significant figures. Only bootstrap p-values changed, in the
+third decimal, which is the whole point of the exercise: the values in the repo
+were drawn from an unseeded `dqrng` stream at B = 4,999 while the table footnotes
+had already been updated to claim B = 99,999. Footnote and number now agree.
+
+Two consequences worth knowing:
+
+- **H3a Table 4 Model 4 crossed below 0.05** on the primary probabilistic
+  variant, 0.0530 → 0.0487. Its star was already printed, from a lucky draw; it
+  is now reproducible. See the typology table above.
+- **`gt` now emits `\label{tab:<chunk-label>}` inside each `\caption{}`** in the
+  saved `.tex` — `tab:table-01` … `tab:table-05b`, derived from the knitr chunk
+  names and therefore stable across renders. Nothing in the code asks for this;
+  it is a `gt` version difference from whenever those files were last written.
+  Harmless, and useful for `\ref{}` in Overleaf, but the pasted `.tex` now
+  carries labels it did not before.
+
+> **Correction to the entry that used to stand here.** This queue previously
+> said `05a` would add `model2a_opt_z_total`, `optimal_bw_total` and
+> `bootstrap_se$model2a_opt_z_total` to `05_h2_results_prob.rds`. Only
+> `optimal_bw_total` is real. `model2a_opt_z_total` does not exist and is not
+> needed: Task E3 superseded Task E's H2 naming, and `10a`'s `table_s14b` reads
+> `model2d_z_alltopic`, `model2d_z_total`, `model2d_z` and
+> `model2d_z_nonmil_total`, all four of which are present with their bootstraps.
+> The H1 and H3a entries were accurate — `model5_opt_total`,
+> `model5a_opt_z_total`, `optimal_bw_align_total`, `placebo_aligned_pooled`,
+> `placebo_aligned_pooled_cl`, `placebo_aligned_estimates` and
+> `country_cluster_check` are all now produced by a clean render rather than
+> patched in.
 
 > **Check the exit code, not the log.** `05d` had been failing silently for
 > months — its summary-table chunk errored on an undefined `table_2` and

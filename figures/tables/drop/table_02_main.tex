@@ -1,0 +1,33 @@
+\begin{table}[t]
+\caption{\label{tab:table-02}Table 2: H2 Diff-in-Disc — State Ownership Interaction, Z-Score (Drop No-Time Articles)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccc}
+\toprule
+  & (1) State-Owned‡ & (2) Ind.‡ & (3)† & (4)† & (5)† & (6)† \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.111+ & -0.162*** & -0.167*** & -0.175*** & -0.309*** & -0.309*** \\ 
+ & (0.062) & (0.035) & (0.031) & (0.023) & (0.019) & (0.018) \\ 
+State-Owned x Treat &  &  & 0.034 & 0.090 & 0.154 & 0.153 \\ 
+{} & {} & {} & {(0.070)} & {(0.068)} & {(0.076)} & {(0.076)} \\ 
+Source Z-Score & X & X & X & X & X & X \\ 
+Clusters & — & — & 46 & 46 & 32 & 32 \\ 
+Num.Obs. & 28273 & 75481 & 29439 & 22069 & 23176 & 23164 \\ 
+R2 &  &  & 0.046 & 0.030 & 0.021 & 0.021 \\ 
+R2 Adj. &  &  & 0.045 & 0.029 & 0.020 & 0.020 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
++ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
+All models use a source-level Z-Score normalization. Models 1-2 show separate
+RDD estimates for state-owned and independent media, filtered to omit military
+topics. Models 3-6 estimate the state-owned x treatment interaction. Model 3
+uses the optimal bandwidth on the full sample. Model 4 omits military topics.
+Model 5 omits military topics and NATO allies. Model 6 applies exact matching on
+topic and publication date to Model 5's sample. † Standard errors computed via
+wild cluster restricted (WCR) bootstrap (Cameron, Gelbach \& Miller 2008) with
+Webb six-point weights (B=99999, null imposed), clustered by source domain. ‡
+Cluster-robust SEs from rdrobust.\\
+\end{minipage}
+\end{table}
+

@@ -1,0 +1,30 @@
+\begin{table}[t]
+\caption{\label{tab:table-01}Table 1: H1 RDD — Effect of Russian Invasion on Media Sentiment (Day Running Variable)} 
+\fontsize{12.0pt}{14.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccccccc}
+\toprule
+  & (1) & (2) & (3) & (4) & (5) & (6) & (7) \\ 
+\midrule\addlinespace[2.5pt]
+Invasion & -0.165*** & -0.142*** & -0.116*** & -0.117*** & -0.267*** & -0.205*** & -0.27*** \\ 
+{} & {(0.021)} & {(0.019)} & {(0.012)} & {(0.012)} & {(0.034)} & {(0.033)} & {(0.04)} \\ 
+Topic FEs & - & - & - & X & X & X & X \\ 
+State FEs & - & X & X & X & - & - & - \\ 
+Source FEs & - & - & X & X & - & - & - \\ 
+Source Z-Score & - & - & - & - & X & X & X \\ 
+Clusters & — & — & — & — & — & — & — \\ 
+Num.Obs. & 174094 & 174094 & 174094 & 174094 & 174056 & 130488 & 93364 \\ 
+nobs.left & 51504 & 51504 & 51504 & 51504 & 51502 & 42680 & 33373 \\ 
+nobs.right & 122590 & 122590 & 122590 & 122590 & 122554 & 87808 & 59991 \\ 
+bandwidth.left & 38.8453673175451 & 35.3533871445653 & 29.0825325966389 & 29.2337630844165 & 43.9436980850685 & 36.3758846480742 & 54.0008533819757 \\ 
+bandwidth.right & 38.8453673175451 & 35.3533871445653 & 29.0825325966389 & 29.2337630844165 & 43.9436980850685 & 36.3758846480742 & 54.0008533819757 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
++ p < 0.1, * p < 0.05, ** p < 0.01, *** p < 0.001\\
+All standard errors are clustered at the source level. Models 1-4 use the
+optimal bandwidth. Models 5-7 use a Z-Score adjustment instead of fixed effects.
+Model 6 omits Military Topics. Model 7 omits NATO allies.\\
+\end{minipage}
+\end{table}
+
