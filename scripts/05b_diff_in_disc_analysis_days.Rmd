@@ -177,7 +177,7 @@ invasion_discs_graph_neutral <- data_neutral %>%
     "State Post" = "4"
   )) %>%
   ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
-  geom_point(data = agg_data_discs,
+  geom_point(data = agg_data_discs_neutral,
              aes(x = running, y = sentiment_clean, size = num_obs),
              alpha = 0.2, inherit.aes = FALSE) +
   geom_smooth(method = "lm") +
@@ -187,7 +187,7 @@ invasion_discs_graph_neutral <- data_neutral %>%
   theme_classic() +
   labs(
     title = "Effect of Invasion on Sentiment (Day)",
-    subtitle = "Difference in Discontinuities",
+    subtitle = "Difference in Discontinuities, Neutral Countries",
     x = "Days Pre/Post Invasion",
     y = "Raw Sentiment"
   )
@@ -212,7 +212,7 @@ invasion_discs_graph_present_neutral <- data_neutral %>%
     "State Post" = "4"
   )) %>%
   ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
-  geom_point(data = agg_data_discs,
+  geom_point(data = agg_data_discs_neutral,
              aes(x = running, y = sentiment_clean, size = num_obs),
              alpha = 0.2, inherit.aes = FALSE) +
   geom_smooth(method = "lm", linewidth = 1.2) +
@@ -254,10 +254,18 @@ measurement artifact rather than evidence about behaviour.
 This figure rules that out by making the starting level and the drop legible at the
 same time. Panel A places both media types on the full coding scale, which runs
 {-1, 0, 1}, with the floor drawn in: neutral state media sit near -0.26, nowhere
-close to -1, so there was ample room to fall. Panel B zooms to the period means with
-95%% confidence intervals so the magnitudes are readable: independent outlets drop by
-about -0.13 while state-owned outlets move by about -0.005. Same countries, same
-window, same scale -- the state-owned series simply does not move.
+close to -1, so there was ample room to fall. Its trend lines are the same fits as
+`invasion_discs_graph_neutral` above -- one linear fit per media type on each side
+of the cutoff -- so the slope on each side and the jump at Feb 24 are both visible.
+Panel B zooms to the period means with 95%% confidence intervals so the magnitudes
+are readable: independent outlets drop by about -0.13 while state-owned outlets move
+by about -0.005. Same countries, same window, same scale -- the state-owned series
+simply does not move.
+
+Panel A and `invasion_discs_graph_neutral` now show the same four fitted lines, at
+two zooms. Panel A keeps the y-axis pinned to the full {-1, 1} coding scale, which
+is what makes the floor argument; the standalone figure lets the axis follow the
+data, which is what makes the discontinuity readable.
 
 Note that this figure uses only `date_publish` and `treatment`, never a running
 variable, so it is identical to the version produced by 05a. It is reproduced here so
@@ -304,6 +312,13 @@ print(as.data.frame(agg_neutral_change), row.names = FALSE, digits = 4)
 
 # Panel A: the full coding scale, so the distance to the floor is visible.
 # Carries the shared colour legend for both panels.
+#
+# The trend lines are the same fits as invasion_discs_graph_neutral: one linear
+# fit per media type on each side of the cutoff, so the slopes and the jump at
+# Feb 24 are visible rather than flattened into two period means. They are fitted
+# on the article-level data, not on the daily means plotted as points -- fitting
+# the daily means unweighted gives visibly different slopes. `running` is exactly
+# `date_publish - INVASION_DATE`, so these are the same lines on a shifted axis.
 panel_scale <- ggplot(agg_neutral_daily,
                       aes(x = date_publish, y = sentiment_clean, color = media_type)) +
   geom_point(aes(size = num_obs), alpha = 0.25) +
@@ -312,21 +327,19 @@ panel_scale <- ggplot(agg_neutral_daily,
            label = "Scale floor (-1)", hjust = 0, size = 3.2, color = "grey30") +
   geom_hline(yintercept = 0, linetype = "dotted", alpha = 0.5) +
   geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
-  geom_segment(data = agg_neutral_period,
-               aes(x = if_else(period == "Pre-invasion",
-                               min(agg_neutral_daily$date_publish), INVASION_DATE),
-                   xend = if_else(period == "Pre-invasion",
-                                  INVASION_DATE, max(agg_neutral_daily$date_publish)),
-                   y = mean_sentiment, yend = mean_sentiment, color = media_type),
-               linewidth = 1.1, inherit.aes = FALSE) +
+  geom_smooth(data = data_neutral_floor,
+              aes(x = date_publish, y = sentiment_clean,
+                  group = interaction(media_type, period), color = media_type),
+              method = "lm", linewidth = 1.1, inherit.aes = FALSE) +
   scale_color_manual(values = COLORS_FLOOR, name = "Media type") +
   scale_size(name = "Articles/day") +
   coord_cartesian(ylim = c(-1, 1)) +
-  guides(color = guide_legend(override.aes = list(alpha = 1, size = 3))) +
+  # fill = NA drops the geom_smooth CI ribbon from the legend keys
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 3, fill = NA))) +
   theme_classic() +
   labs(
     title = "A. Position on the full coding scale",
-    subtitle = "Daily means with period means overlaid; dashed line = Feb 24, 2022",
+    subtitle = "Daily means with fitted pre/post trends; dashed line = Feb 24, 2022",
     x = "Publication date",
     y = "Mean sentiment toward Russia"
   )
