@@ -2136,8 +2136,12 @@ bandwidth procedure and the same formula. That section keeps its own
 `_total`-suffixed bandwidth names, so `optimal_bw_align` and
 `optimal_bandwidth_data_state` stay bound to the headline Table 4 specification.
 
-Note that `model5_full_csto_z` below is fitted on `sentiment_z`, matching the
-heading, while `model5_total_neutral` is fitted on `sentiment_clean`.
+Both sides are fitted the same way, so that they can be read against each other:
+the source-level z-scored outcome, no topic covariates, source clustering. The
+neutral side previously carried `sentiment_clean` and a stale `covs_matrix` left
+bound from the Table 4 Model 2 chunk 1,800 lines above; with topic dummies in
+place it was not a total effect at all, and on `sentiment_z` it reproduced
+Table 4 Model 2 exactly. Both are now removed.
 
 ### Russia-Aligned Only
 
@@ -2156,14 +2160,13 @@ summary(model5_full_csto_z)
 
 ```{r total-neutral-aligned}
 # RDD On Total Effect for Neutral Aligned Only
-model5_total_neutral <- rdrobust(
-  y = data_align_state_neutral$sentiment_clean,
+model5_total_neutral_z <- rdrobust(
+  y = data_align_state_neutral$sentiment_z,
   x = data_align_state_neutral$running_probabilistic,
-  covs = covs_matrix,
   cluster = data_align_state_neutral$source_domain
 )
 
-summary(model5_total_neutral)
+summary(model5_total_neutral_z)
 ```
 
 
