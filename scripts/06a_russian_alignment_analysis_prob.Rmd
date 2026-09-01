@@ -2128,6 +2128,17 @@ decomposition_results <- list(
 
 ## Total Effect, Sentiment-Z (No Fes)
 
+Single-group RDDs on each side of the alignment contrast, with no fixed effects.
+The total-effect *difference* in discontinuities is not re-estimated here: it is
+`model5a_opt_z_total` in "Total Effect (No Topic Adjustment)" above, which uses
+the same `csto` residualization, the same mserd / triangular / source-clustered
+bandwidth procedure and the same formula. That section keeps its own
+`_total`-suffixed bandwidth names, so `optimal_bw_align` and
+`optimal_bandwidth_data_state` stay bound to the headline Table 4 specification.
+
+Note that `model5_full_csto_z` below is fitted on `sentiment_z`, matching the
+heading, while `model5_total_neutral` is fitted on `sentiment_clean`.
+
 ### Russia-Aligned Only
 
 ```{r total-russia-aligned}
@@ -2153,39 +2164,6 @@ model5_total_neutral <- rdrobust(
 )
 
 summary(model5_total_neutral)
-```
-
-### Optimal Bandwidth RDID
-
-```{r total-effect-z}
-# Residualize the dependent variable for fixed effects to do bandwidth selection
-resid_y <- feols(sentiment_z ~ 1 | csto, 
-                 data = data_align_state)$residuals
-
-bw_align <- rdbwselect(y = resid_y,
-                       x = data_align_state$running_probabilistic,
-                       kernel = "triangular",
-                       cluster = data_align_state$source_domain,
-                       p = 1,
-                       bwselect = "mserd")
-
-optimal_bw_align <- bw_align$bws[1, 1]
-cat("Optimal bandwidth:", round(optimal_bw_align, 1), "days\n")
-
-optimal_bandwidth_data_state <- data_align_state %>%
-  filter(running_probabilistic < optimal_bw_align, running_probabilistic > -optimal_bw_align)
-
-model5_total_opt_z <- feols(sentiment_z ~ running_probabilistic * treatment * csto,
-                     cluster = ~source_domain,
-                     data = optimal_bandwidth_data_state)
-
-summary(model5_total_opt_z)
-
-# Wild cluster bootstrap for model5a_opt
-boot_model5_total_opt_z <- run_wild_bootstrap(model5_total_opt_z, "treatment:csto")
-cat("Bootstrap SE for treatment:csto:", boot_model5_total_opt_z$se, "\n")
-cat("Bootstrap p-value:", boot_model5_total_opt_z$p_val, "\n")
-
 ```
 
 
