@@ -256,9 +256,15 @@ versions — the eye stays on the discontinuity instead of moving to a key, and 
 four-series plots in particular benefit. They are additions, not replacements: the
 canonical figures still exist and nothing else references the new filenames.
 
-## PHASE 3 — DEFERRED, not executed
+## PHASE 3 — SUPERSEDED by the slimming pass below
 
-Observations bearing on a future retirement of the `b`/`d` clones:
+Recorded when a full `b`/`d` retirement was still on the table. The route
+taken instead was to slim the clones rather than retire them, so both
+concerns below were addressed rather than accepted: every figure chunk stays
+in `04b`/`05b`/`06b`, including all three canonical PNGs and the labelled
+variants. See "Slimming the `b`/`d` variants" below.
+
+Observations bearing on that earlier retirement option:
 
 - The `05b` half of Task F and all of Task C are work a `b`-retirement would discard.
   Both were authorized with that known. Task C in particular adds three new figure
@@ -831,7 +837,7 @@ times). Before the fix the same comparison drifted by a few thousandths.
 > seeded values. `table_s15` footnotes this explicitly. The affected numbers differ
 > only in the third decimal place.
 
-## Phase 3 — typology robustness (in progress)
+## Phase 3 — typology robustness — DONE
 
 ### Reconcile 10b/10d — DONE
 
@@ -855,52 +861,147 @@ Specifications compared, per Donald: H1 Table 1 Model 5; H2 Table 2 Models 5 and
 6; H3a Table 4 Models 4 and 5; H3b Table 5 Models 4 and 5. H1 has no matched
 sibling, so it shows one specification.
 
-**Results** (estimate, bootstrap p where one exists):
+**Results** (estimate, bootstrap p where one exists). Refreshed 2026-09-01 after
+the slimming pass re-rendered all eight `b`/`d` scripts; every cell is now
+populated and every bootstrap p is a seeded draw at B = 99,999.
 
 | Hypothesis | Spec | Probabilistic | Day | Drop |
 |---|---|---|---|---|
-| H1 | Main | -0.217 | -0.267 | *missing* |
-| H2 | Main | 0.222 (.034) | 0.248 (.009) | **0.154 (.097)** |
-| H2 | Matched | 0.222 (.033) | 0.182 (.012) | **0.088 (.260)** |
-| H3a | Main | -0.332 (.053) | -0.265 (.101) | -0.364 (.046) |
-| H3a | Matched | -0.380 (.029) | -0.311 (.060) | -0.364 (.044) |
-| H3b | Main | -0.002 (.989) | 0.032 (.831) | *missing* |
-| H3b | Matched | 0.015 (.917) | 0.049 (.721) | *missing* |
+| H1 | Main | -0.217 | -0.267 | -0.156 |
+| H2 | Main | 0.222 (.034) | 0.248 (.008) | **0.154 (.100)** |
+| H2 | Matched | 0.222 (.033) | 0.248 (.008) | **0.153 (.103)** |
+| H3a | Main | -0.332 (.053) | -0.265 (.095) | -0.364 (.046) |
+| H3a | Matched | -0.380 (.029) | -0.311 (.058) | -0.364 (.047) |
+| H3b | Main | -0.002 (.989) | 0.032 (.823) | -0.002 (.992) |
+| H3b | Matched | 0.015 (.917) | 0.050 (.725) | 0.021 (.898) |
 
-**Reading.** H3b is a stable null across typologies, as expected. H3a is stable
-in magnitude (spread 0.6-0.9 probabilistic SEs) though its bootstrap p wanders
-either side of 0.05 — the same knife-edge the B increase was meant to settle, so
-this is worth re-reading after the re-render. **H2 is the sensitive one**: under
-the drop typology the matched estimate falls from 0.222 to 0.088 and is nowhere
-near significant (p = 0.26), a spread of 1.9 probabilistic SEs. That is the one
-result in the paper that visibly depends on how missing publication times were
-handled, and it is exactly what this table exists to surface.
+> ### ⚠ Correction — the earlier H2 matched row was read off stale `.rds` files
+>
+> The table recorded here before 2026-09-01 gave the H2 matched estimate as
+> 0.182 (day) and 0.088 (drop), and concluded that the matched H2 result
+> collapses under the drop typology. **Both numbers were artifacts.**
+> `05_h2_results.rds` and `05_h2_results_drop.rds` held 47 slots against the
+> 74 their scripts serialized, i.e. they predated the scripts that were
+> supposed to have produced them, and `11` was reading matched models from an
+> older generation of `05b`/`05d`.
+>
+> Root cause for the drop file: **`05d` aborted every time it was rendered.**
+> Its summary-table chunk built `table_2i` and then printed `table_2`, an
+> object that never existed, so the chunk errored and `saveRDS` — which came
+> after it — was never reached. Confirmed by rendering the archived pre-slim
+> `05d`: it fails at `table2i-drop` with "object 'table_2' not found". Exactly
+> the failure mode the brief warned about, and invisible to a log grep.
+>
+> The corrected values were checked against a control run of the archived
+> pre-slim `05d` written to a scratch `.rds`: all eleven kept objects match the
+> slimmed script to six decimal places in estimate, standard error and N,
+> `matched_model_z` included (0.153318, n = 23164). The slimming did not move
+> anything; it simply produced the first non-stale `05d` output since March.
 
-> **Stale `.rds` found.** Three cells are empty because `04_h1_results_drop.rds`
-> and `07_ethnic_results_drop.rds` were serialized on 2026-03-04, before the
-> current `04d` and `07d` scripts. Both scripts *do* define and serialize the
-> missing objects (`model5_opt`; `model6a_opt_non_mil_z`, `matched_model_z`), so
-> re-rendering those two fills the gaps. The script reports missing cells
-> explicitly rather than silently omitting them.
+**Reading.** H3b is a stable null across all three typologies, as expected, and
+the drop cells now confirm it rather than being empty. H3a is stable in
+magnitude (spread 0.6-0.9 probabilistic SEs); at B = 99,999 its bootstrap p is
+now below 0.05 for the probabilistic matched and both drop specifications, and
+just above it for the day variant — the knife-edge the B increase was meant to
+settle, resolved in favour of significance for the primary variant.
 
-### Still to do — handed off
+**H2 remains the sensitive one, but not in the way previously recorded.** The
+estimate attenuates from 0.222 (probabilistic) and 0.248 (day) to 0.154 under
+the drop typology, where it falls short of significance (p = 0.10). What is
+*not* true is that the matched specification collapses on its own: main and
+matched track each other to the third decimal in every typology, because exact
+matching on topic and publication day drops only 26-30 articles from these
+samples. The H2 sensitivity is entirely about dropping no-time articles, not
+about matching. Under the drop typology H3a's matched and main rows are the same
+fit, since matching drops nothing from that sample at all.
 
-Slimming `04{b,d}`, `05{b,d}`, `06{b,d}`, `07{b,d}`. Specified in
-`plans/claude_code_brief_phase3_variant_slimming.md`, written for a fresh session
-because the work spans ~10,000 lines across eight files.
+### Slimming the `b`/`d` variants — DONE
 
-**Decision taken:** the b/d scripts keep the objects behind Tables 1-5 per
-variant, not just the seven `11` consumes, so `10b`/`10d` remain rebuildable.
-Keep lists, drop lists and verification steps are in the brief. All figure code
-stays in both `b` and `d`, including unused figures, so the two variants stay
-consistent and nothing has to be recreated later.
+Executed 2026-09-01 per `plans/claude_code_brief_phase3_variant_slimming.md`,
+one commit per family. The keep list was re-derived by parsing `10b`/`10d` rather
+than taken from the brief; it came out exactly as the brief stated. The drop
+lists did **not** — see below.
 
-Also noted for that pass: the `## Total Effect, Sentiment-Z (No FEs)` section
-exists in **all three** 06 files, is serialized nowhere and consumed by nothing.
-In `06a` it appears to duplicate the Task E `model5a_opt_z_total` specification
-exactly; the two should be merged rather than both kept. Within the section,
-`model5_full_csto_z` uses `sentiment_z` while `model5_total_neutral` uses
-`sentiment_clean`, despite the heading.
+| Family | Lines | Serialized slots | `.rds` size |
+|---|---|---|---|
+| `04b` | 1072 → 806 | 28 → 7 | 15.7 MB → 4.9 KB |
+| `04d` | 968 → 702 | 28 → 7 | 22.7 MB → 4.7 KB |
+| `05b` | 1739 → 950 | 74 → 12 | 59.7 MB → 7.9 MB |
+| `05d` | 1460 → 661 | 74 → 12 | 73.5 MB → 9.2 MB |
+| `06b` | 2086 → 813 | 66 → 6 | 10.4 MB → 0.8 MB |
+| `06d` | 1984 → 707 | 66 → 6 | 16.5 MB → 1.3 MB |
+| `07b` | 386 → 320 | 13 → 6 | 1.0 MB → 0.8 MB |
+| `07d` | 392 → 326 | 13 → 6 | 6.6 MB → 1.3 MB |
+
+All eight rendered end to end with exit status 0, checked on the exit code and
+not on the log. Point estimates are unchanged throughout — verified against the
+values recorded above for the objects that had non-stale predecessors, and
+against a full control run of the archived `05d`. Only bootstrap p-values move,
+in the third decimal, under the seeded `dqrng` stream at B = 99,999.
+
+**Figures are untouched.** `ggsave()` count and destination strings were diffed
+against `scripts/archive/alternative_specs_full/` for every file: 10 in `04b`,
+8 in `04d`, 9 in `05b`, 4 in `05d`, 8 in `06b`, 6 in `06d`, 1 in each of
+`07b`/`07d`. That includes all three canonical paper figures and their
+`_labeled` variants, and `neutral_floor_side_by_side.png`. Per Donald, the
+existing `b`/`d` figure asymmetry was left as it stands rather than ported:
+`04d` has no presentation or `_labeled` plot, `05d` has neither neutral figure
+nor the floor plot, `06d` has no `_labeled` or presentation plot.
+
+**The brief's drop lists were incomplete**, which is why they were re-derived.
+Objects serialized but consumed by nothing, absent from both of the brief's
+lists: `model4_felm_saturated`, `model4_opt_*` and `optimal_bandwidth` in `04`;
+`model3a_z`, `model3a_opt_saturated`, `model2_state_rdd`, `model2_ind_rdd`,
+`model2d_fullfe`, both LOO result frames, `sens_analysis` and the bandwidth
+slots in `05`; `model5a`, `model5a_csto`, `model5a_neutral`,
+`model5a_opt_russian_z`, both LOO frames and the alignment bandwidth slots in
+`06`; the whole Dec-7 placebo in `07`. Two of these matter: `model3a_z` and
+`model5a_opt_russian_z` were Table 2 Model 6 and Table 4 Model 5 until the
+`af37953` reconciliation replaced them with the matched models, and nothing had
+noticed they were orphaned.
+
+**Dependencies that made this more than deletion.** Sample construction was
+routinely buried inside the chunk of a model being dropped: `sentiment_z` on
+`data_non_ukraine` lived in `04b`'s `model1_z` chunk; `data_non_mil` and
+`data_non_nato` in the `model6_nonmil` / `model7_nonnato` chunks; the five
+by-topic frames in the by-topic model chunks of `04` and `05`;
+`data_align_state` and its z-score in `06`'s `align-diff` chunks. In every case
+the construction was kept under its own heading and only the fit removed.
+
+### `06a` total-effect merge — DONE
+
+The one permitted exception to leaving `06a` alone. Verified as the brief
+described: the `total-effect-z` chunk was the same specification as Task E's
+`model5a_opt_z_total` — same `sentiment_z ~ 1 | csto` residualization, same
+mserd/triangular/source-clustered `rdbwselect`, same `feols` formula. Duplicate
+removed.
+
+That also fixed a name collision, per Donald's instruction that the
+supplementary specification should carry the suffixed names rather than the main
+one: the removed chunk re-bound `optimal_bw_align` and
+`optimal_bandwidth_data_state` *after* the headline Table 4 chunk had used them,
+so the serialized `optimal_bandwidth_align` was the no-topic-FE total-effect
+bandwidth. Task E already uses `optimal_bw_align_total` and
+`optimal_bandwidth_data_state_total`, so both names are now last bound in
+`align-optimal-prob-z`, the Table 4 Model 3 chunk. Nothing consumes
+`optimal_bandwidth_align`, so no output changes; `06a` was not re-rendered here
+and its queued re-render will correct the stored value.
+
+The section's two single-group `rdrobust` fits are left in place — `06a` is
+otherwise out of scope. Confirmed and left as a **question for Donald**:
+`model5_full_csto_z` is fitted on `sentiment_z`, matching the heading, while
+`model5_total_neutral` is fitted on `sentiment_clean`. A prose note records it.
+Fixing it would change an estimate, so it was not done unilaterally.
+
+### `10b`/`10d` S-tables stripped — DONE
+
+Donald's call, over archiving them outright. Both now build only Tables 1-5 and
+Table 7 and go 1432 → 481 lines. The Supplementary Tables section (S1-S13) and
+the GT Caption Fix block, whose only targets were five of those tables, are
+gone; every object they referenced had been dropped from `04`-`07`, so leaving
+them would have made both scripts error partway. The Model Verification chunk is
+trimmed to the objects Tables 1-5 read, and the summary listing points at `11`.
+Both render clean and produce six tables each in `figures/tables/{days,drop}/`.
 
 ## Bootstrap replications raised to B = 99,999
 
@@ -946,19 +1047,38 @@ bootstrap results rather than computing them. The long runtimes in `04` and in t
 
 ## Re-render queue (for Donald, at leisure)
 
-Re-render these so the `.rds` files are once again a clean product of their host
-script, rather than a patched version. Nothing depends on this being done soon —
-the patched objects reproduce exactly (see Task B above).
+**Already re-rendered, 2026-09-01** as part of the slimming pass, so these are
+clean products of their current host scripts under the seeded `dqrng` stream at
+B = 99,999: `04b`, `04d`, `05b`, `05d`, `06b`, `06d`, `07b`, `07d`, then
+`10b`, `10d` and `11`. Wall-clock for the whole set was about 15 minutes; `04b`
+dominates it at 8 minutes, and the 06s now run in 20 seconds each.
+
+Still outstanding — all in the **prob** chain, whose `.rds` files carry
+Task B/D/E objects that were patched in rather than produced by a full render,
+and whose bootstrap values still predate the `dqrng` fix:
 
 - `06a_russian_alignment_analysis_prob.Rmd` — adds `placebo_aligned_pooled`,
   `placebo_aligned_pooled_cl`, `placebo_aligned_estimates` (Task B) and
-  `country_cluster_check` (Task D) to `06_alignment_results_prob.rds`.
+  `country_cluster_check` (Task D) to `06_alignment_results_prob.rds`. Also
+  corrects the serialized `optimal_bandwidth_align`, which the total-effect
+  merge re-bound to the headline Table 4 bandwidth.
 - `05a_diff_in_disc_analysis_prob.Rmd` — adds `country_cluster_check` (Task D) and
   `model2a_opt_z_total`, `optimal_bw_total`, `bootstrap_se$model2a_opt_z_total`
   (Task E) to `05_h2_results_prob.rds`.
 - `04a_main_rdd_analysis_prob.Rmd` — adds `model5_opt_total` to
   `04_h1_results_prob.rds` (Task E). 06a additionally gains
   `model5a_opt_z_total`, `optimal_bw_align_total` and its bootstrap (Task E).
+- `07a`, `08_bandwidth_sensitivity`, `09_preperiod_diagnostics` and `10a` — for
+  seeded bootstrap values at B = 99,999 throughout.
+
+Once `10a` is re-rendered, `11` should be re-rendered after it: its
+probabilistic column reads the prob `.rds` files, so those three cells are the
+only ones in `table_s16` still carrying pre-fix bootstrap p-values.
+
+> **Check the exit code, not the log.** `05d` had been failing silently for
+> months — its summary-table chunk errored on an undefined `table_2` and
+> `saveRDS` never ran, leaving a `.rds` from March that `11` was quietly
+> reading. Nothing in a grep of the output would have shown it.
 
 ## Output manifest
 
