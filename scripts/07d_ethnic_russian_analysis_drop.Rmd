@@ -17,7 +17,6 @@ This script examines heterogeneous treatment effects by Ethnic Russian Populatio
 - Separate RDDs: High vs Low Ethnic Russian population (rdrobust, Z-score, non-military)
 - Diff-in-disc interaction models: Optimal bandwidth and non-military subset (Z-score, topic FEs)
 - Matched model (Z-score, topic FEs)
-- Placebo test using December 7th 2021 announcement date
 
 **Inputs:**
 - `data/intermediate/02_cleaned_data.rds`
@@ -309,48 +308,6 @@ cat("Bootstrap SE:", boot_matched_model_z$se, "\n")
 cat("Bootstrap p-value:", boot_matched_model_z$p_val, "\n")
 ```
 
-# Placebo Test: December 7th Announcement (Non-Military Topics, Ethnic Russian)
-
-```{r placebo-dec-ethnic}
-data_dec_ethnic <- data_ethnic_state_non_mil %>%
-  filter(date_publish < "2022-02-19") %>%
-  mutate(
-    running_continuous = as.numeric(date_publish - as.Date("2021-12-07")),
-    treatment = ifelse(date_publish < as.Date("2021-12-07"), 0, 1)
-  )
-
-# Recompute Z-score for placebo subset
-data_dec_ethnic <- data_dec_ethnic %>%
-  group_by(source_domain) %>%
-  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean, na.rm = TRUE)) /
-                   sd(sentiment_clean, na.rm = TRUE)) %>%
-  ungroup()
-
-bw_placebo_ethnic <- rdbwselect(y = data_dec_ethnic$sentiment_z,
-                                x = data_dec_ethnic$running_continuous,
-                                kernel = "triangular",
-                                cluster = data_dec_ethnic$source_domain,
-                                p = 1,
-                                bwselect = "mserd")
-
-optimal_bw_placebo_ethnic <- bw_placebo_ethnic$bws[1, 1]
-cat("Placebo optimal bandwidth (ethnic, non-mil):", round(optimal_bw_placebo_ethnic, 1), "days\n")
-
-data_dec_ethnic_bw <- data_dec_ethnic %>%
-  filter(running_continuous < optimal_bw_placebo_ethnic, running_continuous > -optimal_bw_placebo_ethnic)
-
-model_placebo_ethnic <- feols(sentiment_z ~ running_continuous * treatment * high_russia | topic_clean,
-                               cluster = ~source_domain,
-                               data = data_dec_ethnic_bw)
-
-summary(model_placebo_ethnic)
-
-boot_model_placebo_ethnic <- run_wild_bootstrap(model_placebo_ethnic, "treatment:high_russia")
-cat("Bootstrap SE for treatment:high_russia (placebo):", boot_model_placebo_ethnic$se, "\n")
-cat("Bootstrap p-value (placebo):", boot_model_placebo_ethnic$p_val, "\n")
-cat("\nNote: Non-significant treatment effect suggests parallel trends assumption holds.\n")
-```
-
 # Save Results
 
 ```{r save}
@@ -367,18 +324,7 @@ results_ethnic_drop <- list(
     model6a_opt_z = boot_model6a_opt_z,
     model6a_opt_non_mil_z = boot_model6a_opt_non_mil_z,
     matched_model_z = boot_matched_model_z
-  ),
-
-  # Placebo
-  model_placebo_ethnic = model_placebo_ethnic,
-  optimal_bw_placebo_ethnic = optimal_bw_placebo_ethnic,
-  bootstrap_se_placebo = list(
-    model_placebo_ethnic = boot_model_placebo_ethnic
-  ),
-
-  # Bandwidths
-  optimal_bw_ethnic_z = optimal_bw_ethnic_z,
-  optimal_bw_ethnic_non_mil_z = optimal_bw_ethnic_non_mil_z
+  )
 )
 
 saveRDS(results_ethnic_drop, file.path(DATA_INTERMEDIATE, "07_ethnic_results_drop.rds"))
