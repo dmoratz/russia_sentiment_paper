@@ -1658,9 +1658,7 @@ s15_note <- function(model_desc, interaction_desc) {
     interaction_desc,
     "All four use the identical exact-matched sample, bandwidth and source",
     "clustering.",
-    SE_NOTE_BOOT,
-    "Bootstrap p-values use the fixed RNG seed from 00_setup.R and may differ in",
-    "the third decimal from Tables 2 and 4 until those are re-rendered."
+    SE_NOTE_BOOT
   ), 80)
 }
 
