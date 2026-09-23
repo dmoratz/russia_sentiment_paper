@@ -7,21 +7,21 @@
 \midrule\addlinespace[2.5pt]
 \multicolumn{7}{l}{Panel A: Group-Level Effects} \\[2.5pt] 
 \midrule\addlinespace[2.5pt]
-CSTO & -0.211 & (0.071) & 0.000*** & (0.058) & 0.000*** & 9 \\ 
-Non-CSTO & -0.004 & (0.134) & 0.973 & (0.102) & 0.988 & 4 \\ 
+Russia-Aligned & -0.211 & (0.071) & 0.000*** & (0.058) & 0.000*** & 9 \\ 
+Neutral & -0.004 & (0.134) & 0.973 & (0.102) & 0.988 & 4 \\ 
 Difference & -0.206 & (0.152) & 0.230 & (0.117) & 0.116 & 13 \\ 
 \midrule\addlinespace[2.5pt]
 \multicolumn{7}{l}{Panel B: Source-Level Effects} \\[2.5pt] 
 \midrule\addlinespace[2.5pt]
-1lurer.am (CSTO) & -0.354 & — & — & — & — & 641 \\ 
-azerbaijan-news.az (CSTO) & -0.147 & — & — & — & — & 125 \\ 
-azertag.az (CSTO) & -0.057 & — & — & — & — & 625 \\ 
-en.armradio.am (CSTO) & -0.276 & — & — & — & — & 260 \\ 
-eng.belta.by (CSTO) & -0.129 & — & — & — & — & 432 \\ 
-kazpravda.kz (CSTO) & -0.853 & — & — & — & — & 241 \\ 
-qazaqstan.tv (CSTO) & -0.349 & — & — & — & — & 57 \\ 
-sb.by (CSTO) & -0.156 & — & — & — & — & 2031 \\ 
-zviazda.by (CSTO) & 0.281 & — & — & — & — & 41 \\ 
+1lurer.am (Russia-Aligned) & -0.354 & — & — & — & — & 641 \\ 
+azerbaijan-news.az (Russia-Aligned) & -0.147 & — & — & — & — & 125 \\ 
+azertag.az (Russia-Aligned) & -0.057 & — & — & — & — & 625 \\ 
+en.armradio.am (Russia-Aligned) & -0.276 & — & — & — & — & 260 \\ 
+eng.belta.by (Russia-Aligned) & -0.129 & — & — & — & — & 432 \\ 
+kazpravda.kz (Russia-Aligned) & -0.853 & — & — & — & — & 241 \\ 
+qazaqstan.tv (Russia-Aligned) & -0.349 & — & — & — & — & 57 \\ 
+sb.by (Russia-Aligned) & -0.156 & — & — & — & — & 2031 \\ 
+zviazda.by (Russia-Aligned) & 0.281 & — & — & — & — & 41 \\ 
 agenda.ge (Neutral) & 0.150 & — & — & — & — & 375 \\ 
 moldova-suverana.md (Neutral) & -0.221 & — & — & — & — & 215 \\ 
 rtklive.com (Neutral) & 0.144 & — & — & — & — & 732 \\ 
@@ -30,10 +30,10 @@ rts.rs (Neutral) & -0.387 & — & — & — & — & 315 \\
 \end{tabular*}
 \begin{minipage}{\linewidth}
 \vspace{.05em}
-Panel A reports N-weighted average treatment effects by CSTO group, estimated
-from separate RDD regressions within each source-topic cell. Pairs bootstrap
-resamples sources with replacement (B = 9,920). Bayesian bootstrap draws
-Dirichlet(1,...,1) source weights (Rubin 1981; B = 9,920). Panel B reports
+Panel A reports N-weighted average treatment effects by alignment group,
+estimated from separate RDD regressions within each source-topic cell. Pairs
+bootstrap resamples sources with replacement (B = 9,920). Bayesian bootstrap
+draws Dirichlet(1,...,1) source weights (Rubin 1981; B = 9,920). Panel B reports
 source-level treatment effects (N-weighted average across topics within each
 source). N in Panel A is number of sources; N in Panel B is articles per source.
 Sample restricted to state-owned, non-NATO, non-military articles within the

@@ -537,8 +537,8 @@ cat("Bootstrap p-value:", boot_matched_model$p_val, "\n")
 ### Sensitivity of OVB
 
 ```{r sensitivity-ovb-drop}
-# Save the bootstrapped p-val
-bootstrapped_se <- boot_matched_model$p_val
+# Save the bootstrapped SE
+bootstrapped_se <- boot_matched_model$se
 
 # Respecify the model using lm
 lm_model <- lm(sentiment_z ~ running_continuous * treatment * csto +

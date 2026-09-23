@@ -148,6 +148,56 @@ ggsave(plot = invasion_discs_graph_present,
        width = 10, height = 7)
 ```
 
+### Main Diff-in-Disc Plot, Presentation (Non-Military)
+
+The presentation version of the paper's H2 figure (`invasion_discs_non_mil.png`). The
+non-military sample is the same filter the `non-mil` chunk applies further down,
+built inline here so the presentation figures stay together. The full-sample version
+above is kept for the appendix.
+
+```{r plot-discs-present-nonmil, fig.width=10, fig.height=7}
+data_non_mil_present <- data_non_ukraine %>%
+  filter(!topic_clean %in% c("Military"))
+
+agg_data_discs_nonmil <- data_non_mil_present %>%
+  group_by(running, state_owned) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+invasion_discs_graph_present_nonmil <- data_non_mil_present %>%
+  mutate(indicator = as.factor(indicator)) %>%
+  mutate(indicator = fct_recode(indicator,
+    "Independent Pre" = "1",
+    "State-Owned Pre" = "2",
+    "Independent Post" = "3",
+    "State-Owned Post" = "4"
+  )) %>%
+  ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
+  geom_point(data = agg_data_discs_nonmil,
+             aes(x = running, y = sentiment_clean, size = num_obs),
+             alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(method = "lm", linewidth = 1.2) +
+  scale_color_manual(values = COLORS_DISCS, name = NULL) +
+  scale_size(guide = "none") +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = c(0.85, 0.85),
+    legend.text = element_text(size = 16),
+    plot.title = element_blank(),
+    plot.subtitle = element_blank()
+  ) +
+  labs(
+    x = "Days Pre/Post Invasion",
+    y = "Raw Sentiment"
+  )
+
+invasion_discs_graph_present_nonmil
+
+ggsave(plot = invasion_discs_graph_present_nonmil,
+       file.path(FIGURES_DIFF_DISC_DAYS, "invasion_discs_graph_present_nonmil.png"),
+       width = 10, height = 7)
+```
+
 
 ## Neutral Only Diff-in-Disc
 
@@ -386,6 +436,76 @@ neutral_floor_graph
 
 ggsave(plot = neutral_floor_graph,
        file.path(FIGURES_DIFF_DISC_DAYS, "neutral_floor_side_by_side.png"),
+       width = 13, height = 6.5, dpi = 300)
+```
+
+### Neutral Media Floor Check, Presentation
+
+The same two panels in presentation style: no overall title, larger fonts, and the
+colour legend inside panel A without a title. The data objects are the ones built above.
+
+```{r neutral-floor-present, fig.width=13, fig.height=6.5}
+LABELS_FLOOR <- c("State-owned" = "State-Owned", "Independent" = "Independent")
+
+panel_scale_present <- ggplot(agg_neutral_daily,
+                              aes(x = date_publish, y = sentiment_clean, color = media_type)) +
+  geom_point(aes(size = num_obs), alpha = 0.25) +
+  geom_hline(yintercept = SENTIMENT_FLOOR, linetype = "solid", color = "grey40") +
+  annotate("text", x = min(agg_neutral_daily$date_publish), y = SENTIMENT_FLOOR + 0.08,
+           label = "Scale floor (-1)", hjust = 0, size = 5, color = "grey30") +
+  geom_hline(yintercept = 0, linetype = "dotted", alpha = 0.5) +
+  geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
+  geom_smooth(data = data_neutral_floor,
+              aes(x = date_publish, y = sentiment_clean,
+                  group = interaction(media_type, period), color = media_type),
+              method = "lm", linewidth = 1.2, inherit.aes = FALSE) +
+  scale_color_manual(values = COLORS_FLOOR, labels = LABELS_FLOOR, name = NULL) +
+  scale_size(guide = "none") +
+  coord_cartesian(ylim = c(-1, 1)) +
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 4, fill = NA))) +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = c(0.82, 0.9),
+    legend.text = element_text(size = 16),
+    legend.background = element_blank()
+  ) +
+  labs(
+    title = "A. Full scale",
+    x = "Publication date",
+    y = "Mean sentiment toward Russia"
+  )
+
+panel_detail_present <- ggplot(agg_neutral_period,
+                               aes(x = period, y = mean_sentiment,
+                                   color = media_type, group = media_type)) +
+  geom_line(linewidth = 1.2) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.08, linewidth = 0.8) +
+  geom_point(size = 4) +
+  geom_text(aes(label = sprintf("%.3f", mean_sentiment),
+                hjust = if_else(period == "Pre-invasion", 1.3, -0.3)),
+            size = 5, show.legend = FALSE) +
+  geom_label(data = agg_neutral_change,
+             aes(x = 1.5, y = (`Pre-invasion` + `Post-invasion`) / 2,
+                 label = sprintf("%+.3f", change), color = media_type),
+             size = 5.5, fontface = "bold", fill = "white",
+             linewidth = 0, label.padding = unit(0.15, "lines"),
+             inherit.aes = FALSE, show.legend = FALSE) +
+  scale_color_manual(values = COLORS_FLOOR, guide = "none") +
+  scale_x_discrete(expand = expansion(mult = 0.3)) +
+  theme_classic(base_size = 18) +
+  labs(
+    title = "B. Pre/post means",
+    x = NULL,
+    y = NULL
+  )
+
+neutral_floor_present <- (panel_scale_present | panel_detail_present) +
+  plot_layout(widths = c(1.6, 1))
+
+neutral_floor_present
+
+ggsave(plot = neutral_floor_present,
+       file.path(FIGURES_DIFF_DISC_DAYS, "neutral_floor_present.png"),
        width = 13, height = 6.5, dpi = 300)
 ```
 

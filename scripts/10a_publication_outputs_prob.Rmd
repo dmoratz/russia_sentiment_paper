@@ -330,11 +330,11 @@ save_table(table_3, "table_03_main", TABLE_SUBDIR)
 
 ```
 
-## Table 4: H3a Interaction Z-Score — CSTO Alignment (Pattern B)
+## Table 4: H3a Interaction Z-Score — Russia-Aligned (Pattern B)
 
 ```{r table-04}
 h3a_z_models <- list(
-  "(1) CSTO\u2021" = results_align$model5a_csto_z,
+  "(1) Russia-Aligned\u2021" = results_align$model5a_csto_z,
   "(2) Neutral\u2021" = results_align$model5a_neutral_z,
   "(3)\u2020" = results_align$model5a_opt_z,
   "(4)\u2020" = results_align$model5a_opt_non_mil_z,
@@ -348,7 +348,7 @@ boot_keys_t4 <- c("model5a_opt_z", "model5a_opt_non_mil_z",
 boot_results_t4 <- lapply(boot_keys_t4, function(k) results_align$bootstrap_se[[k]])
 
 vcov_t4 <- list(
-  "(1) CSTO\u2021" = NULL,
+  "(1) Russia-Aligned\u2021" = NULL,
   "(2) Neutral\u2021" = NULL,
   "(3)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_z, boot_results_t4[[1]], "treatment:csto"),
   "(4)\u2020" = create_bootstrap_vcov(results_align$model5a_opt_non_mil_z, boot_results_t4[[2]], "treatment:csto"),
@@ -368,8 +368,8 @@ attr(rows_t4, "position") <- c(5, 6)
 note_t4 <- str_wrap(paste(
   "All models use a source-level Z-Score normalization.",
   "Sample restricted to state-owned media in non-NATO countries.",
-  "Models 1-2 show separate RDD estimates for CSTO-aligned and neutral countries, filtered to omit military topics.",
-  "Models 3-5 estimate the CSTO x treatment interaction.",
+  "Models 1-2 show separate RDD estimates for Russia-aligned and neutral countries, filtered to omit military topics.",
+  "Models 3-5 estimate the Russia-aligned x treatment interaction.",
   "Model 3 uses the optimal bandwidth.",
   "Model 4 omits military topics.", 
   #"Model 5 restricts to Russian-related articles.",
@@ -384,7 +384,7 @@ table_4 <- modelsummary(
   vcov = vcov_t4,
   coef_map = c(
     "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
+    "treatment:csto" = "Russia-Aligned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.|bandwidth.left|bandwidth.right|nobs.left|nobs.right",
   title = "H3a Alignment Interaction — Z-Score (Probabilistic Time)",
@@ -494,8 +494,8 @@ table_7 <- table_data_7 %>%
   ) %>%
   cols_label(
     Ethnic.Russian.Population = "",
-    Low.Russia.Aligned = "Low Alignment (Neutral)",
-    High.Russia.Aligned = "High Alignment (CSTO)"
+    Low.Russia.Aligned = "Neutral",
+    High.Russia.Aligned = "Russia-Aligned"
   ) %>%
   tab_style(
     style = cell_borders(sides = "all", color = "black", weight = px(1)),
@@ -922,7 +922,7 @@ table_s7 <- modelsummary(
   vcov = vcov_s7,
   coef_map = c(
     "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
+    "treatment:csto" = "Russia-Aligned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
   title = "H3a Alignment — FE Interaction + Robustness (Probabilistic Time)",
@@ -937,7 +937,7 @@ table_s7
 save_table(table_s7, "table_s07_h3a_fe_core", TABLE_SUBDIR, label = "tab:s7")
 ```
 
-## Table S8: H3a By-Topic Z-Score — CSTO Alignment (Pattern C-z)
+## Table S8: H3a By-Topic Z-Score — Russia-Aligned (Pattern C-z)
 
 ```{r table-s08}
 # NOTE: These Z-score by-topic alignment models may not exist yet
@@ -984,7 +984,7 @@ table_s8z <- modelsummary(
   vcov = vcov_s8z,
   coef_map = c(
     "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
+    "treatment:csto" = "Russia-Aligned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
   title = "H3a Alignment by Topic — Z-Score (Probabilistic Time)",
@@ -1049,7 +1049,7 @@ table_s9 <- modelsummary(
   vcov = vcov_s9,
   coef_map = c(
     "treatment" = "Invasion",
-    "treatment:csto" = "CSTO x Treatment"
+    "treatment:csto" = "Russia-Aligned x Treatment"
   ),
   gof_omit = "BIC|AIC|RMSE|Std.Errors|FE|R2 Within|R2 Within Adj.",
   title = "H3a Alignment by Topic — Full Data (Probabilistic Time)",
@@ -1068,7 +1068,7 @@ save_table(table_s9, "table_s09_h3a_fe_topic", TABLE_SUBDIR)
 
 ```{r table-s10-loo}
 
-note_loo_h3a <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the treatment:csto interaction term. Standard errors clustered at source domain level."
+note_loo_h3a <- "Leave-one-out robustness analysis. Each row shows results when excluding the specified country. Bandwidth is recalculated for each subset. Coefficient shown is for the Russia-aligned x treatment interaction term. Standard errors clustered at source domain level."
 
 
 loo_standard_h3a <- results_align$loo_summary %>% mutate(section = "Standard Model")
@@ -1116,6 +1116,7 @@ panel_a <- pairs %>%
   rename(se_pairs = se_boot, p_pairs = p_boot, 
          ci_lower_pairs = ci_lower, ci_upper_pairs = ci_upper) %>%
   mutate(
+    group = dplyr::recode(group, "CSTO" = "Russia-Aligned", "Non-CSTO" = "Neutral"),
     se_bayes = bayes$se_boot,
     p_bayes  = bayes$p_boot,
     section  = "Panel A: Group-Level Effects",
@@ -1145,7 +1146,7 @@ panel_a <- pairs %>%
 panel_b <- decomp$source_effects %>%
   mutate(
     section = "Panel B: Source-Level Effects",
-    group = ifelse(csto == 1, paste0(source, " (CSTO)"), paste0(source, " (Neutral)")),
+    group = ifelse(csto == 1, paste0(source, " (Russia-Aligned)"), paste0(source, " (Neutral)")),
     estimate_fmt = sprintf("%.3f", theta),
     se_pairs_fmt = "",
     p_pairs_fmt  = "",
@@ -1161,7 +1162,7 @@ panel_b <- decomp$source_effects %>%
 decomp_combined <- bind_rows(panel_a, panel_b)
 
 note_decomp <- str_wrap(paste(
-  "Panel A reports N-weighted average treatment effects by CSTO group,",
+  "Panel A reports N-weighted average treatment effects by alignment group,",
   "estimated from separate RDD regressions within each source-topic cell.",
   "Pairs bootstrap resamples sources with replacement (B =",
   sprintf("%s).", format(decomp$B, big.mark = ",")),
