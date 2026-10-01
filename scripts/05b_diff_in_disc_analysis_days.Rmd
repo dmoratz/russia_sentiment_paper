@@ -113,33 +113,11 @@ ggsave(plot = invasion_discs_graph,
 ### Main Diff-in-Disc Plot, Presentation
 
 ```{r plot-discs-present, fig.width=10, fig.height=7}
+# One colour per media type on both sides of the cutoff; points coloured by type
 invasion_discs_graph_present <- data_non_ukraine %>%
-  mutate(indicator = as.factor(indicator)) %>%
-  mutate(indicator = fct_recode(indicator,
-    "Independent Pre" = "1",
-    "State Pre" = "2",
-    "Independent Post" = "3",
-    "State Post" = "4"
-  )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
-  geom_point(data = agg_data_discs,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm", linewidth = 1.2) +
-  scale_color_manual(values = COLORS_DISCS, name = NULL) +
-  scale_size(guide = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic(base_size = 18) +
-  theme(
-    legend.position = c(0.85, 0.85),
-    legend.text = element_text(size = 16),
-    plot.title = element_blank(),
-    plot.subtitle = element_blank()
-  ) +
-  labs(
-    x = "Days Pre/Post Invasion",
-    y = "Raw Sentiment"
-  )
+  mutate(media_type = if_else(state_owned == 1, "State-Owned", "Independent")) %>%
+  plot_group_discs(group = "media_type", colors = COLORS_MEDIA,
+                   style = "present", y_lab = "Raw Sentiment")
 
 invasion_discs_graph_present
 
@@ -159,37 +137,10 @@ above is kept for the appendix.
 data_non_mil_present <- data_non_ukraine %>%
   filter(!topic_clean %in% c("Military"))
 
-agg_data_discs_nonmil <- data_non_mil_present %>%
-  group_by(running, state_owned) %>%
-  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
-
 invasion_discs_graph_present_nonmil <- data_non_mil_present %>%
-  mutate(indicator = as.factor(indicator)) %>%
-  mutate(indicator = fct_recode(indicator,
-    "Independent Pre" = "1",
-    "State-Owned Pre" = "2",
-    "Independent Post" = "3",
-    "State-Owned Post" = "4"
-  )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
-  geom_point(data = agg_data_discs_nonmil,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm", linewidth = 1.2) +
-  scale_color_manual(values = COLORS_DISCS, name = NULL) +
-  scale_size(guide = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic(base_size = 18) +
-  theme(
-    legend.position = c(0.85, 0.85),
-    legend.text = element_text(size = 16),
-    plot.title = element_blank(),
-    plot.subtitle = element_blank()
-  ) +
-  labs(
-    x = "Days Pre/Post Invasion",
-    y = "Raw Sentiment"
-  )
+  mutate(media_type = if_else(state_owned == 1, "State-Owned", "Independent")) %>%
+  plot_group_discs(group = "media_type", colors = COLORS_MEDIA,
+                   style = "present", y_lab = "Raw Sentiment")
 
 invasion_discs_graph_present_nonmil
 
@@ -254,32 +205,9 @@ ggsave(plot = invasion_discs_graph_neutral,
 
 ```{r plot-discs-present-neutral, fig.width=10, fig.height=7}
 invasion_discs_graph_present_neutral <- data_neutral %>%
-  mutate(indicator = as.factor(indicator)) %>%
-  mutate(indicator = fct_recode(indicator,
-    "Independent Pre" = "1",
-    "State Pre" = "2",
-    "Independent Post" = "3",
-    "State Post" = "4"
-  )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
-  geom_point(data = agg_data_discs_neutral,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm", linewidth = 1.2) +
-  scale_color_manual(values = COLORS_DISCS, name = NULL) +
-  scale_size(guide = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic(base_size = 18) +
-  theme(
-    legend.position = c(0.85, 0.85),
-    legend.text = element_text(size = 16),
-    plot.title = element_blank(),
-    plot.subtitle = element_blank()
-  ) +
-  labs(
-    x = "Days Pre/Post Invasion",
-    y = "Raw Sentiment"
-  )
+  mutate(media_type = if_else(state_owned == 1, "State-Owned", "Independent")) %>%
+  plot_group_discs(group = "media_type", colors = COLORS_MEDIA,
+                   style = "present", y_lab = "Raw Sentiment")
 
 invasion_discs_graph_present_neutral
 
@@ -650,29 +578,15 @@ agg_data_non_mil <- data_non_mil %>%
   group_by(running, state_owned) %>%
   summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
 
+# One colour per media type on both sides of the cutoff; points coloured by type
 invasion_discs_non_mil_graph <- data_non_mil %>%
-  mutate(indicator = as.factor(indicator)) %>%
-  mutate(indicator = fct_recode(indicator,
-    "Ind. Pre." = "1",
-    "State Pre." = "2",
-    "Ind. Post" = "3",
-    "State Post" = "4"
-  )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = indicator, color = indicator)) +
-  geom_point(data = agg_data_non_mil,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm") +
-  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
-  scale_size(name = "Observations") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic() +
-  labs(
-    title = "Effect of Invasion on Sentiment (Day)",
-    subtitle = "Non-Military Topics",
-    x = "Days Pre/Post Invasion",
-    y = "Raw Sentiment"
-  )
+  mutate(media_type = if_else(state_owned == 1, "State-Owned", "Independent")) %>%
+  plot_group_discs(group = "media_type", colors = COLORS_MEDIA,
+                   labels = c("State-Owned" = "State", "Independent" = "Ind."),
+                   legend_title = "Source Type",
+                   title = "Effect of Invasion on Sentiment",
+                   subtitle = "Non-Military Topics",
+                   y_lab = "Raw Sentiment")
 
 invasion_discs_non_mil_graph
 

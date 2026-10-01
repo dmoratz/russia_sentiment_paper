@@ -277,14 +277,14 @@ print_session_info <- function() {
 COLORS_TREATMENT <- c("0" = "dodgerblue", "1" = "red4")
 
 # Colors for state/independent media
-COLORS_MEDIA <- c(
-  "Ind. Pre." = "dodgerblue",
-  "State Pre." = "forestgreen",
-  "Ind. Post" = "red4",
-  "State Post" = "darkorange"
-)
+# One colour per group, held on both sides of the cutoff (see plot_group_discs()).
+# Names are the group values the plotting code builds; display text can differ.
+COLORS_MEDIA  <- c("State-Owned" = "forestgreen", "Independent" = "dodgerblue")
+COLORS_ALIGN  <- c("Russia-Aligned" = "red4", "Neutral" = "dodgerblue")
+COLORS_ETHNIC <- c("High" = "darkorange", "Low" = "purple4")
+COLOR_SINGLE  <- "dodgerblue"
 
-# Colors for diff-in-disc plots
+# Colors for diff-in-disc plots (legacy: a separate colour per group x period)
 COLORS_DISCS <- c("dodgerblue", "forestgreen", "red4", "darkorange")
 
 # -----------------------------------------------------------------------------
@@ -479,6 +479,71 @@ series_label_positions <- function(df, series_col, x_col = "running",
              .hjust = if (xend <= 0) 0 else 1)
     }) %>%
     ungroup()
+}
+
+#' Discontinuity plot with one colour per group on both sides of the cutoff
+#'
+#' Daily means are drawn as points coloured by the group they were binned in;
+#' the trend lines are one linear fit per group on each side of the cutoff,
+#' fitted on the article-level data (the same fits as grouping by group x
+#' period), and coloured by group so the colour never switches at the cutoff.
+#'
+#' @param data Article-level data with the x, y, `treatment` and group columns
+#' @param group Name of the group column, as a string; NULL for a single series
+#'   (one colour, no colour legend)
+#' @param colors Named vector of colours keyed by group value (or one colour
+#'   when `group` is NULL)
+#' @param labels Optional named vector of display labels keyed by group value
+#' @param style "paper" (titles, legend at the side) or "present" (no titles,
+#'   larger fonts, legend inside the panel without a title)
+#' @return A ggplot object
+plot_group_discs <- function(data, group = NULL, colors = COLOR_SINGLE,
+                             labels = NULL, style = c("paper", "present"),
+                             title = NULL, subtitle = NULL, legend_title = NULL,
+                             x_lab = "Days Pre/Post Invasion", y_lab = "Sentiment",
+                             x = "running", y = "sentiment_clean") {
+  style   <- match.arg(style)
+  present <- style == "present"
+  single  <- is.null(group)
+
+  df <- data %>%
+    mutate(.x = .data[[x]], .y = .data[[y]],
+           .group = if (single) factor("all") else factor(.data[[group]],
+                                                          levels = names(colors)))
+  if (single) colors <- c(all = unname(colors[1]))
+
+  agg <- df %>%
+    group_by(.x, .group) %>%
+    summarize(.y = mean(.y, na.rm = TRUE), num_obs = n(), .groups = "drop")
+
+  color_guide <- if (single) "none" else
+    guide_legend(order = 1, override.aes = list(alpha = 1, size = 3, fill = NA))
+
+  p <- ggplot(agg, aes(x = .x, y = .y, color = .group)) +
+    geom_point(aes(size = num_obs), alpha = 0.25) +
+    geom_smooth(data = df,
+                aes(x = .x, y = .y, group = interaction(.group, treatment),
+                    color = .group),
+                method = "lm", linewidth = if (present) 1.2 else 1,
+                inherit.aes = FALSE) +
+    geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
+    scale_color_manual(values = colors,
+                       labels = if (is.null(labels)) waiver() else labels,
+                       name = if (present) NULL else legend_title,
+                       guide = color_guide) +
+    labs(x = x_lab, y = y_lab)
+
+  if (present) {
+    p + scale_size(guide = "none") +
+      theme_classic(base_size = 18) +
+      theme(legend.position = c(0.85, 0.85),
+            legend.text = element_text(size = 16),
+            legend.background = element_blank())
+  } else {
+    p + scale_size(name = "Articles/day", guide = guide_legend(order = 2)) +
+      theme_classic() +
+      labs(title = title, subtitle = subtitle)
+  }
 }
 
 # -----------------------------------------------------------------------------

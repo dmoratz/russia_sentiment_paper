@@ -95,28 +95,16 @@ data_ethnic_state <- data_ethnic_state %>%
 ## Visualization: State Media by Ethnic Russian Population
 
 ```{r ethnic-plot, fig.width=10, fig.height=7}
-agg_data_ethnic <- data_ethnic %>%
-  filter(state_owned == 1) %>%
-  group_by(running, csto) %>%
-  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
-
+# One colour per ethnic-Russian group on both sides of the cutoff; points are
+# daily means binned by that same group (previously binned by csto by mistake)
 ethnic_discs_graph <- data_ethnic %>%
   filter(state_owned == 1) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = ethnic_indicator, color = ethnic_indicator)) +
-  geom_point(data = agg_data_ethnic,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm") +
-  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
-  scale_size(name = "Observations") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic() +
-  labs(
-    title = "Effect of Invasion on State Media Sentiment",
-    subtitle = "High vs Low Ethnic Russian, Difference in Discontinuities",
-    x = "Days Pre/Post Invasion",
-    y = "Sentiment"
-  )
+  mutate(ethnic_group = if_else(high_russia == 1, "High", "Low")) %>%
+  plot_group_discs(group = "ethnic_group", colors = COLORS_ETHNIC,
+                   labels = c("High" = "High Rus.", "Low" = "Low Rus."),
+                   legend_title = "Ethnic Russian Pop.",
+                   title = "Effect of Invasion on State Media Sentiment",
+                   subtitle = "High vs Low Ethnic Russian, Difference in Discontinuities")
 
 ethnic_discs_graph
 

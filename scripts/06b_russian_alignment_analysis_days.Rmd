@@ -109,30 +109,15 @@ agg_data_align_state <- data_align %>%
   group_by(running, csto) %>%
   summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
 
+# One colour per alignment group on both sides of the cutoff; points coloured
+# by group. agg_data_align_state above is still used by the labelled variant.
 state_align_discs_graph <- data_align %>%
   filter(state_owned == 1) %>%
-  mutate(align_indicator = as.factor(align_indicator)) %>%
-  mutate(align_indicator = fct_recode(align_indicator,
-    "Russia-Aligned Pre" = "Pre. State CSTO",
-    "Neutral Pre" = "Pre. State Neut",
-    "Russia-Aligned Post" = "Post State CSTO",
-    "Neutral Post" = "Post State Neut"
-  )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
-  geom_point(data = agg_data_align_state,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm") +
-  scale_color_manual(values = COLORS_DISCS, name = "Source Type") +
-  scale_size(name = "Observations") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic() +
-  labs(
-    title = "Effect of Invasion on State Media Sentiment (Days)",
-    subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities",
-    x = "Days Pre/Post Invasion",
-    y = "Sentiment"
-  )
+  mutate(alignment = if_else(csto == 1, "Russia-Aligned", "Neutral")) %>%
+  plot_group_discs(group = "alignment", colors = COLORS_ALIGN,
+                   legend_title = "Alignment",
+                   title = "Effect of Invasion on State Media Sentiment",
+                   subtitle = "Neutral vs Russia Aligned, Difference in Discontinuities")
 
 state_align_discs_graph
 
@@ -196,39 +181,10 @@ ggsave(plot = state_align_discs_labeled,
 ### State Media by Alignment, Presentation
 
 ```{r align-state-plot-present, fig.width=10, fig.height=7}
-agg_data_align_state <- data_align %>%
-  filter(state_owned == 1) %>%
-  group_by(running, csto) %>%
-  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
-
 state_align_discs_graph_present <- data_align %>%
   filter(state_owned == 1) %>%
-  mutate(align_indicator = as.factor(align_indicator)) %>%
-  mutate(align_indicator = fct_recode(align_indicator,
-    "Russia-Aligned Pre" = "Pre. State CSTO",
-    "Neutral Pre" = "Pre. State Neut",
-    "Russia-Aligned Post" = "Post State CSTO",
-    "Neutral Post" = "Post State Neut"
-  )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
-  geom_point(data = agg_data_align_state,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm", linewidth = 1.2) +
-  scale_color_manual(values = COLORS_DISCS, name = NULL) +
-  scale_size(guide = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic(base_size = 18) +
-  theme(
-    legend.position = c(0.85, 0.85),
-    legend.text = element_text(size = 16),
-    plot.title = element_blank(),
-    plot.subtitle = element_blank()
-  ) +
-  labs(
-    x = "Days Pre/Post Invasion",
-    y = "Sentiment"
-  )
+  mutate(alignment = if_else(csto == 1, "Russia-Aligned", "Neutral")) %>%
+  plot_group_discs(group = "alignment", colors = COLORS_ALIGN, style = "present")
 
 state_align_discs_graph_present
 
@@ -246,37 +202,9 @@ on. The all-topic version above is kept for the appendix.
 data_align_state_nonmil <- data_align %>%
   filter(state_owned == 1, !topic_clean %in% "Military")
 
-agg_data_align_state_nonmil <- data_align_state_nonmil %>%
-  group_by(running, csto) %>%
-  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
-
 state_align_discs_graph_present_nonmil <- data_align_state_nonmil %>%
-  mutate(align_indicator = as.factor(align_indicator)) %>%
-  mutate(align_indicator = fct_recode(align_indicator,
-    "Russia-Aligned Pre" = "Pre. State CSTO",
-    "Neutral Pre" = "Pre. State Neut",
-    "Russia-Aligned Post" = "Post State CSTO",
-    "Neutral Post" = "Post State Neut"
-  )) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = align_indicator, color = align_indicator)) +
-  geom_point(data = agg_data_align_state_nonmil,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm", linewidth = 1.2) +
-  scale_color_manual(values = COLORS_DISCS, name = NULL) +
-  scale_size(guide = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic(base_size = 18) +
-  theme(
-    legend.position = c(0.85, 0.85),
-    legend.text = element_text(size = 16),
-    plot.title = element_blank(),
-    plot.subtitle = element_blank()
-  ) +
-  labs(
-    x = "Days Pre/Post Invasion",
-    y = "Sentiment"
-  )
+  mutate(alignment = if_else(csto == 1, "Russia-Aligned", "Neutral")) %>%
+  plot_group_discs(group = "alignment", colors = COLORS_ALIGN, style = "present")
 
 state_align_discs_graph_present_nonmil
 
@@ -320,7 +248,7 @@ agg_pretrend_pre <- agg_pretrend %>%
 
 pretrend_by_country_aligned_graph <- ggplot(agg_pretrend,
                                              aes(x = date_publish, y = sentiment_clean)) +
-  geom_point(aes(size = num_obs), alpha = 0.2, inherit.aes = TRUE) +
+  geom_point(aes(size = num_obs), alpha = 0.25, color = "red4") +
   geom_smooth(data = agg_pretrend_pre, method = "lm", se = TRUE, color = "red4") +
   geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
   geom_vline(xintercept = WARNING_DATE, linetype = "dotted", color = "grey30") +
@@ -346,7 +274,7 @@ ggsave(plot = pretrend_by_country_aligned_graph,
 # larger fonts, no size legend
 pretrend_by_country_aligned_present <- ggplot(agg_pretrend,
                                                aes(x = date_publish, y = sentiment_clean)) +
-  geom_point(aes(size = num_obs), alpha = 0.2) +
+  geom_point(aes(size = num_obs), alpha = 0.25, color = "red4") +
   geom_smooth(data = agg_pretrend_pre, method = "lm", se = TRUE, color = "red4",
               linewidth = 1.2) +
   geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
@@ -415,7 +343,7 @@ agg_pretrend_dec_pre <- agg_pretrend_dec %>%
 
 pretrend_by_country_aligned_dec_graph <- ggplot(agg_pretrend_dec,
                                                  aes(x = date_publish, y = sentiment_clean)) +
-  geom_point(aes(size = num_obs), alpha = 0.2, inherit.aes = TRUE) +
+  geom_point(aes(size = num_obs), alpha = 0.25, color = "red4") +
   geom_smooth(data = agg_pretrend_dec_pre, method = "lm", se = TRUE, color = "red4") +
   geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
   geom_vline(xintercept = WARNING_DATE, linetype = "dotted", color = "grey30") +

@@ -305,33 +305,9 @@ ggsave(plot = invasion_on_sentiment_graph,
 ## Main RDD Plot for Presentations
 
 ```{r rdd-plot-presentation, fig.width=10, fig.height=7}
-
-
+# One series, one colour on both sides of the cutoff; no colour legend
 invasion_on_sentiment_graph_present <- data_non_ukraine %>%
-  mutate(treatment = as.factor(treatment)) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
-  geom_point(data = agg_data,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm", linewidth = 1.2) +
-  scale_color_manual(
-    values = c("steelblue3", "red4"),
-    name = NULL,
-    labels = c("Pre-Invasion", "Post-Invasion")
-  ) +
-  scale_size(guide = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic(base_size = 18) +
-  theme(
-    legend.position = c(0.85, 0.85),
-    legend.text = element_text(size = 16),
-    plot.title = element_blank(),
-    plot.subtitle = element_blank()
-  ) +
-  labs(
-    x = "Days Pre/Post Invasion",
-    y = "Sentiment"
-  )
+  plot_group_discs(style = "present")
 
 invasion_on_sentiment_graph_present
 
@@ -346,35 +322,8 @@ The presentation version of the paper's H1 figure (`invasion_on_sentiment_non_mi
 which omits military topics. The full-sample version above is kept for the appendix.
 
 ```{r rdd-plot-presentation-nonmil, fig.width=10, fig.height=7}
-agg_data_non_mil_present <- data_non_mil %>%
-  group_by(running) %>%
-  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
-
 invasion_on_sentiment_graph_present_nonmil <- data_non_mil %>%
-  mutate(treatment = as.factor(treatment)) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
-  geom_point(data = agg_data_non_mil_present,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm", linewidth = 1.2) +
-  scale_color_manual(
-    values = c("steelblue3", "red4"),
-    name = NULL,
-    labels = c("Pre-Invasion", "Post-Invasion")
-  ) +
-  scale_size(guide = "none") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic(base_size = 18) +
-  theme(
-    legend.position = c(0.85, 0.85),
-    legend.text = element_text(size = 16),
-    plot.title = element_blank(),
-    plot.subtitle = element_blank()
-  ) +
-  labs(
-    x = "Days Pre/Post Invasion",
-    y = "Sentiment"
-  )
+  plot_group_discs(style = "present")
 
 invasion_on_sentiment_graph_present_nonmil
 
@@ -615,23 +564,11 @@ agg_data_non_mil <- data_non_mil %>%
   group_by(running) %>%
   summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
 
+# One series, one colour on both sides of the cutoff; no colour legend.
+# agg_data_non_mil above is still used by the labelled variant below.
 invasion_on_sentiment_non_mil_graph <- data_non_mil %>%
-  mutate(treatment = as.factor(treatment)) %>%
-  ggplot(aes(x = running, y = sentiment_clean, group = treatment, color = treatment)) +
-  geom_point(data = agg_data_non_mil,
-             aes(x = running, y = sentiment_clean, size = num_obs),
-             alpha = 0.2, inherit.aes = FALSE) +
-  geom_smooth(method = "lm") +
-  scale_color_manual(values = c("dodgerblue", "red4"), name = "Post Invasion") +
-  scale_size(name = "Observations") +
-  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.7) +
-  theme_classic() +
-  labs(
-    title = "Effect of Invasion on Sentiment",
-    subtitle = "Non-Military Topics",
-    x = "Days Pre/Post Invasion",
-    y = "Sentiment"
-  )
+  plot_group_discs(title = "Effect of Invasion on Sentiment",
+                   subtitle = "Non-Military Topics")
 
 invasion_on_sentiment_non_mil_graph
 
