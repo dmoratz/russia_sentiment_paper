@@ -1526,7 +1526,7 @@ ggsave(plot = sensitivity_plot,
 
 ```{r sensitivity-ovb-csto-present, fig.width=10, fig.height=7}
 # Presentation version of the sensitivity plot above: same contours, estimate and
-# benchmark, larger fonts, Russia-Aligned labels, no subtitle
+# benchmark, larger fonts, treaty client labels, no subtitle
 sensitivity_plot_present <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z = adjusted)) +
   geom_contour(colour = "grey60",
                breaks = c(-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4)) +
@@ -1552,9 +1552,9 @@ sensitivity_plot_present <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z 
   scale_y_continuous(breaks = seq(0, 0.015, by = 0.005),
                      labels = scales::number_format(accuracy = 0.001)) +
   labs(
-    x = "Partial R² of confounder with Russia-Aligned × Treatment",
+    x = "Partial R² of confounder with Treaty client × Treatment",
     y = "Partial R² of confounder with sentiment",
-    title = "Sensitivity to Unobserved Confounding, Russia-Aligned Interaction"
+    title = "Sensitivity to Unobserved Confounding, Treaty Client Interaction"
   ) +
   theme_bw(base_size = 18) +
   theme(
@@ -1567,7 +1567,7 @@ sensitivity_plot_present <- ggplot(contour_data, aes(x = r2dz.x, y = r2yz.dx, z 
 sensitivity_plot_present
 
 ggsave(plot = sensitivity_plot_present,
-       file.path(FIGURES_HETEROGENEITY_PROB, "sensitivity_ovb_csto_present.png"),
+       file.path(FIGURES_PRESENTATION, "sensitivity_ovb_csto_present.png"),
        width = 10, height = 7)
 ```
 

@@ -54,6 +54,7 @@ matching the publication-output (10) ordering.
 | `10b_publication_outputs_days.Rmd` | Publication tables (day) | `.tex` + `.html` |
 | `10d_publication_outputs_drop.Rmd` | Publication tables (drop no-time) | `.tex` + `.html` |
 | `11_typology_robustness.Rmd` | Main results under all three time-assignment typologies | `.tex` + `.html` |
+| `12_presentation_figures.Rmd` | Job talk figures | `figures/presentation/` |
 
 Archived continuous-time scripts live in `scripts/archive/` (`04c`/`05c`/`06c`/`07c` and
 `08c_publication_outputs_cont.Rmd`, retired under the old numbering in which the
@@ -105,7 +106,8 @@ pipeline_scripts <- c(
   "10b_publication_outputs_days.Rmd",
   "10d_publication_outputs_drop.Rmd",
 
-  "11_typology_robustness.Rmd"
+  "11_typology_robustness.Rmd",
+  "12_presentation_figures.Rmd"
 )
 
 timings <- data.frame(script = character(), seconds = numeric(), stringsAsFactors = FALSE)

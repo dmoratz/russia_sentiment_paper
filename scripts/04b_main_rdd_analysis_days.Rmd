@@ -302,36 +302,6 @@ ggsave(plot = invasion_on_sentiment_graph,
 ```
 
 
-## Main RDD Plot for Presentations
-
-```{r rdd-plot-presentation, fig.width=10, fig.height=7}
-# One series, one colour on both sides of the cutoff; no colour legend
-invasion_on_sentiment_graph_present <- data_non_ukraine %>%
-  plot_group_discs(style = "present")
-
-invasion_on_sentiment_graph_present
-
-ggsave(plot = invasion_on_sentiment_graph_present,
-       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_present.png"),
-       width = 10, height = 7)
-```
-
-## Main RDD Plot for Presentations (Non-Military)
-
-The presentation version of the paper's H1 figure (`invasion_on_sentiment_non_mil.png`),
-which omits military topics. The full-sample version above is kept for the appendix.
-
-```{r rdd-plot-presentation-nonmil, fig.width=10, fig.height=7}
-invasion_on_sentiment_graph_present_nonmil <- data_non_mil %>%
-  plot_group_discs(style = "present")
-
-invasion_on_sentiment_graph_present_nonmil
-
-ggsave(plot = invasion_on_sentiment_graph_present_nonmil,
-       file.path(FIGURES_RDD_DAYS, "invasion_on_sentiment_present_nonmil.png"),
-       width = 10, height = 7)
-```
-
 ## GAM Smoothed Version (Appendix)
 
 ```{r rdd-gam, fig.width=10, fig.height=7}

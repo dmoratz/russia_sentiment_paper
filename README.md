@@ -23,6 +23,7 @@ russia_sentiment_paper/
 │   ├── 09_preperiod_diagnostics.Rmd             # Pre-period adjustment diagnostics
 │   ├── 10{a,b,d}_publication_outputs_*.Rmd      # Final tables per variant
 │   ├── 11_typology_robustness.Rmd               # Main results across typologies
+│   ├── 12_presentation_figures.Rmd              # Job talk figures
 │   ├── archive/             # Retired continuous-time (c) scripts + lifted diagnostics
 │   ├── master.Rmd           # Run entire pipeline
 │   └── README.md            # Scripts documentation
@@ -89,6 +90,7 @@ Each hypothesis is run in three time-treatment **variants**, suffixed `a`/`b`/`d
 | 9 | `09_preperiod_diagnostics.Rmd` | Pre-period adjustment diagnostics; models behind appendix table S15 |
 | 10 | `10{a,b,d}_publication_outputs_*.Rmd` | Generate final tables (`.tex`/`.html`) per variant |
 | 11 | `11_typology_robustness.Rmd` | Main results side by side under all three time-assignment typologies |
+| 12 | `12_presentation_figures.Rmd` | Job talk figures, saved to `figures/presentation/` |
 
 Run the whole pipeline via `scripts/master.Rmd`.
 

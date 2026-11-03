@@ -1,0 +1,1248 @@
+---
+title: "12 - Presentation Figures"
+author: "Donald Moratz"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+# Overview
+
+This script builds every figure used in the job talk, except the sensitivity contour plot,
+which needs the fitted models in `06a` and is saved to the same folder from there. All files
+carry `_present` so they can always be told apart from the paper versions.
+
+The H1, H2 and H3 click-throughs use the pre-period specification: sentiment z-scored within
+outlet on pre-invasion means and standard deviations, then demeaned by pre-invasion topic
+means on that scale, with no topic fixed effects. Pre-invasion values come from every
+pre-invasion article in each hypothesis's sample. The raw-score versions go to the appendix.
+
+Scatter points are daily means by publication day. Fit lines use probabilistic time.
+
+**Inputs:**
+- `data/intermediate/02_cleaned_data.rds`
+- `data/intermediate/02_data_non_ukraine.rds`
+- `data/intermediate/04_h1_results_prob.rds`
+- `data/intermediate/05_h2_results_prob.rds`
+- `data/intermediate/06_alignment_results_prob.rds`
+- `data/intermediate/09_preperiod_results_prob.rds`
+- `writing/presentations/kazahk_media_screenshot.png`
+- `writing/presentations/invasion_photo.png`
+
+**Outputs:**
+- All figures in `figures/presentation/`
+- `figures/presentation/figure_numbers.md` (counts and numbers quoted in the talk)
+
+```{r setup-present, include=FALSE}
+source("00_setup.R")
+pacman::p_load(magick, ragg)
+
+# Figures are written with ggsave() below; knitr's own copies stay out of the output folder
+knitr::opts_chunk$set(fig.path = paste0(file.path(tempdir(), "12_present"), "/"))
+
+set.seed(3184)
+```
+
+# Palette and Helpers
+
+## Palette
+
+Color names match the deck's preamble on Overleaf.
+
+```{r palette}
+pal <- list(
+  treatyClient  = "#8E44AD",
+  nonTreaty     = "#2ECC71",
+  nonTreatyText = "#1E8449",
+  stateMedia    = "#E67E22",
+  indepMedia    = "#3498DB",
+  signalBlue    = "#2980B9",
+  voteAgainst   = "#4A235A",
+  voteAbstained = "#A569BD",
+  mLightBrown   = "#EB811B",
+  dimgray       = "#AAAAAA",
+  mDarkTeal     = "#23373B"
+)
+
+COLORS_OWNER  <- c("Independent" = pal$indepMedia, "State-owned" = pal$stateMedia)
+COLORS_TREATY <- c("Treaty client" = pal$treatyClient, "Non-treaty state" = pal$nonTreatyText)
+
+LAB_X    <- "Days from February 24"
+LAB_Y_SD <- "Sentiment toward Russia (within-outlet SD)"
+LAB_Y_RAW <- "Sentiment toward Russia (raw −1/0/+1)"
+
+DISC_WIDTH_PX  <- 1800
+DISC_HEIGHT_PX <- 1200
+```
+
+## Saving and the Numbers File
+
+```{r save-helpers}
+save_present <- function(plot, name, width_px, height_px) {
+  ggsave(file.path(FIGURES_PRESENTATION, name), plot,
+         width = width_px / 300, height = height_px / 300, dpi = 300, bg = "white")
+  cat("Saved:", name, "\n")
+}
+
+# Collected through the script and written to figure_numbers.md at the end
+numbers_md <- character()
+add_numbers <- function(...) numbers_md <<- c(numbers_md, ...)
+
+md_table <- function(df, digits = 3) {
+  df <- df %>% mutate(across(where(is.numeric), ~ format(round(.x, digits), trim = TRUE,
+                                                         big.mark = ",")))
+  c(paste0("| ", paste(names(df), collapse = " | "), " |"),
+    paste0("|", paste(rep("---", ncol(df)), collapse = "|"), "|"),
+    apply(df, 1, function(r) paste0("| ", paste(r, collapse = " | "), " |")),
+    "")
+}
+
+fmt_sd <- function(x) gsub("-", "−", sprintf("%+.2f SD", x))
+```
+
+## Discontinuity Plots
+
+Every discontinuity figure goes through `plot_disc()`. Points are daily means by publication
+day (`running`). Fit lines are article-level straight lines on `running_probabilistic`, one
+per group on each side of the cutoff. Limits are passed in so that stages sharing a range
+cannot jump between clicks.
+
+```{r disc-helpers}
+daily_means <- function(df, y, group_var = NULL) {
+  df %>%
+    mutate(.group = if (is.null(group_var)) factor("all") else .data[[group_var]]) %>%
+    group_by(running, .group) %>%
+    summarize(.y = mean(.data[[y]], na.rm = TRUE), num_obs = n(), .groups = "drop")
+}
+
+disc_limits <- function(df, y, group_var = NULL) {
+  agg <- daily_means(df, y, group_var)
+  list(x = range(agg$running), y = range(agg$.y), size = range(agg$num_obs))
+}
+
+plot_disc <- function(df, y, group_var = NULL, colors = c(all = pal$signalBlue),
+                      lit = names(colors), fit_groups = lit, limits, y_lab,
+                      jumps = NULL, corner_label = NULL, highlight = NULL, base_size = 12,
+                      legend_inside = c(0.72, 0.97)) {
+  single <- is.null(group_var)
+
+  fit_data <- df %>%
+    mutate(.group = if (single) factor("all") else .data[[group_var]], .y = .data[[y]]) %>%
+    filter(.group %in% fit_groups)
+  point_data <- daily_means(df, y, group_var) %>% filter(.group %in% lit)
+
+  p <- ggplot(point_data, aes(x = running, y = .y, color = .group))
+
+  # Shades the window the next stage zooms into
+  if (!is.null(highlight)) {
+    p <- p + annotate("rect", xmin = -highlight, xmax = highlight, ymin = -Inf, ymax = Inf,
+                      fill = pal$mDarkTeal, alpha = 0.12)
+  }
+
+  p <- p +
+    geom_vline(xintercept = 0, linetype = "dashed", color = pal$mLightBrown, linewidth = 0.7) +
+    geom_point(aes(size = num_obs), alpha = 0.45, stroke = 0)
+
+  if (length(fit_groups) > 0) {
+    p <- p + geom_smooth(data = fit_data,
+                         aes(x = running_probabilistic, y = .y,
+                             group = interaction(.group, treatment), color = .group),
+                         method = "lm", formula = y ~ x, linewidth = 1, fill = "grey50",
+                         alpha = 0.2, show.legend = FALSE, inherit.aes = FALSE)
+  }
+
+  if (!is.null(jumps)) {
+    p <- p + geom_label(data = jumps %>% filter(.group %in% fit_groups),
+                        aes(x = label_x, y = label_y, label = fmt_sd(jump),
+                            color = .group),
+                        hjust = 0, size = 3.2, fontface = "bold", linewidth = 0,
+                        fill = alpha("white", 0.85), inherit.aes = FALSE, show.legend = FALSE)
+  }
+
+  if (!is.null(corner_label)) {
+    p <- p + annotate("text", x = Inf, y = Inf, label = corner_label, hjust = 1.05,
+                      vjust = 1.6, size = 3.2, color = "grey30")
+  }
+
+  p +
+    scale_color_manual(values = colors, limits = lit,
+                       guide = if (single) "none" else
+                         guide_legend(override.aes = list(alpha = 1, size = 3))) +
+    scale_size(range = c(0.4, 4), limits = limits$size, guide = "none") +
+    coord_cartesian(xlim = limits$x, ylim = limits$y) +
+    labs(x = LAB_X, y = y_lab, color = NULL) +
+    theme_classic(base_size = base_size) +
+    theme(legend.position = "inside", legend.position.inside = legend_inside,
+          legend.justification.inside = c(0, 1),
+          legend.background = element_blank(), legend.key = element_blank())
+}
+
+# Size of the jump at the cutoff for each group, from the same lines the figure draws.
+# With no fixed effects this is the group's own treatment coefficient.
+jump_table <- function(df, y, group_var = NULL) {
+  df <- df %>% mutate(.group = if (is.null(group_var)) factor("all") else .data[[group_var]])
+  map_dfr(as.character(unique(df$.group)), function(g) {
+    fit <- feols(as.formula(paste0(y, " ~ running_probabilistic * treatment")),
+                 cluster = ~source_domain,
+                 data = droplevels(df[df$.group == g, ]), notes = FALSE)
+    tibble(.group = g,
+           pre  = unname(coef(fit)["(Intercept)"]),
+           post = unname(coef(fit)["(Intercept)"] + coef(fit)["treatment"]),
+           jump = unname(coef(fit)["treatment"]),
+           se   = unname(se(fit)["treatment"]),
+           p    = unname(pvalue(fit)["treatment"]),
+           n    = nobs(fit),
+           outlets = n_distinct(df$source_domain[df$.group == g]))
+  })
+}
+
+# Raw-score translations of a window: share coded -1, article mean, mean of daily means
+window_stats <- function(df, group_var = NULL) {
+  df %>%
+    mutate(.group = if (is.null(group_var)) "All outlets" else as.character(.data[[group_var]]),
+           side = if_else(treatment == 1, "After", "Before")) %>%
+    group_by(.group, side, running) %>%
+    summarize(day_mean = mean(sentiment_clean), day_n = n(),
+              day_neg = sum(sentiment_clean == -1), .groups = "drop") %>%
+    group_by(Group = .group, Side = side) %>%
+    summarize(Articles = sum(day_n),
+              `Share coded -1` = sum(day_neg) / sum(day_n),
+              `Raw article mean` = weighted.mean(day_mean, day_n),
+              `Raw daily mean` = mean(day_mean),
+              .groups = "drop") %>%
+    arrange(Group, desc(Side))
+}
+```
+
+# Load Data
+
+`insajder.net` has no sentiment variance and leaves in the z-scoring step of every model, so
+it is dropped here, which gives the 61 outlets the talk reports. The running variable is
+rescaled from seconds to days, as in `05a` and `06a`.
+
+```{r load-present}
+results_h1   <- readRDS(file.path(DATA_INTERMEDIATE, "04_h1_results_prob.rds"))
+results_h2   <- readRDS(file.path(DATA_INTERMEDIATE, "05_h2_results_prob.rds"))
+results_h3   <- readRDS(file.path(DATA_INTERMEDIATE, "06_alignment_results_prob.rds"))
+results_prepd <- readRDS(file.path(DATA_INTERMEDIATE, "09_preperiod_results_prob.rds"))
+
+label_groups <- function(d) {
+  d %>% mutate(
+    media_type = factor(if_else(state_owned == 1, "State-owned", "Independent"),
+                        levels = names(COLORS_OWNER)),
+    treaty_group = factor(if_else(csto == 1, "Treaty client", "Non-treaty state"),
+                          levels = names(COLORS_TREATY)),
+    running_probabilistic = running_probabilistic / 86400
+  )
+}
+
+# Following 05a, chunk `load-prob`
+data_outlets <- readRDS(file.path(DATA_INTERMEDIATE, "02_data_non_ukraine.rds")) %>%
+  mutate(across(c(country, source_domain, topic_clean), as.factor)) %>%
+  drop_na() %>%
+  droplevels() %>%
+  group_by(source_domain) %>%
+  filter(sd(sentiment_clean, na.rm = TRUE) > 0) %>%
+  ungroup() %>%
+  droplevels() %>%
+  label_groups()
+
+# Following 06a, chunks `load-prob` and `alignment-data-prob`
+data_clean <- readRDS(file.path(DATA_INTERMEDIATE, "02_cleaned_data.rds")) %>%
+  mutate(across(c(country, source_domain, topic_clean), as.factor)) %>%
+  label_groups()
+
+cat("Analysis sample:", nrow(data_outlets), "articles,",
+    nlevels(data_outlets$source_domain), "outlets\n")
+cat("Articles where `treatment` and probabilistic time disagree on the side of the cutoff:",
+    sum((data_outlets$running_probabilistic < 0) != (data_outlets$treatment == 0)), "\n")
+```
+
+# Maps
+
+## Countries, Projection and Extent
+
+Treaty clients have a mutual defense agreement with Russia. The two not in the corpus are on
+the map because their UN votes are part of the puzzle. Group membership for the corpus
+countries is checked against the project's own data.
+
+Natural Earth draws Crimea as part of Russia. It is moved to Ukraine here.
+
+```{r map-countries}
+# un_vote is the March 2, 2022 General Assembly vote on A/ES-11/L.1, from the UN voting record
+countries <- tribble(
+  ~iso3, ~name,        ~treaty, ~un_vote,       ~group,      ~in_corpus,
+  "ARM", "Armenia",    TRUE,    "abstained",    "treaty",    TRUE,
+  "AZE", "Azerbaijan", TRUE,    "abstained",    "treaty",    TRUE,
+  "BLR", "Belarus",    TRUE,    "against",      "treaty",    TRUE,
+  "KAZ", "Kazakhstan", TRUE,    "abstained",    "treaty",    TRUE,
+  "KGZ", "Kyrgyzstan", TRUE,    "abstained",    "treaty",    FALSE,
+  "TJK", "Tajikistan", TRUE,    "abstained",    "treaty",    FALSE,
+  "GEO", "Georgia",    FALSE,   "for",          "nontreaty", TRUE,
+  "MDA", "Moldova",    FALSE,   "for",          "nontreaty", TRUE,
+  "XKX", "Kosovo",     FALSE,   "not a member", "nontreaty", TRUE,
+  "SRB", "Serbia",     FALSE,   "for",          "nontreaty", TRUE,
+  "ALB", "Albania",    FALSE,   "for",          "nato",      TRUE,
+  "HUN", "Hungary",    FALSE,   "for",          "nato",      TRUE,
+  "TUR", "Turkey",     FALSE,   "for",          "nato",      TRUE
+)
+
+# The corpus countries and groups must agree with the project data
+stopifnot(
+  setequal(countries$name[countries$in_corpus], levels(data_outlets$country)),
+  setequal(countries$name[countries$group == "treaty" & countries$in_corpus], CSTO_COUNTRIES),
+  setequal(countries$name[countries$group == "nontreaty"], NEUTRAL_COUNTRIES),
+  setequal(countries$name[countries$group == "nato"], setdiff(NATO_COUNTRIES, "Ukraine"))
+)
+
+CRS_MAP <- "+proj=laea +lat_0=50 +lon_0=55 +datum=WGS84 +units=m +no_defs"
+sf_use_s2(FALSE)
+
+world <- ne_countries(scale = 50, returnclass = "sf") %>%
+  transmute(ne_code = adm0_a3) %>%
+  st_make_valid()
+
+# Crimea: move the Russia polygon inside this box over to Ukraine
+crimea_box <- st_as_sfc(st_bbox(c(xmin = 32, xmax = 36.8, ymin = 44, ymax = 46.3),
+                                crs = st_crs(4326)))
+russia_parts <- world %>% filter(ne_code == "RUS") %>% st_cast("POLYGON")
+is_crimea <- as.vector(st_within(st_point_on_surface(russia_parts), crimea_box, sparse = FALSE))
+cat("Russia polygons moved to Ukraine as Crimea:", sum(is_crimea), "\n")
+crimea <- st_union(russia_parts[is_crimea, ])
+
+world$geometry[world$ne_code == "RUS"] <- st_union(russia_parts[!is_crimea, ])
+world$geometry[world$ne_code == "UKR"] <-
+  st_union(st_union(world[world$ne_code == "UKR", ]), crimea)
+
+# Everything drawn lies well inside this box, which also avoids reprojection artifacts
+world_map <- world %>%
+  st_crop(xmin = -25, xmax = 135, ymin = 12, ymax = 84) %>%
+  st_transform(CRS_MAP)
+
+countries <- countries %>% mutate(ne_code = if_else(iso3 == "XKX", "KOS", iso3))
+map_sample <- world_map %>% inner_join(countries, by = "ne_code")
+stopifnot(nrow(map_sample) == nrow(countries))
+
+map_russia  <- world_map %>% filter(ne_code == "RUS")
+map_ukraine <- world_map %>% filter(ne_code == "UKR")
+map_other   <- world_map %>% filter(!ne_code %in% c(countries$ne_code, "RUS", "UKR"))
+
+to_map_xy <- function(lon, lat) {
+  st_coordinates(st_transform(st_sfc(map2(lon, lat, ~ st_point(c(.x, .y))), crs = 4326),
+                              CRS_MAP))
+}
+
+# Frame: from just west of the sample to 95E, at 16:10, with room under the sample for the
+# legend. Russia runs off the top: fitting its Arctic coast would shrink the sample countries
+# into the bottom third of the map.
+frame_box <- st_bbox(st_union(c(st_geometry(map_sample), st_geometry(map_ukraine))))
+MAP_MARGIN <- 700000
+frame_x <- c(frame_box[["xmin"]] - MAP_MARGIN, to_map_xy(95, 50)[, 1])
+frame_height <- diff(frame_x) / 1.6
+frame_y <- frame_box[["ymin"]] - 0.27 * frame_height + c(0, frame_height)
+stopifnot(frame_box[["xmax"]] < frame_x[2], frame_box[["ymax"]] < frame_y[2])
+cat("Map frame (km):", round(diff(frame_x) / 1000), "x", round(diff(frame_y) / 1000), "\n")
+```
+
+## Labels and Legend
+
+Each label has a fixed position, so both maps match exactly at every stage. Countries too
+small to hold their label get a leader line from their interior point.
+
+```{r map-labels}
+label_positions <- tribble(
+  ~name,        ~lon, ~lat, ~leader,
+  "Armenia",    49.8, 36.6, TRUE,
+  "Azerbaijan", 53.5, 41.8, TRUE,
+  "Belarus",    27.9, 53.7, FALSE,
+  "Kazakhstan", 67.5, 48.3, FALSE,
+  "Kyrgyzstan", 81.5, 39.5, TRUE,
+  "Tajikistan", 69.5, 33.0, TRUE,
+  "Georgia",    37.8, 42.9, TRUE,
+  "Moldova",    30.0, 42.9, TRUE,
+  "Kosovo",     13.2, 42.0, TRUE,
+  "Serbia",     12.0, 45.0, TRUE,
+  "Albania",    14.5, 39.8, TRUE,
+  "Hungary",    12.0, 49.2, TRUE,
+  "Turkey",     34.5, 38.9, FALSE
+)
+
+map_labels <- map_sample %>%
+  st_point_on_surface() %>%
+  mutate(anchor_x = st_coordinates(geometry)[, 1],
+         anchor_y = st_coordinates(geometry)[, 2]) %>%
+  st_drop_geometry() %>%
+  select(name, group, in_corpus, anchor_x, anchor_y) %>%
+  left_join(label_positions, by = "name") %>%
+  mutate(label_x = to_map_xy(lon, lat)[, 1],
+         label_y = to_map_xy(lon, lat)[, 2])
+
+context_labels <- tribble(
+  ~name,     ~lon, ~lat,
+  "Russia",  58.0, 55.8,
+  "Ukraine", 33.0, 49.2
+) %>%
+  mutate(x = to_map_xy(lon, lat)[, 1], y = to_map_xy(lon, lat)[, 2])
+
+MAP_LABEL_SIZE <- 10 / .pt
+
+layer_map_labels <- function(label_color = "black") {
+  labels <- map_labels %>%
+    mutate(.color = if (is.function(label_color)) label_color(group, in_corpus) else label_color)
+  list(
+    geom_segment(data = labels %>% filter(leader),
+                 aes(x = anchor_x, y = anchor_y, xend = label_x, yend = label_y),
+                 color = pal$dimgray, linewidth = 0.3, inherit.aes = FALSE),
+    geom_label(data = labels, aes(x = label_x, y = label_y, label = name, color = I(.color)),
+               size = MAP_LABEL_SIZE, family = "sans", fill = "white", linewidth = 0,
+               label.padding = unit(0.07, "lines"), inherit.aes = FALSE)
+  )
+}
+
+layer_context_labels <- function() {
+  geom_text(data = context_labels, aes(x = x, y = y, label = name),
+            color = "#666666", fontface = "italic", size = MAP_LABEL_SIZE,
+            family = "sans", inherit.aes = FALSE)
+}
+
+# Legend drawn in map coordinates: bottom left, inside the frame, grows downward
+layer_map_legend <- function(items) {
+  key_w <- 0.03 * diff(frame_x)
+  row_h <- 0.057 * diff(frame_y)
+  left  <- frame_x[1] + 0.012 * diff(frame_x)
+  base  <- frame_y[1] + 0.02 * diff(frame_y)
+  n     <- nrow(items)
+  keys  <- items %>%
+    mutate(row = row_number(),
+           ymax = base + (n - row + 0.85) * row_h,
+           ymin = base + (n - row + 0.15) * row_h,
+           xmin = left, xmax = left + key_w)
+  box_w <- max(nchar(items$label)) * 0.0118 * diff(frame_x) + key_w * 1.5
+
+  hatch_rows <- keys %>% filter(hatch)
+  hatch_layer <- if (nrow(hatch_rows) > 0) {
+    hatch <- hatch_rows %>%
+      rowwise() %>%
+      reframe(x = xmin + c(0.2, 0.5, 0.8) * key_w, xend = x + 0.2 * key_w, y = ymin, yend = ymax)
+    geom_segment(data = hatch, aes(x = x, xend = xend, y = y, yend = yend),
+                 color = alpha(pal$treatyClient, 0.6), linewidth = 0.3, inherit.aes = FALSE)
+  }
+
+  list(
+    annotate("rect", xmin = frame_x[1], xmax = left + box_w, ymin = frame_y[1],
+             ymax = base + n * row_h + 0.01 * diff(frame_y), fill = "white", color = NA),
+    geom_rect(data = keys, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = I(fill)),
+              color = pal$dimgray, linewidth = 0.2, inherit.aes = FALSE),
+    hatch_layer,
+    geom_text(data = keys, aes(x = xmax + 0.3 * key_w, y = (ymin + ymax) / 2, label = label),
+              hjust = 0, size = MAP_LABEL_SIZE, family = "sans", inherit.aes = FALSE)
+  )
+}
+
+map_coord_theme <- function() {
+  list(
+    coord_sf(crs = st_crs(CRS_MAP), xlim = frame_x, ylim = frame_y, expand = FALSE, datum = NA),
+    theme_void(base_family = "sans"),
+    theme(panel.background = element_rect(fill = "white", color = NA),
+          plot.margin = margin(0, 0, 0, 0))
+  )
+}
+
+MAP_BORDER <- 0.3
+```
+
+## Figure 1: UN Vote Map
+
+```{r fig-un-vote-map, fig.width=5.33, fig.height=3.33}
+# Azerbaijan did not cast a vote and is grouped with the abstentions. Kosovo is not a UN member,
+# so it has no vote to show.
+VOTE_FILL <- c("against" = pal$voteAgainst, "abstained" = pal$voteAbstained,
+               "for" = alpha(pal$nonTreaty, 0.6), "not a member" = alpha(pal$nonTreaty, 0.2))
+
+vote_map_fill <- map_sample %>%
+  mutate(.fill = unname(VOTE_FILL[un_vote]))
+
+un_vote_map <- ggplot() +
+  geom_sf(data = map_other, fill = "#F5F5F5", color = pal$dimgray, linewidth = MAP_BORDER) +
+  geom_sf(data = map_russia, fill = "#DDDDDD", color = pal$dimgray, linewidth = MAP_BORDER) +
+  geom_sf(data = vote_map_fill, aes(fill = I(.fill)), color = pal$dimgray, linewidth = MAP_BORDER) +
+  geom_sf(data = map_ukraine, fill = NA, color = pal$mDarkTeal, linewidth = 0.6) +
+  layer_map_labels() +
+  layer_context_labels() +
+  layer_map_legend(tibble(
+    label = c("Voted against", "Abstained", "In sample, voted for",
+              "In sample, not a UN member"),
+    fill  = unname(VOTE_FILL[c("against", "abstained", "for", "not a member")]),
+    hatch = FALSE
+  )) +
+  map_coord_theme()
+
+save_present(un_vote_map, "un_vote_map_present.png", 1600, 1000)
+un_vote_map
+```
+
+## Figure 4: Sample Map
+
+The first stage has no color. After that, one group lights up per click and stays lit. Unlit
+sample countries are drawn pale with a grey label, so the room sees where the next group will
+appear. Kyrgyzstan and Tajikistan are hatched only while the treaty clients are introduced.
+
+```{r fig-sample-map, fig.width=5.33, fig.height=3.33}
+# 45-degree lines clipped to the two treaty clients outside the corpus
+not_in_corpus <- map_sample %>% filter(!in_corpus)
+hatch_box <- st_bbox(not_in_corpus)
+hatch_step <- 45000
+hatch_offsets <- seq(hatch_box[["xmin"]] - (hatch_box[["ymax"]] - hatch_box[["ymin"]]),
+                     hatch_box[["xmax"]], by = hatch_step)
+hatch_lines <- st_sfc(
+  lapply(hatch_offsets, function(x0) {
+    st_linestring(rbind(c(x0, hatch_box[["ymin"]]),
+                        c(x0 + hatch_box[["ymax"]] - hatch_box[["ymin"]], hatch_box[["ymax"]])))
+  }),
+  crs = st_crs(map_sample)
+)
+hatch_clipped <- st_intersection(hatch_lines, st_union(not_in_corpus))
+
+GROUP_FILL <- c(treaty = pal$treatyClient,
+                nontreaty = alpha(pal$nonTreaty, 0.6),
+                nato = alpha(pal$indepMedia, 0.45))
+SAMPLE_LEGEND <- tibble(
+  label = c("Treaty client", "Treaty client, not in corpus", "Non-treaty state", "NATO member"),
+  fill  = c(GROUP_FILL[["treaty"]], "white", GROUP_FILL[["nontreaty"]], GROUP_FILL[["nato"]]),
+  hatch = c(FALSE, TRUE, FALSE, FALSE)
+)
+
+# The small "not in corpus" notes sit under each country's label
+not_in_corpus_notes <- map_labels %>%
+  filter(!in_corpus) %>%
+  mutate(y = label_y - 0.038 * diff(frame_y))
+
+build_sample_map <- function(lit_groups, legend_rows, show_not_in_corpus = FALSE) {
+  fills <- map_sample %>%
+    mutate(.fill = case_when(
+      !group %in% lit_groups ~ "#F5F5F5",
+      !in_corpus             ~ "#F5F5F5",
+      TRUE                   ~ unname(GROUP_FILL[group])
+    ))
+
+  ggplot() +
+    geom_sf(data = map_other, fill = "#F5F5F5", color = pal$dimgray, linewidth = MAP_BORDER) +
+    geom_sf(data = map_russia, fill = "#DDDDDD", color = pal$dimgray, linewidth = MAP_BORDER) +
+    geom_sf(data = fills, aes(fill = I(.fill)), color = pal$dimgray, linewidth = MAP_BORDER) +
+    (if (show_not_in_corpus) {
+      geom_sf(data = st_sf(geometry = hatch_clipped), color = alpha(pal$treatyClient, 0.4),
+              linewidth = 0.3)
+    }) +
+    geom_sf(data = map_ukraine, fill = NA, color = pal$mDarkTeal, linewidth = 0.6) +
+    layer_map_labels(function(g, corpus) {
+      if_else(g %in% lit_groups & (corpus | show_not_in_corpus), "black", pal$dimgray)
+    }) +
+    layer_context_labels() +
+    (if (show_not_in_corpus) {
+      geom_text(data = not_in_corpus_notes, aes(x = label_x, y = y), label = "not in corpus",
+                fontface = "italic", size = 7 / .pt, family = "sans", inherit.aes = FALSE)
+    }) +
+    (if (length(legend_rows) > 0) layer_map_legend(SAMPLE_LEGEND[legend_rows, ])) +
+    map_coord_theme()
+}
+
+sample_map_stages <- list(
+  list(file = "sample_map_s1_present.png", lit = character(0), rows = integer(0), hatch = FALSE),
+  list(file = "sample_map_s2_present.png", lit = "treaty", rows = 1:2, hatch = TRUE),
+  list(file = "sample_map_s3_present.png", lit = c("treaty", "nontreaty"), rows = c(1, 3),
+       hatch = FALSE),
+  list(file = "sample_map_s4_present.png", lit = c("treaty", "nontreaty", "nato"),
+       rows = c(1, 3, 4), hatch = FALSE)
+)
+
+for (stage in sample_map_stages) {
+  save_present(build_sample_map(stage$lit, stage$rows, stage$hatch), stage$file, 1600, 1000)
+}
+```
+
+# Sample Description
+
+## Figure 5: Sample by Country
+
+```{r fig-sample-bars, fig.width=6, fig.height=3.67}
+SAMPLE_BLOCKS <- c(setNames(rep("Treaty\nclients", 4), CSTO_COUNTRIES),
+                   setNames(rep("Non-treaty\nstates", 4), NEUTRAL_COUNTRIES),
+                   setNames(rep("NATO\nmembers", 3), setdiff(NATO_COUNTRIES, "Ukraine")))
+
+sample_counts <- data_outlets %>%
+  group_by(country, media_type) %>%
+  summarize(articles = n(), outlets = n_distinct(source_domain), .groups = "drop") %>%
+  mutate(block = factor(SAMPLE_BLOCKS[as.character(country)], levels = unique(SAMPLE_BLOCKS))) %>%
+  group_by(country) %>%
+  mutate(total = sum(articles)) %>%
+  ungroup() %>%
+  # Largest country at the top of its block; independent above state-owned
+  mutate(country_order = reorder(country, total),
+         bar_group = factor(media_type, levels = c("State-owned", "Independent")),
+         outlet_label = paste(outlets, if_else(outlets == 1, "outlet", "outlets")))
+
+sample_table <- sample_counts %>%
+  arrange(block, desc(total), country, media_type) %>%
+  transmute(Block = gsub("\n", " ", block), Country = as.character(country),
+            Ownership = as.character(media_type), Articles = articles, Outlets = outlets)
+
+sample_totals <- data_outlets %>%
+  group_by(Ownership = as.character(media_type)) %>%
+  summarize(Articles = n(), Outlets = n_distinct(source_domain), .groups = "drop")
+
+add_numbers("## Figure 5: Articles and Outlets by Country and Ownership", "",
+            "Russia-related, non-Ukraine articles, August 2021 to August 2022.", "",
+            md_table(sample_table, digits = 0),
+            md_table(sample_totals, digits = 0),
+            sprintf("Total: %s articles, %d outlets. `balkaninsight.com` publishes under both Kosovo and Serbia, so the per-country outlet counts sum to %d.",
+                    format(nrow(data_outlets), big.mark = ","),
+                    nlevels(data_outlets$source_domain), sum(sample_counts$outlets)), "")
+
+SAMPLE_X_MAX <- max(sample_counts$articles) * 1.2
+
+# With nothing lit, the legend turns invisible but keeps its space, so the panel stays put
+build_sample_bars <- function(lit) {
+  legend_alpha <- if (length(lit) > 0) 1 else 0
+
+  ggplot(sample_counts %>% mutate(.alpha = if_else(media_type %in% lit, 1, 0)),
+         aes(y = country_order, group = bar_group)) +
+    geom_col(aes(x = articles, fill = media_type, alpha = I(.alpha)),
+             position = position_dodge(width = 0.8), width = 0.4, show.legend = TRUE) +
+    geom_text(aes(x = articles, label = outlet_label, color = media_type, alpha = I(.alpha)),
+              position = position_dodge(width = 0.8), hjust = -0.08, size = 2.5,
+              show.legend = FALSE) +
+    scale_fill_manual(values = COLORS_OWNER, name = NULL, drop = FALSE,
+                      guide = guide_legend(override.aes = list(alpha = legend_alpha))) +
+    scale_color_manual(values = COLORS_OWNER, guide = "none") +
+    scale_x_continuous(labels = scales::comma, limits = c(0, SAMPLE_X_MAX),
+                       expand = expansion(mult = c(0, 0.01))) +
+    facet_grid(block ~ ., scales = "free_y", space = "free_y", switch = "y") +
+    labs(x = "Articles", y = NULL) +
+    theme_classic(base_size = 10) +
+    theme(strip.placement = "outside",
+          strip.background = element_blank(),
+          strip.text.y.left = element_text(angle = 0, hjust = 1, face = "bold", size = 8),
+          panel.spacing.y = unit(0.5, "lines"),
+          legend.position = "top",
+          legend.justification = "right",
+          legend.text = element_text(color = alpha("black", legend_alpha)),
+          legend.margin = margin(0, 0, 0, 0),
+          legend.box.spacing = unit(0.1, "lines"))
+}
+
+save_present(build_sample_bars(character(0)), "sample_by_country_s1_present.png", 1800, 1100)
+save_present(build_sample_bars("Independent"), "sample_by_country_s2_present.png", 1800, 1100)
+save_present(build_sample_bars(c("Independent", "State-owned")),
+             "sample_by_country_s3_present.png", 1800, 1100)
+```
+
+## Figure 6: Articles per Day
+
+```{r fig-articles-per-day, fig.width=6.67, fig.height=3.33}
+INVASION_DATE <- as.Date("2022-02-24")
+
+articles_per_day <- data_outlets %>%
+  group_by(date = as.Date(date_publish), media_type) %>%
+  summarize(article_count = n(), .groups = "drop")
+
+ARTICLES_Y_MAX <- max(articles_per_day$article_count) * 1.08
+
+build_articles_per_day <- function(lit) {
+  ggplot(articles_per_day %>% filter(media_type %in% lit),
+         aes(x = date, y = article_count, color = media_type)) +
+    geom_vline(xintercept = INVASION_DATE, linetype = "dashed", color = pal$mLightBrown,
+               linewidth = 0.7) +
+    annotate("text", x = INVASION_DATE + 3, y = ARTICLES_Y_MAX, label = "February 24",
+             hjust = 0, vjust = 1, size = 3, color = "grey30") +
+    geom_line(linewidth = 0.5) +
+    scale_color_manual(values = COLORS_OWNER, limits = lit, name = NULL) +
+    scale_x_date(limits = range(articles_per_day$date), date_breaks = "1 month",
+                 date_labels = "%b", expand = expansion(mult = 0.01)) +
+    scale_y_continuous(limits = c(0, ARTICLES_Y_MAX), labels = scales::comma,
+                       expand = expansion(mult = c(0, 0.02))) +
+    labs(x = NULL, y = "Russia-related articles per day") +
+    theme_classic(base_size = 11) +
+    theme(legend.position = "bottom", legend.margin = margin(0, 0, 0, 0))
+}
+
+save_present(build_articles_per_day("Independent"), "articles_per_day_s1_present.png", 2000, 1000)
+save_present(build_articles_per_day(c("Independent", "State-owned")),
+             "articles_per_day_s2_present.png", 2000, 1000)
+```
+
+# Main Results: Pre-Period Specification
+
+## Building the Outcome
+
+`sentiment_z_pre_tdm` follows spec 4 of `09_preperiod_diagnostics.Rmd`, with one deliberate
+difference. Spec 4 calculates pre-invasion values from the matched rows inside the bandwidth.
+Here they come from every pre-invasion article in the hypothesis's full-range sample, so one
+fixed baseline applies to every point across all stages. Outlets with no pre-invasion
+articles, or no pre-invasion variance, cannot be standardized and are dropped and listed.
+
+```{r pre-period-outcome}
+add_pre_period_outcome <- function(d, label) {
+  pre <- d %>% filter(running_probabilistic < 0)
+
+  source_moments <- pre %>%
+    group_by(source_domain) %>%
+    summarize(pre_mean = mean(sentiment_clean), pre_sd = sd(sentiment_clean),
+              n_pre = n(), .groups = "drop")
+  keep <- source_moments %>% filter(!is.na(pre_sd), pre_sd > 0)
+
+  dropped <- d %>%
+    filter(!source_domain %in% keep$source_domain) %>%
+    count(source_domain, country, name = "articles") %>%
+    mutate(sample = label, source_domain = as.character(source_domain),
+           country = as.character(country))
+
+  out <- d %>%
+    inner_join(keep, by = "source_domain") %>%
+    mutate(sentiment_z_pre = (sentiment_clean - pre_mean) / pre_sd)
+
+  topic_means <- out %>%
+    filter(running_probabilistic < 0) %>%
+    group_by(topic_clean) %>%
+    summarize(pre_topic_mean = mean(sentiment_z_pre), .groups = "drop")
+
+  out <- out %>%
+    left_join(topic_means, by = "topic_clean") %>%
+    mutate(sentiment_z_pre_tdm = sentiment_z_pre - pre_topic_mean) %>%
+    droplevels()
+
+  list(data = out, dropped = dropped)
+}
+```
+
+## H1 Sample
+
+Non-military articles from all countries, unmatched. The window is held at Table 1 Model 6's
+bandwidth, as S15 holds each main model's bandwidth fixed.
+
+```{r h1-sample}
+h1_full <- data_outlets %>%
+  filter(topic_clean != "Military") %>%
+  droplevels() %>%
+  mutate(.row_id = row_number())
+h1_built <- add_pre_period_outcome(h1_full, "H1")
+
+# Hold both of Model 6's bandwidths: h for the estimate, b for the bias correction
+H1_WINDOW <- results_h1$model6a_nonmil$bws[1, 1] / 86400
+H1_BIAS_BW <- results_h1$model6a_nonmil$bws[2, 1] / 86400
+cat("H1 window:", round(H1_WINDOW, 2), "days\n")
+
+h1_data <- h1_built$data
+h1_window_data <- h1_data %>% filter(abs(running_probabilistic) < H1_WINDOW)
+
+h1_model <- rdrobust(y = h1_data$sentiment_z_pre_tdm, x = h1_data$running_probabilistic,
+                     h = H1_WINDOW, b = H1_BIAS_BW, cluster = h1_data$source_domain)
+summary(h1_model)
+```
+
+## H2 Sample and Matched Rows
+
+Non-NATO, non-military. The matched rows are rebuilt exactly as in `05a`, and must reproduce
+Table 2 Model 6 before they are used.
+
+```{r h2-sample}
+BW_H2 <- results_prepd$matched_bandwidths$h2
+
+h2_full <- data_outlets %>%
+  filter(topic_clean != "Military") %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean)) / sd(sentiment_clean)) %>%
+  ungroup() %>%
+  filter(!country %in% NATO_COUNTRIES) %>%
+  droplevels() %>%
+  mutate(.row_id = row_number())
+
+h2_matching_frame <- h2_full %>%
+  filter(running_probabilistic < BW_H2, running_probabilistic > -BW_H2) %>%
+  droplevels()
+h2_matched_rows <- match.data(matchit(state_owned ~ running + topic_clean,
+                                      data = h2_matching_frame, method = "exact", ratio = 1))
+
+h2_main_check <- feols(sentiment_z ~ running_probabilistic * treatment * state_owned | topic_clean,
+                       cluster = ~source_domain, data = h2_matched_rows)
+stopifnot(all.equal(unname(coef(h2_main_check)["treatment:state_owned"]),
+                    unname(coef(results_h2$matched_model_z)["treatment:state_owned"]),
+                    tolerance = 1e-8))
+
+h2_built <- add_pre_period_outcome(h2_full, "H2")
+h2_data <- h2_built$data
+h2_window_data <- h2_data %>% filter(.row_id %in% h2_matched_rows$.row_id) %>% droplevels()
+
+h2_model <- feols(sentiment_z_pre_tdm ~ running_probabilistic * treatment * state_owned,
+                  cluster = ~source_domain, data = h2_window_data)
+summary(h2_model)
+h2_boot <- run_wild_bootstrap(h2_model, "treatment:state_owned")
+```
+
+## H3 Sample and Matched Rows
+
+State media in non-NATO countries, non-military. The matched rows are rebuilt as in `06a`,
+and must reproduce Table 4 Model 5 before they are used.
+
+```{r h3-sample}
+BW_H3 <- results_prepd$matched_bandwidths$h3a
+
+h3_full <- data_clean %>%
+  filter(nato == 0) %>%
+  drop_na() %>%
+  filter(state_owned == 1, topic_clean != "Military") %>%
+  group_by(source_domain) %>%
+  mutate(sentiment_z = (sentiment_clean - mean(sentiment_clean)) / sd(sentiment_clean)) %>%
+  ungroup() %>%
+  droplevels() %>%
+  mutate(.row_id = row_number())
+
+h3_matching_frame <- h3_full %>%
+  filter(running_probabilistic < BW_H3, running_probabilistic > -BW_H3)
+h3_matched_rows <- match.data(matchit(csto ~ running + topic_clean,
+                                      data = h3_matching_frame, method = "exact", ratio = 1))
+
+h3_main_check <- feols(sentiment_z ~ running_probabilistic * treatment * csto | topic_clean,
+                       cluster = ~source_domain, data = h3_matched_rows)
+stopifnot(all.equal(unname(coef(h3_main_check)["treatment:csto"]),
+                    unname(coef(results_h3$matched_model)["treatment:csto"]),
+                    tolerance = 1e-8))
+
+h3_built <- add_pre_period_outcome(h3_full, "H3")
+h3_data <- h3_built$data
+h3_window_data <- h3_data %>% filter(.row_id %in% h3_matched_rows$.row_id) %>% droplevels()
+
+h3_model <- feols(sentiment_z_pre_tdm ~ running_probabilistic * treatment * csto,
+                  cluster = ~source_domain, data = h3_window_data)
+summary(h3_model)
+h3_boot <- run_wild_bootstrap(h3_model, "treatment:csto")
+```
+
+## Figure 7: H1 Click-Through
+
+Five stages: dots, lines, the window shaded, dots inside the window, lines inside the window.
+
+```{r fig-h1-stages, fig.width=6, fig.height=4}
+h1_limits <- disc_limits(h1_data, "sentiment_z_pre_tdm")
+
+h1_limits_window <- disc_limits(h1_window_data, "sentiment_z_pre_tdm")
+h1_limits_window$x <- c(-H1_WINDOW, H1_WINDOW)
+h1_window_label <- sprintf("window: ±%.0f days", H1_WINDOW)
+
+save_h1_stage <- function(n, df, limits, ...) {
+  save_present(plot_disc(df, "sentiment_z_pre_tdm", limits = limits, y_lab = LAB_Y_SD, ...),
+               sprintf("h1_s%d_present.png", n), DISC_WIDTH_PX, DISC_HEIGHT_PX)
+}
+
+save_h1_stage(1, h1_data, h1_limits, fit_groups = character(0))
+save_h1_stage(2, h1_data, h1_limits)
+save_h1_stage(3, h1_data, h1_limits, highlight = H1_WINDOW)
+save_h1_stage(4, h1_window_data, h1_limits_window, fit_groups = character(0),
+              corner_label = h1_window_label)
+save_h1_stage(5, h1_window_data, h1_limits_window, corner_label = h1_window_label)
+```
+
+## Stages Shared by H2 and H3
+
+Eight stages, with `lit` giving the order the two groups appear in: the first group's dots, both
+groups' dots, the first group's line, the second group's line, the window shaded, then dots and
+each line again inside the window.
+
+```{r stage-helper}
+save_group_stages <- function(prefix, df, window_df, group_var, colors, lit, window_days,
+                              limits, limits_window, jumps) {
+  save_stage <- function(n, data, stage_limits, ...) {
+    save_present(plot_disc(data, "sentiment_z_pre_tdm", group_var, colors,
+                           limits = stage_limits, y_lab = LAB_Y_SD, ...),
+                 sprintf("%s_s%d_present.png", prefix, n), DISC_WIDTH_PX, DISC_HEIGHT_PX)
+  }
+
+  save_stage(1, df, limits, lit = lit[1], fit_groups = character(0))
+  save_stage(2, df, limits, lit = lit, fit_groups = character(0))
+  save_stage(3, df, limits, lit = lit, fit_groups = lit[1])
+  save_stage(4, df, limits, lit = lit)
+  save_stage(5, df, limits, lit = lit, highlight = window_days)
+  save_stage(6, window_df, limits_window, lit = lit, fit_groups = character(0))
+  save_stage(7, window_df, limits_window, lit = lit, fit_groups = lit[1], jumps = jumps)
+  save_stage(8, window_df, limits_window, lit = lit, jumps = jumps)
+}
+```
+
+## Figure 8: H2 Click-Through
+
+```{r fig-h2-stages, fig.width=6, fig.height=4}
+h2_limits <- disc_limits(h2_data, "sentiment_z_pre_tdm", "media_type")
+
+h2_limits_window <- disc_limits(h2_window_data, "sentiment_z_pre_tdm", "media_type")
+h2_limits_window$x <- c(-BW_H2, BW_H2)
+
+h2_jumps_window <- jump_table(h2_window_data, "sentiment_z_pre_tdm", "media_type") %>%
+  mutate(label_x = 0.03 * BW_H2, label_y = (pre + post) / 2)
+
+save_group_stages("h2", h2_data, h2_window_data, "media_type", COLORS_OWNER,
+                  lit = c("Independent", "State-owned"), window_days = BW_H2,
+                  limits = h2_limits, limits_window = h2_limits_window,
+                  jumps = h2_jumps_window)
+```
+
+## Figure 9: H3 Click-Through
+
+```{r fig-h3-stages, fig.width=6, fig.height=4}
+# A few low-volume days far from the rest would flatten these panels, so every stage shares a
+# tighter y range. Points outside it are listed in the numbers file.
+H3_Y <- c(-1.1, 1.1)
+
+h3_limits <- disc_limits(h3_data, "sentiment_z_pre_tdm", "treaty_group")
+h3_limits$y <- H3_Y
+
+h3_limits_window <- disc_limits(h3_window_data, "sentiment_z_pre_tdm", "treaty_group")
+h3_limits_window$x <- c(-BW_H3, BW_H3)
+h3_limits_window$y <- H3_Y
+
+# The zoomed stages use the matched rows, so their daily means differ from the full range's
+h3_points_off_panel <- bind_rows(
+  `Full range (s1-s5)` = daily_means(h3_data, "sentiment_z_pre_tdm", "treaty_group"),
+  `Zoomed (s6-s8)` = daily_means(h3_window_data, "sentiment_z_pre_tdm", "treaty_group"),
+  .id = "stages"
+) %>%
+  filter(.y < H3_Y[1] | .y > H3_Y[2])
+print(as.data.frame(h3_points_off_panel))
+
+# The two jumps start close together, so the labels sit above and below the lines
+h3_jumps_window <- jump_table(h3_window_data, "sentiment_z_pre_tdm", "treaty_group") %>%
+  mutate(label_x = 0.03 * BW_H3,
+         label_y = if_else(.group == "Non-treaty state", post + 0.3, post - 0.3))
+
+save_group_stages("h3", h3_data, h3_window_data, "treaty_group", COLORS_TREATY,
+                  lit = c("Non-treaty state", "Treaty client"), window_days = BW_H3,
+                  limits = h3_limits, limits_window = h3_limits_window,
+                  jumps = h3_jumps_window)
+```
+
+## Numbers for the Talk
+
+```{r main-numbers}
+jump_rows <- function(df, group_var, stage) {
+  jump_table(df, "sentiment_z_pre_tdm", group_var) %>%
+    transmute(Stage = stage, Group = if (is.null(group_var)) "All outlets" else .group,
+              `Pre at cutoff` = pre, `Post at cutoff` = post, `Jump (SD)` = jump,
+              `Clustered SE` = se, `Clustered p` = p, Articles = n, Outlets = outlets)
+}
+
+estimate_rows <- tibble(
+  Hypothesis = c("H1 (rdrobust, Conventional row)", "H1 (rdrobust, Robust row)",
+                 "H2 State-owned x Treatment", "H3 Treaty client x Treatment"),
+  Estimate = c(h1_model$coef[1], h1_model$coef[3],
+               coef(h2_model)[["treatment:state_owned"]], coef(h3_model)[["treatment:csto"]]),
+  SE = c(h1_model$se[1], h1_model$se[3], h2_boot$se, h3_boot$se),
+  p = c(h1_model$pv[1], h1_model$pv[3], h2_boot$p_val, h3_boot$p_val),
+  `Inference` = c("Clustered", "Robust bias-corrected, clustered",
+                  "Wild cluster bootstrap, B = 99999", "Wild cluster bootstrap, B = 99999"),
+  `Window (days)` = c(H1_WINDOW, H1_WINDOW, BW_H2, BW_H3),
+  Articles = c(sum(h1_model$N_h), sum(h1_model$N_h), nobs(h2_model), nobs(h3_model))
+)
+
+s15_rows <- results_prepd$section4_estimates %>%
+  filter(spec_id %in% c("spec1", "spec4")) %>%
+  transmute(Model = spec, Version = variant, Estimate = estimate, `Bootstrap p` = boot_p)
+
+all_dropped <- bind_rows(h1_built$dropped, h2_built$dropped, h3_built$dropped) %>%
+  select(Sample = sample, Outlet = source_domain, Country = country, Articles = articles)
+
+add_numbers(
+  "## Main Results: Pre-Period Specification", "",
+  "Outcome: `sentiment_z_pre_tdm`, with pre-invasion values from each sample's full window.", "",
+  "### Estimates", "", md_table(estimate_rows),
+  "### For Comparison: Stored Table S15 (Pre-Invasion Values from Bandwidth Rows Only)", "",
+  md_table(s15_rows),
+  "### Jumps by Group", "",
+  "From the plotted lines. Clustered inference only; H3 groups have very few outlets.", "",
+  md_table(bind_rows(
+    jump_rows(h1_data, NULL, "H1 full range"),
+    jump_rows(h1_window_data, NULL, "H1 window"),
+    jump_rows(h2_data, "media_type", "H2 full range"),
+    jump_rows(h2_window_data, "media_type", "H2 window"),
+    jump_rows(h3_data, "treaty_group", "H3 full range"),
+    jump_rows(h3_window_data, "treaty_group", "H3 window")
+  )),
+  "### R1: Raw Translations Inside the H1 Window", "", md_table(window_stats(h1_window_data)),
+  "### R2: Raw Translations Inside the H2 Window", "",
+  md_table(window_stats(h2_window_data, "media_type")),
+  "### R3: Raw Translations Inside the H3 Window", "",
+  md_table(window_stats(h3_window_data, "treaty_group")),
+  "### Outlets Dropped by the Pre-Period Outcome", "", md_table(all_dropped, digits = 0),
+  "### Points Outside the `h3` Panels (y range +/-1.1)", "",
+  md_table(h3_points_off_panel %>%
+             transmute(Stages = stages, Day = running, Group = as.character(.group),
+                       `Daily mean (SD)` = .y, Articles = num_obs))
+)
+```
+
+# Appendix: Raw-Score Versions
+
+Full range only, on the raw score, with no click-through.
+
+```{r fig-appendix-raw, fig.width=6, fig.height=4}
+save_disc_raw <- function(df, group_var, colors, file) {
+  save_present(plot_disc(df, "sentiment_clean", group_var, colors,
+                         limits = disc_limits(df, "sentiment_clean", group_var),
+                         y_lab = LAB_Y_RAW),
+               file, DISC_WIDTH_PX, DISC_HEIGHT_PX)
+}
+
+save_disc_raw(h1_full, NULL, c(all = pal$signalBlue), "h1_raw_full_present.png")
+save_disc_raw(h2_full, "media_type", COLORS_OWNER, "h2_raw_full_present.png")
+save_disc_raw(h3_full, "treaty_group", COLORS_TREATY, "h3_raw_full_present.png")
+```
+
+# Appendix: Lowess Version of `h3_s4`
+
+Same sample, outcome, points and axes as `h3_s4`, with a smoother in place of the straight lines.
+The smoother is local linear with tricube weights and a span of 2/3, fitted to articles separately
+for each group on each side of the cutoff. It leaves out the robustness step in `lowess()`'s
+default: that step downweights points far from the line, and because sentiment takes few distinct
+values, it pulls the curve toward the most common value and nearly erases the drop.
+
+`loess()` with `family = "gaussian"` is used because it matches `lowess(iter = 0)` and also gives
+standard errors. The bands are pointwise 95% and not clustered.
+
+```{r fig-appendix-lowess, fig.width=6, fig.height=4}
+LOWESS_SPAN <- 2 / 3
+LOWESS_GRID <- 200
+
+lowess_side <- function(df, y) {
+  fit <- loess(as.formula(paste(y, "~ running_probabilistic")), data = df, span = LOWESS_SPAN,
+               degree = 1, family = "gaussian", control = loess.control(surface = "direct"))
+  # The grid runs to the cutoff itself, so the two sides of each group can be compared there
+  ends <- if (df$treatment[1] == 1) c(0, max(df$running_probabilistic)) else
+    c(min(df$running_probabilistic), 0)
+  grid <- tibble(running_probabilistic = seq(ends[1], ends[2], length.out = LOWESS_GRID))
+  pred <- predict(fit, grid, se = TRUE)
+  grid %>% mutate(fit = pred$fit, lower = fit - 1.96 * pred$se.fit, upper = fit + 1.96 * pred$se.fit)
+}
+
+h3_lowess <- h3_data %>%
+  group_by(.group = treaty_group, treatment) %>%
+  group_modify(~ lowess_side(.x %>% mutate(treatment = .y$treatment), "sentiment_z_pre_tdm")) %>%
+  ungroup()
+
+h3_lowess_plot <- plot_disc(h3_data, "sentiment_z_pre_tdm", "treaty_group", COLORS_TREATY,
+                            lit = c("Non-treaty state", "Treaty client"),
+                            fit_groups = character(0), limits = h3_limits, y_lab = LAB_Y_SD) +
+  geom_ribbon(data = h3_lowess,
+              aes(x = running_probabilistic, ymin = lower, ymax = upper,
+                  group = interaction(.group, treatment)),
+              fill = "grey50", alpha = 0.2, inherit.aes = FALSE) +
+  geom_line(data = h3_lowess,
+            aes(x = running_probabilistic, y = fit, color = .group,
+                group = interaction(.group, treatment)),
+            linewidth = 1, inherit.aes = FALSE, show.legend = FALSE)
+
+save_present(h3_lowess_plot, "h3_s4_lowess_present.png", DISC_WIDTH_PX, DISC_HEIGHT_PX)
+
+# Jumps at the cutoff beside the straight lines of h3_s4
+h3_lowess_jumps <- h3_lowess %>%
+  filter(running_probabilistic == 0) %>%
+  transmute(Group = as.character(.group), side = if_else(treatment == 1, "After", "Before"), fit) %>%
+  pivot_wider(names_from = side, values_from = fit) %>%
+  mutate(`Lowess jump` = After - Before) %>%
+  left_join(jump_table(h3_data, "sentiment_z_pre_tdm", "treaty_group") %>%
+              transmute(Group = .group, `Straight-line jump` = jump),
+            by = "Group") %>%
+  select(Group, Before, After, `Lowess jump`, `Straight-line jump`)
+print(as.data.frame(h3_lowess_jumps))
+
+add_numbers(
+  "### Appendix: Lowess Version of `h3_s4`", "",
+  "Non-robust, span 2/3, full range. Values at the cutoff in within-outlet SD.", "",
+  md_table(h3_lowess_jumps)
+)
+```
+
+# Other Presentation Discontinuity Figures
+
+These replace the presentation chunks that used to live in `04b`, `05b` and `06b`.
+
+```{r fig-other-discs, fig.width=6, fig.height=4}
+data_align_state <- data_clean %>%
+  filter(nato == 0, state_owned == 1) %>%
+  drop_na() %>%
+  droplevels()
+
+save_disc_raw(data_outlets, NULL, c(all = pal$signalBlue), "invasion_on_sentiment_present.png")
+save_disc_raw(h1_full, NULL, c(all = pal$signalBlue), "invasion_on_sentiment_present_nonmil.png")
+
+save_disc_raw(data_outlets, "media_type", COLORS_OWNER, "invasion_discs_graph_present.png")
+save_disc_raw(data_outlets %>% filter(topic_clean != "Military"), "media_type", COLORS_OWNER,
+              "invasion_discs_graph_present_nonmil.png")
+save_disc_raw(data_outlets %>% filter(csto == 0, nato == 0), "media_type", COLORS_OWNER,
+              "invasion_discs_graph_present_neutral.png")
+
+save_disc_raw(data_align_state, "treaty_group", COLORS_TREATY, "state_align_discs_present.png")
+save_disc_raw(h3_full, "treaty_group", COLORS_TREATY, "state_align_discs_present_nonmil.png")
+```
+
+## Figure 10: Pre-Trends by Treaty Client
+
+Same four panels and date markers as the paper's `pretrend_by_country_aligned.png`. As in the
+paper version, the fit is on the pre-invasion daily means.
+
+```{r fig-pretrend, fig.width=10, fig.height=7}
+PRETREND_START <- as.Date("2021-06-01")
+PRETREND_END   <- as.Date("2022-06-01")
+WARNING_DATE   <- as.Date("2021-12-07")
+
+agg_pretrend <- data_clean %>%
+  filter(country %in% CSTO_COUNTRIES, state_owned == 1,
+         date_publish >= PRETREND_START, date_publish <= PRETREND_END) %>%
+  mutate(country = droplevels(country)) %>%
+  group_by(country, date_publish) %>%
+  summarize(sentiment_clean = mean(sentiment_clean, na.rm = TRUE),
+            num_obs = n(), .groups = "drop")
+
+pretrend_treaty <- ggplot(agg_pretrend, aes(x = date_publish, y = sentiment_clean)) +
+  geom_point(aes(size = num_obs), alpha = 0.25, color = pal$treatyClient) +
+  geom_smooth(data = agg_pretrend %>% filter(date_publish < INVASION_DATE),
+              method = "lm", formula = y ~ x, se = TRUE, color = pal$treatyClient,
+              fill = "grey50", alpha = 0.2, linewidth = 1.2) +
+  geom_vline(xintercept = INVASION_DATE, linetype = "dashed", alpha = 0.7) +
+  geom_vline(xintercept = WARNING_DATE, linetype = "dotted", color = "grey30") +
+  scale_size(guide = "none") +
+  facet_wrap(~ country, scales = "free_y") +
+  theme_classic(base_size = 18) +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold")) +
+  labs(x = "Publication date", y = "Mean sentiment toward Russia")
+
+ggsave(file.path(FIGURES_PRESENTATION, "pretrend_by_country_treaty_present.png"),
+       pretrend_treaty, width = 10, height = 7, dpi = 300, bg = "white")
+```
+
+## Figure 11: Non-Treaty Floor
+
+Same two panels as `05b`'s floor figure. Panel A's fit lines use probabilistic time, placed on
+the date axis.
+
+```{r fig-floor, fig.width=13, fig.height=6.5}
+SENTIMENT_FLOOR <- -1
+COLORS_FLOOR_TREATY <- c("State-owned" = pal$nonTreatyText, "Independent" = pal$indepMedia)
+LABELS_FLOOR_TREATY <- c("State-owned" = "Non-treaty state media",
+                         "Independent" = "Non-treaty independent media")
+
+data_floor <- data_outlets %>%
+  filter(csto == 0, nato == 0) %>%
+  mutate(media_floor = factor(as.character(media_type), levels = c("State-owned", "Independent")),
+         period = factor(if_else(treatment == 1, "Post-invasion", "Pre-invasion"),
+                         levels = c("Pre-invasion", "Post-invasion")),
+         date_probabilistic = INVASION_DATE + running_probabilistic)
+
+agg_floor_daily <- data_floor %>%
+  group_by(media_floor, date_publish) %>%
+  summarize(sentiment_clean = mean(sentiment_clean), num_obs = n(), .groups = "drop")
+
+agg_floor_period <- data_floor %>%
+  group_by(media_floor, period) %>%
+  summarize(mean_sentiment = mean(sentiment_clean),
+            se = sd(sentiment_clean) / sqrt(n()), .groups = "drop") %>%
+  mutate(ci_lower = mean_sentiment - 1.96 * se, ci_upper = mean_sentiment + 1.96 * se)
+
+agg_floor_change <- agg_floor_period %>%
+  select(media_floor, period, mean_sentiment) %>%
+  pivot_wider(names_from = period, values_from = mean_sentiment) %>%
+  mutate(change = `Post-invasion` - `Pre-invasion`)
+
+panel_floor_scale <- ggplot(agg_floor_daily,
+                            aes(x = date_publish, y = sentiment_clean, color = media_floor)) +
+  geom_point(aes(size = num_obs), alpha = 0.25) +
+  geom_hline(yintercept = SENTIMENT_FLOOR, color = "grey40") +
+  annotate("text", x = min(agg_floor_daily$date_publish), y = SENTIMENT_FLOOR + 0.08,
+           label = "Scale floor (−1)", hjust = 0, size = 5, color = "grey30") +
+  geom_hline(yintercept = 0, linetype = "dotted", alpha = 0.5) +
+  geom_vline(xintercept = INVASION_DATE, linetype = "dashed", color = pal$mLightBrown) +
+  geom_smooth(data = data_floor,
+              aes(x = date_probabilistic, y = sentiment_clean,
+                  group = interaction(media_floor, period), color = media_floor),
+              method = "lm", formula = y ~ x, linewidth = 1.2, fill = "grey50", alpha = 0.2,
+              inherit.aes = FALSE) +
+  scale_color_manual(values = COLORS_FLOOR_TREATY, labels = LABELS_FLOOR_TREATY, name = NULL) +
+  scale_size(guide = "none") +
+  coord_cartesian(ylim = c(-1, 1)) +
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 4, fill = NA))) +
+  theme_classic(base_size = 18) +
+  theme(legend.position = "inside", legend.position.inside = c(0.26, 0.92),
+        legend.text = element_text(size = 15), legend.background = element_blank()) +
+  labs(title = "A. Full scale", x = "Publication date", y = "Mean sentiment toward Russia")
+
+panel_floor_detail <- ggplot(agg_floor_period,
+                             aes(x = period, y = mean_sentiment,
+                                 color = media_floor, group = media_floor)) +
+  geom_line(linewidth = 1.2) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.08, linewidth = 0.8) +
+  geom_point(size = 4) +
+  geom_text(aes(label = sprintf("%.3f", mean_sentiment),
+                hjust = if_else(period == "Pre-invasion", 1.3, -0.3)),
+            size = 5, show.legend = FALSE) +
+  geom_label(data = agg_floor_change,
+             aes(x = 1.5, y = (`Pre-invasion` + `Post-invasion`) / 2,
+                 label = sprintf("%+.3f", change), color = media_floor),
+             size = 5.5, fontface = "bold", fill = "white", linewidth = 0,
+             label.padding = unit(0.15, "lines"), inherit.aes = FALSE, show.legend = FALSE) +
+  scale_color_manual(values = COLORS_FLOOR_TREATY, guide = "none") +
+  scale_x_discrete(expand = expansion(mult = 0.3)) +
+  theme_classic(base_size = 18) +
+  labs(title = "B. Pre/post means", x = NULL, y = NULL)
+
+nontreaty_floor <- (panel_floor_scale | panel_floor_detail) + plot_layout(widths = c(1.6, 1))
+
+ggsave(file.path(FIGURES_PRESENTATION, "nontreaty_floor_present.png"),
+       nontreaty_floor, width = 13, height = 6.5, dpi = 300, bg = "white")
+```
+
+# Screenshot and Photograph
+
+## Figure 2: Kazakhstanskaya Pravda
+
+Two crops of the Google-translated page, stacked to remove the navigation bar, currency
+ticker and broker ad, then upscaled to the 1600 px the slide expects.
+
+```{r fig-screenshot}
+screenshot <- image_read(file.path(PROJECT_ROOT, "writing", "presentations",
+                                   "kazahk_media_screenshot.png")) %>%
+  image_background("white", flatten = TRUE)
+
+masthead <- image_crop(screenshot, "570x70+165+15")
+headline <- image_crop(screenshot, "1240x265+80+465")
+
+screenshot_stacked <- image_blank(1240, 70 + 20 + 265, color = "white") %>%
+  image_composite(masthead, offset = "+0+0") %>%
+  image_composite(headline, offset = "+0+90") %>%
+  image_resize("1600x", filter = "Lanczos")
+
+image_write(screenshot_stacked, file.path(FIGURES_PRESENTATION, "kazahk_media_screenshot_present.png"))
+```
+
+## Figure 3: Invasion Photograph
+
+Copied as chosen. The photo credit goes in the speaker notes.
+
+```{r fig-photo}
+file.copy(file.path(PROJECT_ROOT, "writing", "presentations", "invasion_photo.png"),
+          file.path(FIGURES_PRESENTATION, "invasion_photo_present.png"), overwrite = TRUE)
+```
+
+# Write the Numbers File
+
+```{r write-numbers}
+writeLines(c("# Presentation Figure Numbers", "",
+             "Written by `scripts/12_presentation_figures.Rmd`.", "", numbers_md),
+           file.path(FIGURES_PRESENTATION, "figure_numbers.md"), useBytes = FALSE)
+cat(numbers_md, sep = "\n")
+```
+
+# Session Info
+
+```{r session-info}
+print_session_info()
+```
